@@ -238,6 +238,291 @@ export function guideSections(
   });
 }
 
+export type RmfRegla = {
+  /** `2.7.1.21`. */
+  readonly number: string;
+  /** The heading path, such as `Título 2. … › Sección 2.7.1. … › Regla 2.7.1.21. Expedición…`. */
+  readonly label: string;
+  /** The compilation's text, verbatim: the SAT's amendment note, the title, the rule, its references. */
+  readonly text: string;
+  /** The DOF date of the version the text is, ISO: the last amendment's, else the RMF's own. */
+  readonly publishedAt: string;
+};
+
+const MONTHS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+/** `28 de diciembre de 2025`, wherever the PDF broke its lines. */
+const SPANISH_DATE = /(\d{1,2})\s+de\s+([a-záéíóú]+)\s+de\s+(\d{4})/u;
+const RMF_PUBLISHED = new RegExp(
+  `Publicada\\s+en\\s+el\\s+Diario\\s+Oficial\\s+de\\s+la\\s+Federación\\s+el\\s+${SPANISH_DATE.source}`,
+  "u",
+);
+const AMENDED = new RegExp(`DOF\\s+el\\s+${SPANISH_DATE.source}`, "gu");
+/** `Capítulo 2.7. De los…`; a `Título` in the body reads `Título 2. Código…`. */
+const RMF_HEADING = /^(Título|Capítulo|Sección|Subsección) (\d+(?:\.\d+)*)\.\s/u;
+/** In the contents, the `Título` entries are `2. Código…` under one `Título` line. */
+const RMF_TOC_TITLE = /^(\d+)\.\s/u;
+/** `2.7.1.21. Para los efectos…`: a regla starts with its number and a capital. */
+const REGLA = /^(\d{1,2}(?:\.\d{1,2}){1,4})\.\s+(?=[A-ZÁÉÍÓÚÑ¿“"])/u;
+const REPEALED = /^\S+\s+Se deroga\./u;
+const ACRONYM = /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9-]+$/u;
+const LOWERCASE = /^[a-záéíóúñ]/u;
+/**
+ * A line that ends the text above a regla's title: a sentence or list item (`…del CFF.`), the
+ * references line (`CFF 27`, `LIF Vigésimo Quinto Transitorio, LISR 4, 170`, `CFF 29 Bis, RMF…`),
+ * or a wrapped line of it (`4-A, 4-B, 28, 205`, `L, 84-N, 86, 86-B`, `…Valores, 12/01/2007`,
+ * `Decretos 31/10/94 Cuarto`, `Comercio Marítimos 46`). A title line above the last never ends in
+ * a period, colon, semicolon or number, never starts with a digit, and holds no date or list of
+ * articles; one that starts with an acronym goes on in words (`CFDI que…`,
+ * `CUFIN 2013 Integración por dividendos…`).
+ */
+function endsAboveTitle(line: string) {
+  const text = line.trim();
+  if (/[.;:\d]$/u.test(text) || /^\d/u.test(text)) return true;
+  if (
+    /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/u.test(text) ||
+    /\d[\dA-Za-z-]*, \d[\dA-Za-z-]*, \d/u.test(text)
+  ) {
+    return true;
+  }
+  const [first = "", second = "", third = "", fourth = ""] = text.split(/\s+/u);
+  if (!ACRONYM.test(first) || LOWERCASE.test(second)) return false;
+  const words = /^\d[^,]*$/u.test(second) && /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+$/u.test(third);
+  return !(words && LOWERCASE.test(fourth));
+}
+
+/** The longest title a regla has is five lines; a longer run is the text above it. */
+const TITLE_MAX_LINES = 6;
+/** How far above a regla's number its note can start: the note's lines and the title's. */
+const NOTE_MAX_LINES = 12;
+
+/**
+ * Whether heading `number` comes next after heading `current`: later in the numbering, under the
+ * same Título or Capítulo (`11.18` after `11.17.2`, `2.7.2` after `2.7.1`).
+ */
+function follows(number: string, current: string) {
+  const parts = number.split(".").map(Number);
+  const now = current.split(".").map(Number);
+  if (parts.length > 1 && parts.slice(0, -1).some((part, index) => part !== now[index])) {
+    return false;
+  }
+  const index = parts.findIndex((part, at) => part !== now[at]);
+  return index !== -1 && parts[index]! > (now[index] ?? 0);
+}
+
+/** `28 de diciembre de 2025` → `2025-12-28`. */
+export function spanishDate(day: string, month: string, year: string) {
+  const index = MONTHS.indexOf(month.toLowerCase());
+  if (index === -1) throw new Error(`Not a month: ${month}`);
+  return `${year}-${String(index + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+/**
+ * Splits the SAT's compiled RMF, as `sat:knowledge` converts it, into one passage a regla.
+ *
+ * - The contents (`Contenido`) name each Título, Capítulo, Sección and Subsección in full; a body
+ *   heading is the lines that spell its contents entry, so a heading the PDF wrapped
+ *   (`Capítulo 11.17. Del Decreto…` / `de 2025`) is not read as a regla's title.
+ * - A regla starts at its number (`2.7.1.21.`) under the heading it belongs to, numbered after the
+ *   regla before it, so a reference that wrapped to a line start (`2.7.6.3. y, en su caso…`)
+ *   starts nothing. Its passage starts at its title, the lines above the number back to the text
+ *   above (`endsAboveTitle`), or at the SAT's note above the title (`Regla 2.1.6.` /
+ *   `- Reformada en la Primera RMRMF para 2026, publicada en el DOF el 09 de julio de 2026.`). It
+ *   runs to the next regla's passage, the next heading, or the transitorios.
+ * - A regla's date is the last DOF date in its note, else the RMF's own publication date on the
+ *   cover. A repealed regla (`2.12.4. Se deroga.`) has no passage.
+ *
+ * The glossary and the transitorios are not reglas and have no passage.
+ */
+export function rmfReglas(markdown: string): RmfRegla[] {
+  const lines = markdown.split("\n");
+  const offsets: number[] = [];
+  lines.reduce((offset, line) => {
+    offsets.push(offset);
+    return offset + line.length + 1;
+  }, 0);
+  const at = (line: number) => offsets[line] ?? markdown.length;
+
+  const cover = RMF_PUBLISHED.exec(markdown);
+  if (!cover) throw new Error("The RMF's cover has no DOF publication date");
+  const published = spanishDate(cover[1]!, cover[2]!, cover[3]!);
+
+  // The contents, `Contenido` to the first `Transitorios`: each heading's whole title by kind and
+  // number, such as `Capítulo 2.7` → `Capítulo 2.7. De los Comprobantes Fiscales Digitales…`.
+  const contents = lines.findIndex((line) => line.trim() === "Contenido");
+  const contentsEnd = lines.findIndex(
+    (line, index) => index > contents && line.trim() === "Transitorios",
+  );
+  if (contents === -1 || contentsEnd === -1) throw new Error("The RMF has no contents");
+  const titles = new Map<string, string>();
+  let entry: { key: string; text: string } | null = null;
+  for (const line of lines.slice(contents + 1, contentsEnd)) {
+    const text = line.trim();
+    if (!text) continue;
+    const heading = RMF_HEADING.exec(text);
+    const titulo = RMF_TOC_TITLE.exec(text);
+    if (heading || titulo) {
+      if (entry) titles.set(entry.key, entry.text);
+      entry = heading
+        ? { key: `${heading[1]} ${heading[2]}`, text }
+        : { key: `Título ${titulo![1]}`, text: `Título ${text}` };
+    } else if (entry && text !== "Título") {
+      entry.text += ` ${text}`;
+    }
+  }
+  if (entry) titles.set(entry.key, entry.text);
+
+  // The body: from the first Título to the transitorios.
+  const first = lines.findIndex(
+    (line, index) => index > contentsEnd && line.startsWith("Título 1. "),
+  );
+  const last = lines.findLastIndex((line) => line.trim() === "Transitorios");
+  if (first === -1 || last <= first) throw new Error("The RMF has no Título 1 or no transitorios");
+
+  type Heading = { readonly line: number; readonly end: number; readonly number: string };
+  type Start = { readonly line: number; readonly number: string; readonly path: string[] };
+  const headings: Heading[] = [];
+  const starts: Start[] = [];
+  const path: string[] = [];
+  const latest = new Map<string, number>();
+  let current = "";
+  for (let line = first; line < last; line += 1) {
+    const text = lines[line]!.trim();
+    const heading = RMF_HEADING.exec(text);
+    const title = heading ? titles.get(`${heading[1]} ${heading[2]}`) : undefined;
+    const listed = title !== undefined && fold(title).startsWith(fold(text));
+    // A heading the contents leave out or spell otherwise (`Capítulo 11.18.`, added by an
+    // amendment): one that names itself in capitals and comes next in the numbering.
+    if (heading && (listed || (/\.\s+[A-ZÁÉÍÓÚÑ]/u.test(text) && follows(heading[2]!, current)))) {
+      // The heading's own lines: as many as spell its contents entry, else the lowercase lines
+      // that go on from it (`Capítulo 11.18. Del Decreto…` / `cinematográfica y audiovisual…`).
+      let end = line + 1;
+      let spelled = text;
+      while (end < last && !(listed && fold(spelled) === fold(title))) {
+        const next = `${spelled} ${lines[end]!.trim()}`;
+        const goesOn = listed
+          ? fold(title).startsWith(fold(next))
+          : LOWERCASE.test(lines[end]!.trim());
+        if (!goesOn) break;
+        spelled = next;
+        end += 1;
+      }
+      // The SAT's note above a heading an amendment added: `Capítulo 11.18.`, `-Adicionado…`.
+      let from = line;
+      for (let above = line - 1; above >= Math.max(first, line - 4); above -= 1) {
+        if (lines[above]!.trim() === `${heading[1]} ${heading[2]}.`) from = above;
+      }
+      current = heading[2]!;
+      path.splice(
+        current.split(".").length - 1,
+        Infinity,
+        (listed ? title : spelled).replaceAll(/\s+/gu, " "),
+      );
+      headings.push({ line: from, end, number: current });
+      line = end - 1;
+      continue;
+    }
+    const regla = REGLA.exec(text)?.[1];
+    if (!regla) continue;
+    const parent = regla.slice(0, regla.lastIndexOf("."));
+    const index = Number(regla.slice(regla.lastIndexOf(".") + 1));
+    if (parent !== current || index <= (latest.get(parent) ?? 0)) continue;
+    latest.set(parent, index);
+    starts.push({ line, number: regla, path: [...path] });
+  }
+
+  const headingLines = new Set(
+    headings.flatMap((heading) =>
+      Array.from({ length: heading.end - heading.line }, (_, offset) => heading.line + offset),
+    ),
+  );
+  const titleOf = (from: number, to: number) =>
+    lines
+      .slice(from, to)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join(" ");
+  const passages = starts.map((start) => {
+    // An amended regla has the SAT's note above its title: `Regla 2.1.6.`, then `- Reformada…`
+    // lines to the first that ends a sentence. The title is what lies between it and the number.
+    for (
+      let line = start.line - 1;
+      line >= Math.max(first, start.line - NOTE_MAX_LINES);
+      line -= 1
+    ) {
+      if (headingLines.has(line)) break;
+      if (lines[line]!.trim() !== `Regla ${start.number}.`) continue;
+      let end = line + 1;
+      while (end < start.line && !lines[end]!.trim().endsWith(".")) end += 1;
+      return {
+        ...start,
+        from: line,
+        title: titleOf(end + 1, start.line),
+        note: lines.slice(line, end + 1).join(" "),
+      };
+    }
+    // Else the title is the lines above the number, back to the text above it. A blank line is
+    // where a page broke, and the title goes on above it. Every regla has a title, so the line
+    // right above the number is one even when it is a lone acronym (`…de expedición de` / `CFDI`)
+    // or ends in a regla's number (`…a que se refiere la regla 3.18.21.`).
+    let top = start.line;
+    let above = top - 1;
+    const skipBlank = () => {
+      while (above > first && !lines[above]!.trim()) above -= 1;
+    };
+    skipBlank();
+    while (
+      above > first &&
+      start.line - above <= TITLE_MAX_LINES &&
+      !headingLines.has(above) &&
+      (top === start.line || !endsAboveTitle(lines[above]!))
+    ) {
+      top = above;
+      above -= 1;
+      skipBlank();
+    }
+    // A title starts with a capital: a lowercase line on top is the wrapped end of the references.
+    while (top < start.line - 1 && (!lines[top]!.trim() || LOWERCASE.test(lines[top]!.trim()))) {
+      top += 1;
+    }
+    return { ...start, from: top, title: titleOf(top, start.line), note: "" };
+  });
+
+  const boundaries = [
+    ...passages.map((passage) => passage.from),
+    ...headings.map((heading) => heading.line),
+    last,
+  ].sort((left, right) => left - right);
+  return passages.flatMap((passage) => {
+    const end = boundaries.find((boundary) => boundary > passage.from) ?? last;
+    const text = markdown.slice(at(passage.from), at(end));
+    if (REPEALED.test(lines[passage.line]!.trim())) return [];
+    const amended = [...passage.note.matchAll(AMENDED)].map((match) =>
+      spanishDate(match[1]!, match[2]!, match[3]!),
+    );
+    return [
+      {
+        number: passage.number,
+        label: [...passage.path, `Regla ${passage.number}. ${passage.title}`.trim()].join(" › "),
+        text,
+        publishedAt: [published, ...amended].sort().at(-1)!,
+      },
+    ];
+  });
+}
+
 /** `[from, to)` in parts of at most `SECTION_MAX_CHARS`, cut at a blank line, else a line end. */
 function cut(markdown: string, from: number, to: number) {
   const parts: Array<[number, number]> = [];
