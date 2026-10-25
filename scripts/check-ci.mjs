@@ -9,7 +9,9 @@ const run = (args) => {
 };
 
 const event = process.env.GITHUB_EVENT_NAME;
-if (event === "schedule" || event === "workflow_dispatch") {
+// The first push of a new branch has no previous commit: GitHub sends an all-zero `before`.
+const noBase = /^0+$/u.test(process.env.TURBO_SCM_BASE ?? "");
+if (event === "schedule" || event === "workflow_dispatch" || noBase) {
   run(["check"]);
 } else {
   const files = changedFiles(event, process.env.TURBO_SCM_BASE, process.env.TURBO_SCM_HEAD);
