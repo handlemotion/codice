@@ -62,6 +62,14 @@ export type SearchInput = {
   readonly rerankingThreshold?: number;
 };
 
+/**
+ * The passages in force on `asOf`: those whose validity, `valid_from` to `valid_until`, holds it. A
+ * superseded passage ends the day before its successor starts, so each day meets one version.
+ */
+export function validityFilter(asOf: number) {
+  return { valid_from: { $lte: asOf }, valid_until: { $gte: asOf } };
+}
+
 /** The `search()` request: the question, the validity filter, and the source when given. */
 export function searchRequest(input: SearchInput) {
   return {
@@ -69,8 +77,7 @@ export function searchRequest(input: SearchInput) {
     ai_search_options: {
       retrieval: {
         filters: {
-          valid_from: { $lte: input.asOf },
-          valid_until: { $gte: input.asOf },
+          ...validityFilter(input.asOf),
           ...(input.source ? { folder: `${input.source}/` } : {}),
         },
         max_num_results: input.limit,

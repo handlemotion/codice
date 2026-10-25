@@ -110,7 +110,9 @@ the Phase 0 passages (520 since the parser change).
   section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
   `apendice-8-3` for the third part of an appendix), and
   `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). Phase 1: `rmf-2026`, one
-  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)).
+  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)). A passage
+  whose text a newer one replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
+  (`rmf-2026/regla-2.7.1.21.20251228.md`; see [Versions](#versions)).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
 - **Custom metadata** (4 of the 5 allowed; one left for later):
 
@@ -123,10 +125,12 @@ the Phase 0 passages (520 since the parser change).
 
 Dates are `YYYYMMDD` numbers, not datetimes, so an in-force passage has a real upper bound and a
 range filter never meets a missing value. The Items API takes metadata values as strings and stores
-these two as numbers, as the instance's schema types them. Phase 0 holds one version of each source:
-`valid_from` is its publication date and `valid_until` is `99991231`. A regla of the RMF has its
-own `valid_from`: the DOF date of the version the SAT's compilation holds (`20251228` for the RMF as
-published, `20260709` for a regla the Primera RMRMF changed or added).
+these two as numbers, as the instance's schema types them. A guide or matrix passage's
+`valid_from` is its source's publication date; a regla of the RMF has its own: the DOF date of the
+version the SAT's compilation holds (`20251228` for the RMF as published, `20260709` for a regla the
+Primera RMRMF changed or added). An unchanged passage keeps the `valid_from` of the first version
+that held its text. `valid_until` is `99991231` while in force, and the day before the text that
+replaced it starts once superseded ([Versions](#versions)).
 
 ### Query
 
@@ -149,8 +153,9 @@ await env.CODICE_SEARCH.search({
 ```
 
 The Worker maps each returned chunk to a result: `item.key` → passage id, `text` → quote,
-`item.metadata` → validity, `score` and `scoring_details` → relevance, and the source's provenance
-from D1. `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
+`item.metadata` → validity, `score` and `scoring_details` → relevance, and the provenance of the
+source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
+holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
 ## Records and provenance (D1)
 
@@ -160,10 +165,15 @@ hand-written migrations).
 - `sources`: id, title, authority, url, sha256, published_at, retrieved_at, valid_from,
   valid_until. The ingestion writes it; `/v1/search` and `/v1/passages/:id` add it to each
   result, and `/v1/sources` reads it.
-- `passages`: item key, source id, heading path, and the sha256 of the body uploaded. The
-  ingestion compares it to upload only new or changed passages (AI Search's own item `checksum` is
-  `0` for uploaded items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs
-  no AI Search call.
+- `source_versions`: the superseded versions of a source (source id, title, url, sha256,
+  published_at, retrieved_at, valid_from, valid_until), one per (source id, valid_from). `sources`
+  holds the version in force; a superseded passage cites the version it was read from through
+  this table.
+- `passages`: item key, source id, heading path, the sha256 of the body uploaded, and the item's
+  valid_from and valid_until, current and superseded passages alike. The ingestion compares the
+  hash to upload only new or changed passages (AI Search's own item `checksum` is `0` for uploaded
+  items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs no AI Search
+  call.
 - `error_codes`: the `CFDI40xxx` matrix (code, node, attribute, validation, message). Each row
   is also a search passage, so a plain-language question (_"código postal de un receptor con RFC
   genérico"_) finds its code; the record answers the exact lookup.
@@ -174,12 +184,17 @@ hand-written migrations).
   [Large catalogs](#large-catalogs)).
 
 The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generates. Schema:
-`src/db/schema.ts`, migrations `migrations/0000_*.sql` (records) and `0001_*.sql` (`passages`).
+`src/db/schema.ts`, migrations `migrations/0000_*.sql` (records), `0001_*.sql` (`passages`),
+`0002_*.sql` (the NOCASE catalog index) and `0003_*.sql` to `0005_*.sql` (versions:
+`source_versions`, then the passages' validity in three steps, because SQLite cannot add a
+`NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
+custom `0004`, then tighten it with its check).
 
 - `sources.id` is the AI Search folder of the source's passages (`rmf-2026`). `authority` is one of
   `SAT`, `DOF`, `SCJN`, `TFJA`, `Congreso` (a check constraint).
 - `valid_from` and `valid_until` are `YYYYMMDD` integers, as in the search metadata;
-  `valid_until` defaults to `99991231` and may not precede `valid_from`. `published_at` is an ISO
+  `valid_until` defaults to `99991231` (except in `source_versions`, which holds only ended
+  versions) and may not precede `valid_from`. `published_at` is an ISO
   date or null; `retrieved_at` is epoch milliseconds.
 - `error_codes` is keyed by `code` as published. `catalog_entries` has a surrogate id and an index
   on (catalog, key), because a key can repeat (c_TasaOCuota). The index is `COLLATE NOCASE`
@@ -234,7 +249,9 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
   `items.get(id).download()`. It answers `{ passageId, heading, text, authority, kind, validFrom,
 validUntil, source }`: `text` is the whole body as uploaded (heading path, then the verbatim
   Markdown), not one chunk; the validity comes from the item's metadata; `source` is the D1
-  provenance. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
+  provenance of the version the passage was last read from (the one in force on its
+  `valid_until`: a superseded passage's own version, else the current one). A superseded passage's
+  dated id (`…/nodo-receptor-usocfdi.20220101.md`) reads like any other. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
   `passage_not_found`; an Items API failure is `502 search_unavailable`.
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
@@ -312,9 +329,10 @@ fetch source → sha256 → unchanged? stop
   generates `docs/sat-md` from the SAT's published files (`--check` exits 1 when the SAT published
   something new, `--force` regenerates all; it needs LibreOffice, and MarkItDown with Poppler for
   the PDF guides). `pnpm --filter @codice/api ingest` (`scripts/ingest.ts`) reads it,
-  splits the guides with Códice's splitter (`scripts/sections.ts`, below), deletes stuck items,
-  uploads only passages that are new, changed, missing or stuck, deletes items no passage has any
-  more, then replaces the D1 records. A stuck item is one AI Search will never finish indexing:
+  splits the guides with Códice's splitter (`scripts/sections.ts`, below), keeps the passages a
+  newer text supersedes under dated keys ([Versions](#versions)), deletes stuck items, uploads only
+  passages that are new, changed, missing or stuck, deletes items no record has any more, then
+  replaces the D1 records. A stuck item is one AI Search will never finish indexing:
   status `error`, or `outdated` with `next_action: null` (`stuckItem` in `scripts/corpus.ts`). On
   2026-10-25 `complemento-pagos-guia-de-llenado/nodo-concepto-descuento.md` stayed so after a
   `workers_ai_timeout_error`: AI Search never retried it, uploading the same key again changed
@@ -397,6 +415,43 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   began; one (`rmf-2026/regla-12.3.16.md`) stayed `running` past that. Such an item fails the
   wait, so the run writes no D1 hashes and the next run uploads the changed passages again.
 
+### Versions
+
+When the SAT publishes a new text, the old one stays searchable for the dates it applied. The
+ingestion (`ingestionPlan` in `scripts/corpus.ts`) compares each passage with its D1 row, and each
+source with its D1 `sources` row: a new hash with a later `valid_from` is a new version of the
+source. For each passage D1 holds in force:
+
+- **Same text** (same key and hash): it stays as it is and keeps the `valid_from` it first applied
+  from, so an `asOf` in either version finds it once.
+- **Changed, and the new text starts later** (a guide in a new version, from the version's date;
+  an amended RMF regla, from its own DOF date): its old text moves to
+  `<source>/<anchor>.<valid_from>.md`, with its `valid_from` and `valid_until` set to the day before
+  the new text starts. The ingestion downloads the old body from the current item (Items REST
+  `download`), refuses it unless its SHA-256 is the hash D1 recorded, and uploads it under the dated
+  key with the item's authority and kind. Then the new text replaces the current item.
+- **Dropped by a new version of its source**: kept the same way, until the day before the version,
+  and its current item is deleted.
+- **Changed with no later start** (the same version re-split by a splitter change): replaced in
+  place, as before.
+- **New**: uploaded with its own `valid_from`.
+
+A replaced `sources` row goes to `source_versions`, valid until the day before the new version. An
+amended regla in a compilation that keeps its publication date ends no source version: it cites the
+current `sources` row. Superseded passages and source versions already recorded stay on later runs;
+a source the corpus no longer has loses them with it. Each day meets one version of a passage:
+with a new text from 2026-03-01, `asOf` 2026-02-28 answers the old text and 2026-03-01 the new.
+
+A stuck dated copy is repaired like any stuck item, with one more step: the ingestion downloads
+its text before it deletes it, and uploads it again right after. A stuck current item still serves
+as the source of a copy, which uploads before the repair deletes it.
+
+A run that stops is safe to repeat: the dated copies upload before anything replaces the current
+items, a dated key AI Search already holds is not copied again, and D1 records the run last, so the
+next run plans the same records. A current item that no longer holds the recorded text with no
+dated copy fails the run instead of keeping the wrong text. The error codes and catalogs keep only
+their current records.
+
 ## Cost
 
 AI Search billing starts on 2026-11-01. Each account gets every month: 5M ingestion tokens,
@@ -418,8 +473,8 @@ Queries are the only cost that grows; the per-client rate limit bounds it.
 
 ## Testing
 
-- **Unit:** passage splitting, the validity filter, chunk-to-result mapping. Pure functions, Node
-  vitest.
+- **Unit:** passage splitting, the validity filter, chunk-to-result mapping, the ingestion plan
+  (versions included). Pure functions, Node vitest.
 - **Worker routes:** `@cloudflare/vitest-pool-workers`. AI Search does not run locally, so route
   tests check request shaping and response mapping; they are not evidence of retrieval.
 - **Retrieval eval:** a fixed question set, each with the passage it must return in the top 3,
@@ -655,10 +710,15 @@ to match.
    `c_NumPedimentoAduana` and `c_PatenteAduanal` load into D1 `catalog_entries` (see
    [Large catalogs](#large-catalogs)), so `/v1/catalogs/:name/:key` answers for every catCFDI
    catalog, and a column filter narrows a repeated key (`c_Colonia` by `c_CodigoPostal`).
-8. **Versions.** Keep a superseded source's passages with a real `valid_until` when the SAT
-   publishes a new version, so an `asOf` before the change still answers. Phase 0 keeps one version
-   per source. An RMF regla an amendment changed holds only its new text, from the amendment's
-   DOF date: an `asOf` before that date finds no version of it.
+8. **Versions** (done in code, not yet exercised by a real SAT change; see [Versions](#versions)).
+   A passage whose text a newer version replaces, or that a new version of its source drops, stays
+   under a dated key with a real `valid_until`, in AI Search and D1, and a replaced source version
+   goes to `source_versions`, so an `asOf` before the change answers the old text with its own
+   provenance. Migrations `0003` to `0005` add the schema; they apply with the next
+   `deploy:production` (or by hand while the Git build does not run migrations, as `0002` was).
+   Only changes from now on are kept: an RMF regla the Primera RMRMF changed before Códice loaded
+   the RMF holds only its new text, from the amendment's DOF date, so an `asOf` before that date
+   finds no version of it.
 9. **Corpus Phases 1 and 2**, and the open questions below before a public launch. Phase 1 so far:
    the RMF (`rmf-2026`, 2026-10-25; see [Ingestion](#ingestion) and
    [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.

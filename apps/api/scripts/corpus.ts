@@ -7,7 +7,7 @@
  */
 import { createHash } from "node:crypto";
 
-import { dateNumber, IN_FORCE_UNTIL } from "../src/search";
+import { dateNumber, IN_FORCE_UNTIL, isoDate } from "../src/search";
 import { buildSatLibrary, type SatDocument, type SatSourceManifest } from "./sat-documents";
 import {
   catalogEntryFields,
@@ -169,8 +169,8 @@ export function guidePassages(
   vocabulary: ReadonlySet<string>,
 ): Passage[] {
   const title = guideTitle(document);
-  // `<source>/` + anchor + an optional `-NNN` + `.md`.
-  const anchorMax = ITEM_KEY_MAX - sourceId.length - 1 - 4 - 3;
+  // `<source>/` + anchor + an optional `-NNN` + a superseded version's `.YYYYMMDD` + `.md`.
+  const anchorMax = ITEM_KEY_MAX - sourceId.length - 1 - 4 - 9 - 3;
   const seen = new Map<string, number>();
   return guideSections(document.markdown, { title, vocabulary }).map((section) => {
     const base = anchorOf(section.anchor, anchorMax);
@@ -318,6 +318,49 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
   };
 }
 
+/** A D1 `passages` row: what AI Search holds under `key`, and when it applies. */
+export type PassageRecord = {
+  readonly key: string;
+  readonly sourceId: string;
+  readonly heading: string;
+  readonly sha256: string;
+  readonly validFrom: number;
+  readonly validUntil: number;
+};
+
+export function passageRecord(passage: Passage): PassageRecord {
+  return {
+    key: passage.key,
+    sourceId: passage.sourceId,
+    heading: passage.heading,
+    sha256: passage.sha256,
+    validFrom: passage.metadata.valid_from,
+    validUntil: passage.metadata.valid_until,
+  };
+}
+
+/**
+ * The key a superseded passage moves to: `<source>/<anchor>.<valid_from>.md`. No anchor ends in
+ * `.` and eight digits (a regla number's parts are short: `regla-2.7.1.21`), so the key cannot
+ * meet a current one, and the date its version started makes it unique.
+ */
+export function versionedKey(key: string, validFrom: number) {
+  return key.replace(/\.md$/u, `.${validFrom}.md`);
+}
+
+/** The day before a `YYYYMMDD` date: the last day a version applies when the next starts on it. */
+export function dayBefore(date: number) {
+  const day = new Date(Date.parse(isoDate(date)) - 86_400_000);
+  return dateNumber(day.toISOString());
+}
+
+/** A superseded passage: the item to copy its body from, and its record under the versioned key. */
+export type Supersession = {
+  /** The current item, which still holds the old body. */
+  readonly from: { readonly id: string; readonly key: string };
+  readonly record: PassageRecord;
+};
+
 /** An AI Search item as the Items listing returns it. */
 export type RemoteItem = {
   readonly id: string;
@@ -340,35 +383,125 @@ export function stuckItem(item: RemoteItem) {
 export type IngestionPlan = {
   /** Stuck items to delete before the uploads, with their keys. */
   readonly repair: readonly { readonly id: string; readonly key: string }[];
+  /** Copies of superseded passages to upload first, each from the item that still holds it. */
+  readonly supersede: readonly Supersession[];
   readonly upload: readonly Passage[];
   /** Remote item ids to delete, with their keys. */
   readonly remove: readonly { readonly id: string; readonly key: string }[];
   readonly unchanged: number;
+  /** The source versions the new ones replace, each ending the day before its successor. */
+  readonly sourceVersions: readonly SourceRow[];
+  /** D1 `passages` once the plan has run: the current passages and every superseded one. */
+  readonly records: readonly PassageRecord[];
 };
 
 /**
- * What to change in AI Search: delete every stuck item first (`stuckItem`); upload a passage that is
- * new, changed since the hash D1 recorded, missing from the instance, or stuck; delete every other
- * item no passage has any more.
+ * What to change in AI Search and D1 (SPEC.md, "Versions").
+ *
+ * A passage whose text changed and whose new text starts later than the recorded one (a new
+ * version of its source, an amended RMF regla) keeps its old text under its versioned key, valid
+ * until the day before the new text starts. A passage a new version of its source (a new hash, a
+ * later `valid_from`) drops keeps its text the same way, until the day before that version. A
+ * passage whose text is the same keeps the day it first applied. Superseded passages already
+ * recorded stay. Any other change (the same version re-split) replaces passages in place.
+ *
+ * Then: delete every stuck item first (`stuckItem`), copying a superseded passage's text out of
+ * it before; upload a passage that is new, changed since the hash D1 recorded, missing from the
+ * instance, or stuck; delete every other item no record has.
  */
 export function ingestionPlan(input: {
   readonly passages: readonly Passage[];
-  /** Item key → hash, from D1 `passages`. */
-  readonly recorded: ReadonlyMap<string, string>;
+  readonly sources: readonly SourceRow[];
+  /** D1 `sources`, the versions in force at the last run. */
+  readonly recordedSources: readonly SourceRow[];
+  /** D1 `passages` by item key, current and superseded. */
+  readonly recorded: ReadonlyMap<string, PassageRecord>;
   /** The instance's items. */
   readonly items: readonly RemoteItem[];
 }): IngestionPlan {
   const stuck = input.items.filter(stuckItem);
   const healthy = input.items.filter((item) => !stuckItem(item));
-  const remoteKeys = new Set(healthy.map((item) => item.key));
-  const localKeys = new Set(input.passages.map((passage) => passage.key));
-  const upload = input.passages.filter(
-    (passage) => !remoteKeys.has(passage.key) || input.recorded.get(passage.key) !== passage.sha256,
-  );
+  const indexed = new Map(healthy.map((item) => [item.key, item]));
+  /** Every item by key: a stuck one still holds its body. */
+  const stored = new Map(input.items.map((item) => [item.key, item]));
+  const recordedSources = new Map(input.recordedSources.map((row) => [row.id, row]));
+  const sourceIds = new Set(input.sources.map((row) => row.id));
+  const byKey = new Map(input.passages.map((passage) => [passage.key, passage]));
+
+  const sourceVersions: SourceRow[] = [];
+  /** A source's new version by id: the day it starts. */
+  const newVersions = new Map<string, number>();
+  for (const source of input.sources) {
+    const previous = recordedSources.get(source.id);
+    if (previous && previous.sha256 !== source.sha256 && source.validFrom > previous.validFrom) {
+      sourceVersions.push({ ...previous, validUntil: dayBefore(source.validFrom) });
+      newVersions.set(source.id, source.validFrom);
+    }
+  }
+
+  const supersede: Supersession[] = [];
+  const superseded: PassageRecord[] = [];
+  /** The first day an unchanged passage applied, as an earlier run recorded it. */
+  const firstDay = new Map<string, number>();
+  for (const record of input.recorded.values()) {
+    if (!sourceIds.has(record.sourceId)) continue;
+    if (record.validUntil !== IN_FORCE_UNTIL) {
+      superseded.push(record);
+      // A stuck copy is copied again from itself before the repair deletes it.
+      const item = stored.get(record.key);
+      if (item && stuckItem(item)) supersede.push({ from: { id: item.id, key: item.key }, record });
+      continue;
+    }
+    const next = byKey.get(record.key);
+    if (next?.sha256 === record.sha256) {
+      firstDay.set(record.key, record.validFrom);
+      continue;
+    }
+    // The first day of the text that replaces it: the new passage's own (an amended RMF regla's
+    // DOF date), or, for a dropped passage, its source's new version.
+    const start = next ? next.metadata.valid_from : newVersions.get(record.sourceId);
+    // No later start (the same version re-split): replaced in place.
+    if (start === undefined || start <= record.validFrom) continue;
+    const old: PassageRecord = {
+      ...record,
+      key: versionedKey(record.key, record.validFrom),
+      validUntil: dayBefore(start),
+    };
+    if (old.key.length > ITEM_KEY_MAX) throw new Error(`${old.key} is longer than ${ITEM_KEY_MAX}`);
+    superseded.push(old);
+    // Copied on an earlier run that stopped before D1: the current item may already hold the new
+    // text, and the copy is the old one.
+    if (indexed.has(old.key)) continue;
+    // A stuck copy from that run still holds the old text; else the current item does.
+    const from = stored.get(old.key) ?? stored.get(record.key);
+    if (!from) throw new Error(`${record.key} is not in AI Search; its old text cannot be kept`);
+    supersede.push({ from: { id: from.id, key: from.key }, record: old });
+  }
+
+  const current = input.passages.map((passage): Passage => {
+    const first = firstDay.get(passage.key);
+    return first === undefined || first === passage.metadata.valid_from
+      ? passage
+      : { ...passage, metadata: { ...passage.metadata, valid_from: first } };
+  });
+  const upload = current.filter((passage) => {
+    const record = input.recorded.get(passage.key);
+    return (
+      !indexed.has(passage.key) ||
+      record?.sha256 !== passage.sha256 ||
+      record.validFrom !== passage.metadata.valid_from ||
+      record.validUntil !== passage.metadata.valid_until
+    );
+  });
+  const records = [...current.map(passageRecord), ...superseded];
+  const kept = new Set(records.map((record) => record.key));
   return {
-    repair: stuck.map(({ id, key }) => ({ id, key })),
+    supersede,
     upload,
-    remove: healthy.filter((item) => !localKeys.has(item.key)).map(({ id, key }) => ({ id, key })),
+    repair: stuck.map(({ id, key }) => ({ id, key })),
+    remove: healthy.filter((item) => !kept.has(item.key)).map(({ id, key }) => ({ id, key })),
     unchanged: input.passages.length - upload.length,
+    sourceVersions,
+    records,
   };
 }

@@ -3,7 +3,7 @@ import { applyD1Migrations } from "cloudflare:test";
 import { drizzle } from "drizzle-orm/d1";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { catalogEntries, errorCodes, passages, sources } from "../src/db/schema";
+import { catalogEntries, errorCodes, passages, sources, sourceVersions } from "../src/db/schema";
 import type { CodiceBindings } from "../src/env";
 import { app, CodiceKnowledge } from "../src/index";
 
@@ -142,6 +142,7 @@ beforeAll(async () => {
     sourceId: "matriz-de-errores-cfdi-40",
     heading: "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
     sha256: "1".repeat(64),
+    validFrom: 20260325,
   });
   // Inserted in sheet order, as the ingestion does.
   await db.insert(catalogEntries).values([
@@ -298,6 +299,166 @@ describe("GET /v1/search", () => {
   });
 });
 
+describe("versions", () => {
+  // The Anexo 20 guide changed on 2026-03-01: `nodo-receptor-usocfdi` was rewritten, and its old
+  // text stays under its dated key until 2026-02-28 (SPEC.md, "Versions").
+  const GUIDE = "anexo-20-guia-de-llenado";
+  const CURRENT_ID = `${GUIDE}/nodo-receptor-usocfdi.md`;
+  const OLD_ID = `${GUIDE}/nodo-receptor-usocfdi.20220101.md`;
+  const OLD_URL = "http://omawww.sat.gob.mx/anexo20-2022.pdf";
+  const NEW_URL = "http://omawww.sat.gob.mx/anexo20-2026.pdf";
+  const metadata = (validFrom: number, validUntil: number) => ({
+    authority: "SAT",
+    kind: "guia",
+    valid_from: validFrom,
+    valid_until: validUntil,
+  });
+  const indexed = [
+    { key: OLD_ID, text: "UsoCFDI: texto de 2022.", metadata: metadata(20220101, 20260228) },
+    { key: CURRENT_ID, text: "UsoCFDI: texto de 2026.", metadata: metadata(20260301, 99991231) },
+  ];
+
+  /** Stands in AI Search's validity filter over the two indexed versions. */
+  function filteringSearch() {
+    return {
+      search: async (search: SearchCall) => {
+        const filters = search.ai_search_options?.retrieval?.filters as {
+          valid_from: { $lte: number };
+          valid_until: { $gte: number };
+        };
+        const chunks = indexed
+          .filter(
+            ({ metadata }) =>
+              metadata.valid_from <= filters.valid_from.$lte &&
+              metadata.valid_until >= filters.valid_until.$gte,
+          )
+          .map(({ key, text, metadata }) => ({
+            ...CHUNK,
+            text,
+            item: { key, metadata },
+          }));
+        return { search_query: "", chunks };
+      },
+    } as unknown as AiSearchInstance;
+  }
+
+  beforeAll(async () => {
+    const db = drizzle(bindings.CODICE_DATABASE!);
+    await db.insert(sources).values({
+      ...SOURCE,
+      id: GUIDE,
+      title: "Guía de llenado del Anexo 20 (2026)",
+      url: NEW_URL,
+      publishedAt: "2026-03-01",
+      validFrom: 20260301,
+    });
+    await db.insert(sourceVersions).values({
+      sourceId: GUIDE,
+      title: "Guía de llenado del Anexo 20 (2022)",
+      url: OLD_URL,
+      sha256: "2".repeat(64),
+      publishedAt: "2022-01-01",
+      retrievedAt: new Date("2025-06-01T00:00:00.000Z"),
+      validFrom: 20220101,
+      validUntil: 20260228,
+    });
+    await db.insert(passages).values([
+      {
+        key: CURRENT_ID,
+        sourceId: GUIDE,
+        heading: "Anexo 20 › Nodo: Receptor › UsoCFDI",
+        sha256: "3".repeat(64),
+        validFrom: 20260301,
+      },
+      {
+        key: OLD_ID,
+        sourceId: GUIDE,
+        heading: "Anexo 20 › Nodo: Receptor › UsoCFDI",
+        sha256: "4".repeat(64),
+        validFrom: 20220101,
+        validUntil: 20260228,
+      },
+    ]);
+  });
+
+  it.each([
+    ["2025-06-01", OLD_ID, "UsoCFDI: texto de 2022.", "2022-01-01", "2026-02-28", OLD_URL],
+    ["2026-02-28", OLD_ID, "UsoCFDI: texto de 2022.", "2022-01-01", "2026-02-28", OLD_URL],
+    ["2026-03-01", CURRENT_ID, "UsoCFDI: texto de 2026.", "2026-03-01", null, NEW_URL],
+  ])(
+    "on %s answers %s and cites the source version in force",
+    async (asOf, passageId, quote, validFrom, validUntil, sourceUrl) => {
+      const response = await request(`/v1/search?q=UsoCFDI&asOf=${asOf}`, filteringSearch());
+
+      expect(response.status).toBe(200);
+      const { data } = (await response.json()) as { data: { results: unknown[] } };
+      expect(data.results).toEqual([
+        expect.objectContaining({
+          passageId,
+          source: GUIDE,
+          quote,
+          validFrom,
+          validUntil,
+          sourceUrl,
+        }),
+      ]);
+    },
+  );
+
+  it("reads a superseded passage by its dated id with the version it came from", async () => {
+    const response = await request(
+      `/v1/passages/${OLD_ID}`,
+      fakeItems([
+        {
+          id: "item-old",
+          key: OLD_ID,
+          body: "UsoCFDI: texto de 2022.",
+          metadata: indexed[0]!.metadata,
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        passageId: OLD_ID,
+        text: "UsoCFDI: texto de 2022.",
+        validFrom: "2022-01-01",
+        validUntil: "2026-02-28",
+        source: {
+          id: GUIDE,
+          title: "Guía de llenado del Anexo 20 (2022)",
+          url: OLD_URL,
+          sha256: "2".repeat(64),
+          validFrom: "2022-01-01",
+          validUntil: "2026-02-28",
+        },
+      },
+    });
+  });
+
+  it("reads the current passage with the current version", async () => {
+    const response = await request(
+      `/v1/passages/${CURRENT_ID}`,
+      fakeItems([
+        {
+          id: "item-new",
+          key: CURRENT_ID,
+          body: "UsoCFDI: texto de 2026.",
+          metadata: indexed[1]!.metadata,
+        },
+      ]),
+    );
+
+    expect(await response.json()).toMatchObject({
+      data: {
+        validUntil: null,
+        source: { url: NEW_URL, validFrom: "2026-03-01", validUntil: null },
+      },
+    });
+  });
+});
+
 describe("GET /v1/passages/:id", () => {
   const stored = [
     {
@@ -401,6 +562,7 @@ describe("GET /v1/sources", () => {
     expect(await response.json()).toMatchObject({
       data: {
         sources: [
+          { id: "anexo-20-guia-de-llenado", validFrom: "2026-03-01" },
           { id: "catalogos-cfdi-40", publishedAt: "2026-10-15", validFrom: "2026-10-15" },
           { id: "matriz-de-errores-cfdi-40", url: "http://omawww.sat.gob.mx/matriz.xls" },
         ],
@@ -750,7 +912,11 @@ describe("/mcp", () => {
     expect(await json(await call("list_sources", {}))).toMatchObject({
       result: {
         structuredContent: {
-          sources: [{ id: "catalogos-cfdi-40" }, { id: "matriz-de-errores-cfdi-40" }],
+          sources: [
+            { id: "anexo-20-guia-de-llenado" },
+            { id: "catalogos-cfdi-40" },
+            { id: "matriz-de-errores-cfdi-40" },
+          ],
         },
       },
     });

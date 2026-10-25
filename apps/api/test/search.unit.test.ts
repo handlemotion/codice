@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { searchInput } from "../src/handlers";
-import { parseAsOf, searchRequest, searchResults, todayInMexicoCity } from "../src/search";
+import {
+  parseAsOf,
+  searchRequest,
+  searchResults,
+  todayInMexicoCity,
+  validityFilter,
+} from "../src/search";
 
 describe("todayInMexicoCity", () => {
   it("reads the date in Mexico City, not UTC", () => {
@@ -41,6 +47,36 @@ describe("searchInput", () => {
     [{ q: "x", source: "../etc" }, "`source` is not a source id."],
   ])("refuses %j", (parameters, detail) => {
     expect(() => searchInput(parameters, now)).toThrow(expect.objectContaining({ detail }));
+  });
+});
+
+describe("validityFilter", () => {
+  /** AI Search's `$lte` and `$gte` on numeric metadata, applied to one item. */
+  function matches(
+    filter: ReturnType<typeof validityFilter>,
+    metadata: { valid_from: number; valid_until: number },
+  ) {
+    return (
+      metadata.valid_from <= filter.valid_from.$lte &&
+      metadata.valid_until >= filter.valid_until.$gte
+    );
+  }
+
+  // A rule replaced by a version in force from 2026-03-01: the old text ends the day before.
+  const superseded = { key: "a/regla.20250101.md", valid_from: 20250101, valid_until: 20260228 };
+  const current = { key: "a/regla.md", valid_from: 20260301, valid_until: 99991231 };
+  const inForce = (asOf: number) =>
+    [superseded, current].filter((item) => matches(validityFilter(asOf), item)).map((i) => i.key);
+
+  it("answers the superseded text before the change and the new text from it", () => {
+    expect(inForce(20250101)).toEqual(["a/regla.20250101.md"]);
+    expect(inForce(20260228)).toEqual(["a/regla.20250101.md"]);
+    expect(inForce(20260301)).toEqual(["a/regla.md"]);
+    expect(inForce(20261024)).toEqual(["a/regla.md"]);
+  });
+
+  it("answers neither before the first version", () => {
+    expect(inForce(20241231)).toEqual([]);
   });
 });
 
