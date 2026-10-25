@@ -8,5 +8,22 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/coverage/**", "pnpm-lock.yaml"]
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    ".agents/skills/build-design-system/**",
+    ".claude/skills/build-design-system/**",
+    ".agents/skills/component-docs/**",
+    ".claude/skills/component-docs/**",
+    ".agents/skills/design-system-boss/**",
+    ".claude/skills/design-system-boss/**",
+    ".agents/skills/migrate-design-system/**",
+    ".claude/skills/migrate-design-system/**",
+    ".agents/skills/token-mapping/**",
+    ".claude/skills/token-mapping/**",
+    ".agents/skills/ui-review/**",
+    ".claude/skills/ui-review/**",
+    "pnpm-lock.yaml"
+  ]
 }
