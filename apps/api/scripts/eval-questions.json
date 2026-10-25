@@ -7,7 +7,10 @@
     "q": "RFC genérico extranjero XEXX010101000: el domicilio fiscal del receptor debe ser igual al lugar de expedición",
     "expect": ["matriz-de-errores-cfdi-40/cfdi40149.md"]
   },
-  { "q": "CFDI40149", "expect": ["matriz-de-errores-cfdi-40/cfdi40149.md"] },
+  {
+    "q": "CFDI40149",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40149.md"]
+  },
   {
     "q": "El código postal del receptor debe estar asociado al RFC registrado en el campo Rfc",
     "expect": [
@@ -150,7 +153,8 @@
     "expect": [
       "anexo-20-guia-de-llenado/nodo-concepto-objetoimp.md",
       "complemento-pagos-guia-de-llenado/nodo-concepto-objetoimp.md"
-    ]
+    ],
+    "kind": "guia"
   },
   {
     "q": "Traslado con tipo factor Exento no debe llevar TasaOCuota ni Importe",
@@ -184,8 +188,14 @@
     "q": "Retención de ISR al 1.25% para el Régimen Simplificado de Confianza",
     "expect": ["matriz-de-errores-cfdi-40/cfdi140225.md", "matriz-de-errores-cfdi-40/cfdi140224.md"]
   },
-  { "q": "CFDI40158", "expect": ["matriz-de-errores-cfdi-40/cfdi40158.md"] },
-  { "q": "CFDI40138", "expect": ["matriz-de-errores-cfdi-40/cfdi40138.md"] },
+  {
+    "q": "CFDI40158",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40158.md"]
+  },
+  {
+    "q": "CFDI40138",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40138.md"]
+  },
   {
     "q": "El valor unitario del concepto debe ser mayor que cero",
     "expect": ["matriz-de-errores-cfdi-40/cfdi40166.md", "matriz-de-errores-cfdi-40/cfdi40197.md"]
@@ -227,6 +237,561 @@
     "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-iddocumento.md"]
   },
   {
+    "q": "¿Qué claves tiene el catálogo c_MetodoPago y cuándo se usa PUE o PPD?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-comprobante-metodopago.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-11.md"
+    ]
+  },
+  {
+    "q": "La forma de pago debe ser 99 cuando el método de pago es PPD",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40105.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-formapago.md"
+    ]
+  },
+  {
+    "q": "La forma de pago debe contener un valor del catálogo c_FormaPago",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40104.md"]
+  },
+  {
+    "q": "Me pagaron una parte en efectivo y otra con transferencia, ¿qué forma de pago pongo en la factura?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-comprobante-formapago.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-14.md"
+    ]
+  },
+  {
+    "q": "La moneda del comprobante debe ser una clave del catálogo c_Moneda",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40113.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-moneda.md"
+    ]
+  },
+  {
+    "q": "Tipo de cambio fuera del porcentaje de variación del catálogo c_Moneda: clave de confirmación del PAC",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40118.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-confirmacion.md"
+    ]
+  },
+  {
+    "q": "Claves del catálogo c_TipoDeComprobante: ingreso, egreso, traslado, nómina y pago",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-comprobante-tipodecomprobante.md",
+      "anexo-20-guia-de-llenado/apendice-2.md",
+      "matriz-de-errores-cfdi-40/cfdi40121.md"
+    ]
+  },
+  {
+    "q": "¿Qué tipo de factura hago para una nota de crédito?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-2.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-21.md",
+      "anexo-20-guia-de-llenado/apendice-5.md"
+    ]
+  },
+  {
+    "q": "Clave de Exportacion del catálogo c_Exportacion para una operación que no es exportación",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-comprobante-exportacion.md",
+      "matriz-de-errores-cfdi-40/cfdi40123.md"
+    ]
+  },
+  {
+    "q": "Con Exportacion 01 o 03 no debe existir el complemento de comercio exterior",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40222.md"]
+  },
+  {
+    "q": "El régimen fiscal del emisor debe ser una clave del catálogo c_RegimenFiscal",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40140.md",
+      "anexo-20-guia-de-llenado/nodo-emisor-regimenfiscal.md"
+    ]
+  },
+  {
+    "q": "Mi cliente me pide la factura con uso G03 gastos en general, ¿cómo sé si ese uso le corresponde a su régimen?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-receptor-usocfdi.md",
+      "matriz-de-errores-cfdi-40/cfdi40161.md"
+    ]
+  },
+  {
+    "q": "El UsoCFDI debe contener un valor del catálogo c_UsoCFDI",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40160.md"]
+  },
+  {
+    "q": "ObjetoImp 06 o 08: el concepto no debe llevar traslados ni retenciones de IVA o IEPS",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi140226.md"]
+  },
+  {
+    "q": "ObjetoImp 07: el concepto no debe llevar traslados ni retenciones de IVA",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi140227.md"]
+  },
+  {
+    "q": "Si ObjetoImp es 01, 03, 04 o 05 no debe existir el nodo Impuestos del concepto",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40172.md"]
+  },
+  {
+    "q": "Valor fijo o rango del catálogo c_TasaOCuota en el traslado del concepto",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-traslado-tasaocuota.md",
+      "matriz-de-errores-cfdi-40/cfdi40179.md"
+    ]
+  },
+  {
+    "q": "Claves del catálogo c_Impuesto: 001 ISR, 002 IVA, 003 IEPS",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-traslado-impuesto.md",
+      "anexo-20-guia-de-llenado/nodo-retencion-impuesto.md",
+      "anexo-20-guia-de-llenado/nodo-traslado-impuesto-2.md",
+      "complemento-pagos-guia-de-llenado/nodo-trasladodr-impuestodr.md",
+      "complemento-pagos-guia-de-llenado/nodo-retenciondr-impuestodr.md",
+      "matriz-de-errores-cfdi-40/cfdi40175.md",
+      "matriz-de-errores-cfdi-40/cfdi40182.md",
+      "matriz-de-errores-cfdi-40/cfdi40207.md",
+      "matriz-de-errores-cfdi-40/cfdi40217.md"
+    ]
+  },
+  {
+    "q": "El TipoFactor debe ser Tasa, Cuota o Exento del catálogo c_TipoFactor",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40176.md",
+      "matriz-de-errores-cfdi-40/cfdi40183.md",
+      "anexo-20-guia-de-llenado/nodo-traslado-tipofactor.md",
+      "anexo-20-guia-de-llenado/nodo-retencion-tipofactor.md"
+    ]
+  },
+  {
+    "q": "Claves del catálogo c_TipoRelacion para relacionar un CFDI con otros previos",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-cfdirelacionados-tiporelacion.md",
+      "matriz-de-errores-cfdi-40/cfdi40137.md"
+    ]
+  },
+  {
+    "q": "La periodicidad de la factura global debe ser un valor del catálogo c_Periodicidad",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40131.md"]
+  },
+  {
+    "q": "Meses de la factura global con periodicidad bimestral: claves 13 a 18",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40135.md"]
+  },
+  {
+    "q": "La ResidenciaFiscal del receptor debe ser una clave del catálogo c_Pais",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40150.md",
+      "anexo-20-guia-de-llenado/nodo-receptor-residenciafiscal.md"
+    ]
+  },
+  {
+    "q": "El NumRegIdTrib debe cumplir el formato de registro de identidad tributaria del catálogo c_Pais",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40156.md"]
+  },
+  {
+    "q": "¿Cómo se estructura una clave del catálogo c_ClaveProdServ: división, grupo, clase y subclase?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-5.md",
+      "anexo-20-guia-de-llenado/apendice-3.md"
+    ]
+  },
+  {
+    "q": "Me equivoqué en la clave de producto de una factura, ¿qué tengo que hacer?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-12.md"]
+  },
+  {
+    "q": "¿Qué clave de unidad de medida pongo cuando facturo un servicio?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-20.md",
+      "anexo-20-guia-de-llenado/nodo-concepto-claveunidad.md"
+    ]
+  },
+  {
+    "q": "La ClaveUnidad del concepto debe contener un valor del catálogo c_ClaveUnidad",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40165.md",
+      "anexo-20-guia-de-llenado/nodo-concepto-claveunidad.md"
+    ]
+  },
+  {
+    "q": "Claves 15101505, 15101514 o 15101515 requieren el complemento de hidrocarburos y petrolíferos",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi140228.md"]
+  },
+  {
+    "q": "Deben existir los impuestos trasladados o retenidos que señale el catálogo c_ClaveProdServ",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40164.md"]
+  },
+  {
+    "q": "El código postal de mi cliente no aparece en el catálogo del SAT, ¿qué pongo en la factura?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-25-2.md"]
+  },
+  {
+    "q": "¿Qué ClaveProdServ lleva el concepto del CFDI con complemento para recepción de pagos?",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-concepto-claveprodserv.md"]
+  },
+  {
+    "q": "ObjetoImp del concepto en el comprobante con complemento de pagos",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-concepto-objetoimp.md"]
+  },
+  {
+    "q": "¿Qué TipoDeComprobante se registra en el recibo electrónico de pago?",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/nodo-comprobante-tipodecomprobante.md",
+      "complemento-pagos-guia-de-llenado/apendice-6-pregunta-5.md"
+    ]
+  },
+  {
+    "q": "¿Cuánto tiempo tengo para hacer el complemento de pago después de que me pagan?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-4.md"]
+  },
+  {
+    "q": "Un cliente me pagó varias facturas con una sola transferencia, ¿hago un complemento por cada factura?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-2.md"]
+  },
+  {
+    "q": "Si el pago fue por compensación entre nosotros, ¿qué forma de pago pongo en el complemento?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-1.md"]
+  },
+  {
+    "q": "Me equivoqué en el RFC del cliente en el complemento de pago, ¿lo puedo cancelar?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-3.md"]
+  },
+  {
+    "q": "Si el pago fue en pesos mexicanos, ¿qué tipo de cambio pongo en el complemento de pago?",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/apendice-6-pregunta-7.md",
+      "complemento-pagos-guia-de-llenado/nodo-pago-tipocambiop.md"
+    ]
+  },
+  {
+    "q": "¿Hay que desglosar el IVA en el recibo electrónico de pago?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-8.md"]
+  },
+  {
+    "q": "Pago por transferencia electrónica: ¿son obligatorios TipoCadPago, CertPago, CadPago y SelloPago?",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/apendice-6-pregunta-10.md",
+      "complemento-pagos-guia-de-llenado/nodo-pago-tipocadpago.md"
+    ]
+  },
+  {
+    "q": "¿Puedo hacer el complemento de pago con una fecha de pago que todavía no llega?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-11.md"]
+  },
+  {
+    "q": "Me pagaron con cheque de otro banco y el depósito se acreditó al día siguiente, ¿qué fecha de pago pongo?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-12.md"]
+  },
+  {
+    "q": "¿Qué fecha va en el campo Fecha del CFDI y cuál en FechaPago del complemento de pagos?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-13.md"]
+  },
+  {
+    "q": "Compré a parcialidades, ¿necesito el complemento de pago de mi proveedor para acreditar el IVA?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-6-pregunta-14.md"]
+  },
+  {
+    "q": "Pasos para sustituir un CFDI con complemento de pagos con el tipo de relación 04",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/apendice-6-pregunta-15.md",
+      "complemento-pagos-guia-de-llenado/nodo-cfdirelacionados-tiporelacion.md"
+    ]
+  },
+  {
+    "q": "Monto del pago: la suma de ImpPagado de los documentos relacionados debe ser menor o igual",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-monto.md"]
+  },
+  {
+    "q": "Número de operación o clave de rastreo SPEI del pago",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-numoperacion.md"]
+  },
+  {
+    "q": "RFC de la entidad emisora de la cuenta ordenante del pago",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-rfcemisorctaord.md"]
+  },
+  {
+    "q": "Nombre del banco ordenante cuando es extranjero",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-nombancoordext.md"]
+  },
+  {
+    "q": "MonedaP: clave de la moneda con la que se recibió el pago",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-monedap.md"]
+  },
+  {
+    "q": "Moneda del documento relacionado MonedaDR cuando la factura no especifica moneda",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-monedadr.md"]
+  },
+  {
+    "q": "El importe pagado del documento relacionado debe ser mayor a cero",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-imppagado.md"]
+  },
+  {
+    "q": "ObjetoImpDR 02 requiere el nodo ImpuestosDR en el documento relacionado",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-objetoimpdr.md"]
+  },
+  {
+    "q": "Total de la base de IVA trasladado a la tasa del 16% en los totales del complemento de pagos",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-totales-totaltrasladosbaseiva16.md"]
+  },
+  {
+    "q": "Total de la base de IVA exento en los totales del recibo de pago",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-totales-totaltrasladosbaseivaexento.md"]
+  },
+  {
+    "q": "TrasladoP cuando solo hay documentos relacionados con TipoFactorDR Exento",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/nodo-trasladop.md",
+      "complemento-pagos-guia-de-llenado/nodo-trasladop-basep.md"
+    ]
+  },
+  {
+    "q": "RetencionesP es requerido cuando los documentos relacionados registran impuesto retenido",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/nodo-retencionesp.md",
+      "complemento-pagos-guia-de-llenado/nodo-retencionp.md"
+    ]
+  },
+  {
+    "q": "El tipo factor de la retención del documento relacionado debe ser distinto de exento",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-retenciondr-tipofactordr.md"]
+  },
+  {
+    "q": "Con qué otros complementos puede convivir el complemento para recepción de pagos",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pagos.md"]
+  },
+  {
+    "q": "Cobro por cuenta de terceros en el recibo electrónico de pago: un CFDI por cada tercero",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/apendice-7.md",
+      "complemento-pagos-guia-de-llenado/nodo-acuentaterceros.md"
+    ]
+  },
+  {
+    "q": "Facturé en pesos y mi cliente me pagó en dólares, ¿cómo hago el complemento de pago?",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/apendice-8.md",
+      "complemento-pagos-guia-de-llenado/apendice-8-2.md",
+      "complemento-pagos-guia-de-llenado/apendice-8-3.md",
+      "complemento-pagos-guia-de-llenado/apendice-8-4.md",
+      "complemento-pagos-guia-de-llenado/apendice-8-5.md"
+    ]
+  },
+  {
+    "q": "Cedí mis facturas a una empresa de factoraje, ¿quién emite el complemento de pago?",
+    "expect": [
+      "complemento-pagos-guia-de-llenado/apendice-9.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-2.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-3.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-4.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-5.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-6.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-7.md",
+      "complemento-pagos-guia-de-llenado/apendice-9-8.md",
+      "complemento-pagos-guia-de-llenado/apendice-2.md"
+    ]
+  },
+  {
+    "q": "Mi proveedor no me entrega el complemento de pago, ¿dónde lo puedo denunciar?",
+    "expect": ["complemento-pagos-guia-de-llenado/apendice-5.md"]
+  },
+  {
+    "q": "Si la factura ya estaba pagada cuando la emití, ¿también tengo que hacer complemento de pago?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-comprobante-formapago.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-metodopago.md"
+    ]
+  },
+  {
+    "q": "La fecha del comprobante debe corresponder con la hora local donde se expide",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40101.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-fecha.md"
+    ]
+  },
+  {
+    "q": "El sello del comprobante no es válido",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40102.md"]
+  },
+  {
+    "q": "El SubTotal debe ser igual al redondeo de la suma de los importes de los conceptos",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40108.md"]
+  },
+  {
+    "q": "El descuento del comprobante debe ser igual a la suma de los descuentos de los conceptos",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40111.md"]
+  },
+  {
+    "q": "Total superior al límite de la Resolución Miscelánea Fiscal: clave de confirmación del PAC",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40120.md"]
+  },
+  {
+    "q": "La clave de confirmación no debe existir cuando el tipo de cambio y el total están dentro del rango",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40127.md"]
+  },
+  {
+    "q": "El nombre del emisor no corresponde al RFC registrado",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40139.md"]
+  },
+  {
+    "q": "Si el nombre del receptor es PUBLICO EN GENERAL el RFC debe ser XAXX010101000",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40146.md"]
+  },
+  {
+    "q": "La ResidenciaFiscal no debe existir cuando el receptor tiene un RFC registrado en el SAT",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40151.md"]
+  },
+  {
+    "q": "Para el RFC genérico XAXX010101000 el régimen fiscal del receptor debe ser 616",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40159.md",
+      "anexo-20-guia-de-llenado/nodo-receptor-regimenfiscalreceptor.md",
+      "complemento-pagos-guia-de-llenado/nodo-receptor-regimenfiscalreceptor.md"
+    ]
+  },
+  {
+    "q": "El descuento del concepto no puede ser mayor que su importe",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40169.md"]
+  },
+  {
+    "q": "Si el concepto tiene nodo Impuestos debe incluir traslados o retenciones",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40173.md",
+      "anexo-20-guia-de-llenado/nodo-impuestos.md"
+    ]
+  },
+  {
+    "q": "TipoFactor Tasa o Cuota requiere registrar TasaOCuota e Importe",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40178.md"]
+  },
+  {
+    "q": "El RFC a cuenta de terceros debe estar en la lista l_LCO",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40187.md"]
+  },
+  {
+    "q": "NumeroPedimento no debe existir si se incluye el complemento de comercio exterior",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40195.md", "matriz-de-errores-cfdi-40/cfdi40200.md"]
+  },
+  {
+    "q": "TotalImpuestosRetenidos no es igual a la suma de los importes de las retenciones",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40203.md"]
+  },
+  {
+    "q": "Debe existir TotalImpuestosTrasladados cuando hay conceptos con TipoFactor distinto de Exento",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40212.md"]
+  },
+  {
+    "q": "Solo puede haber un traslado con la misma combinación de impuesto, factor y tasa",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40218.md",
+      "anexo-20-guia-de-llenado/nodo-traslado-2.md"
+    ]
+  },
+  {
+    "q": "Error no clasificado",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40999.md"]
+  },
+  {
+    "q": "CFDI40171",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40171.md"]
+  },
+  {
+    "q": "El timbrado me rechazó con CFDI40161, ¿qué significa?",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40161.md"]
+  },
+  {
+    "q": "¿Puedo poner cantidades negativas en una factura 4.0?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-2.md"]
+  },
+  {
+    "q": "Mi cliente va a usar la factura para algo distinto a lo que pidió, ¿hay que cancelarla?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-1.md"]
+  },
+  {
+    "q": "¿Dónde pongo los impuestos locales en la factura?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-8.md",
+      "anexo-20-guia-de-llenado/apendice-1.md"
+    ]
+  },
+  {
+    "q": "¿Tengo que desglosar el IVA en una factura de anticipo?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-6.md"]
+  },
+  {
+    "q": "El depósito en garantía de una renta, ¿se factura como anticipo?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-15.md",
+      "anexo-20-guia-de-llenado/apendice-6.md"
+    ]
+  },
+  {
+    "q": "Facturo desde una sucursal pero el sistema está en la matriz, ¿qué código postal pongo?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-17.md",
+      "anexo-20-guia-de-llenado/nodo-comprobante-lugarexpedicion.md"
+    ]
+  },
+  {
+    "q": "Le hice un descuento a mi cliente después de darle la factura, ¿qué tengo que emitir?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-21.md"]
+  },
+  {
+    "q": "¿Cómo pongo en la factura un producto que está exento de IVA?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-13.md",
+      "matriz-de-errores-cfdi-40/cfdi40177.md"
+    ]
+  },
+  {
+    "q": "¿El SAT reconoce los validadores de facturas de terceros?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-25-3.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-25-4.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-10.md"
+    ]
+  },
+  {
+    "q": "¿Qué recomienda el SAT para que no me rechacen la factura por los decimales?",
+    "expect": ["anexo-20-guia-de-llenado/apendice-7-pregunta-25-5.md"]
+  },
+  {
+    "q": "¿Cómo hago una nota de crédito que aplique a varias facturas?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-5.md",
+      "anexo-20-guia-de-llenado/apendice-5-2.md",
+      "anexo-20-guia-de-llenado/apendice-5-3.md",
+      "anexo-20-guia-de-llenado/apendice-5-4.md",
+      "anexo-20-guia-de-llenado/apendice-5-5.md"
+    ]
+  },
+  {
+    "q": "¿Cómo se factura un anticipo y después la venta final?",
+    "expect": [
+      "anexo-20-guia-de-llenado/apendice-6.md",
+      "anexo-20-guia-de-llenado/apendice-6-2.md",
+      "anexo-20-guia-de-llenado/apendice-6-3.md",
+      "anexo-20-guia-de-llenado/apendice-6-4.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-16.md"
+    ]
+  },
+  {
+    "q": "Vendo mercancía importada de primera mano, ¿dónde va el número de pedimento?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-informacionaduanera.md",
+      "anexo-20-guia-de-llenado/nodo-informacionaduanera-numeropedimento.md",
+      "anexo-20-guia-de-llenado/nodo-informacionaduanera-2.md",
+      "anexo-20-guia-de-llenado/nodo-informacionaduanera-numeropedimento-2.md"
+    ]
+  },
+  {
+    "q": "¿Dónde pongo el número de cuenta predial cuando facturo una renta?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-cuentapredial.md",
+      "anexo-20-guia-de-llenado/nodo-cuentapredial-numero.md"
+    ]
+  },
+  {
     "q": "¿Cuál es la tasa mensual de recargos por mora en 2026?",
     "expect": ["rmf-2026/regla-2.1.20.md"]
   },
@@ -254,7 +819,10 @@
     "q": "¿Cómo solicita el emisor la cancelación de un CFDI en el Portal del SAT y cuándo debe aceptarla el receptor?",
     "expect": ["rmf-2026/regla-2.7.1.34.md"]
   },
-  { "q": "Regla 2.7.1.35", "expect": ["rmf-2026/regla-2.7.1.35.md"] },
+  {
+    "q": "Regla 2.7.1.35",
+    "expect": ["rmf-2026/regla-2.7.1.35.md"]
+  },
   {
     "q": "Si el pago se recibe después de emitir la factura, ¿puedo poner PUE como método de pago?",
     "expect": ["rmf-2026/regla-2.7.1.39.md"]

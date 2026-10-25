@@ -33,6 +33,8 @@ export type CodiceSearchParameters = {
   readonly asOf?: string | undefined;
   /** A source id, such as `anexo-20-guia-de-llenado`. */
   readonly source?: string | undefined;
+  /** A passage kind, such as `guia` for the filling guides' definitions. */
+  readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
 };
 
@@ -61,6 +63,7 @@ export type CodiceSearch = {
   readonly query: string;
   readonly asOf: string;
   readonly source: string | null;
+  readonly kind: string | null;
   readonly results: readonly CodiceSearchResult[];
 };
 

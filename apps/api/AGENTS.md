@@ -41,7 +41,7 @@ the behavior changes.
 
 Commands: `pnpm --filter @codice/api test`, `check-types`, `build`, `cf-typegen`,
 `db:generate`, `db:migrate:local`, `sat:knowledge` (`--check`, `--force`; needs LibreOffice,
-MarkItDown and Poppler), `dev` and `eval` (Doppler `codice` `dev`; `eval` spends ~70 AI Search
+MarkItDown and Poppler), `dev` and `eval` (Doppler `codice` `dev`; `eval` spends ~170 AI Search
 queries; `--instance` for a comparison instance), and `ingest` (`--dry-run`, `--local`,
 `--catalogs` for the large catalogs, `--instance`; writes production, so run it under
 `doppler run -p codice -c prd --`).

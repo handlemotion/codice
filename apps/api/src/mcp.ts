@@ -10,7 +10,7 @@ import {
   readPassage,
   search,
 } from "./handlers";
-import { SEARCH_LIMIT_DEFAULT, SEARCH_LIMIT_MAX } from "./search";
+import { PASSAGE_KINDS, SEARCH_LIMIT_DEFAULT, SEARCH_LIMIT_MAX } from "./search";
 
 export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
@@ -36,6 +36,12 @@ const SearchArguments = z.object({
     .optional()
     .describe(
       "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado` or `matriz-de-errores-cfdi-40`.",
+    ),
+  kind: z
+    .enum(PASSAGE_KINDS)
+    .optional()
+    .describe(
+      "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas.",
     ),
   limit: z
     .number()
