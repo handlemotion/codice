@@ -247,9 +247,19 @@ export function decide(req, opts = {}) {
 // The handler's route object needs request() with method(), url(), postData(), and fulfill, continue, abort.
 // Pure. Lines of "METHOD URL" in, the ones a guard with these options would let through out.
 // A third field is the request body, for an endpoint judged by its body (GraphQL).
+// Blank lines and # comments are skipped; any other line that is not a method and an absolute URL throws,
+// so a malformed row can never pass as blocked.
 export function prove(lines, opts = {}) {
-	return lines.map((l) => /^\s*(\S+)\s+(\S+)(?:\s+(.+))?$/.exec(l)).filter(Boolean)
-		.map(([, method, url, body]) => ({ method, url, ...decide({ method, url, postData: body }, opts) })).filter((d) => d.action === "continue");
+	const rows = [];
+	for (const l of lines) {
+		if (!l.trim() || l.trimStart().startsWith("#")) continue;
+		const m = /^\s*([A-Za-z]+)\s+(\S+)(?:\s+(.+))?$/.exec(l);
+		let ok = Boolean(m);
+		if (ok) try { new URL(m[2]); } catch { ok = false; }
+		if (!ok) throw new Error(`writes row is not "METHOD URL" with an absolute URL: ${l.trim()}`);
+		rows.push(m);
+	}
+	return rows.map(([, method, url, body]) => ({ method, url, ...decide({ method, url, postData: body }, opts) })).filter((d) => d.action === "continue");
 }
 
 export function installGuard(target, opts = {}) {
@@ -390,6 +400,10 @@ async function selfTest() {
 		const writes = ["POST " + rpc("items/update"), "PUT " + base + "/api/x", "POST " + rpc("items/list")];
 		t("prove names a write the prefix verbs let through", prove(writes, prefix).length === 1);
 		t("prove is clean by default", prove(writes, { readProcedures: ["users/me"] }).length === 0);
+		const throws = (rows) => { try { prove(rows, prefix); return false; } catch { return true; } };
+		t("prove rejects a row with a relative URL", throws(["POST /rpc/items/update"]));
+		t("prove rejects a row without a URL", throws(["POST"]));
+		t("prove skips blank lines and comments", !throws(["", "  ", "# reads", "POST " + rpc("items/update")]));
 		t("bad procedureStyle throws", (() => { try { decide({ method: "GET", url: base }, { procedureStyle: "x" }); return false; } catch { return true; } })());
 
 		// GraphQL. Listing the endpoint once let every mutation through, because the body was never read.
@@ -462,7 +476,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		console.log(JSON.stringify(decide({ method: o.method || "GET", url: o.url, postData: o.body }, o)));
 	} else if (o._[0] === "prove") {
 		if (!o.writes) { console.error("prove needs --writes <file>"); process.exit(2); }
-		const leaks = prove(readFileSync(o.writes, "utf8").split("\n"), o);
+		let leaks;
+		try { leaks = prove(readFileSync(o.writes, "utf8").split("\n"), o); } catch (e) { console.error(`prove: ${e.message}`); process.exit(2); }
 		for (const l of leaks) console.log(`LEAK\t${l.method} ${l.url}\t${l.reason}`);
 		console.log(leaks.length ? `${leaks.length} writes would reach the backend` : "every write is blocked");
 		process.exitCode = leaks.length ? 1 : 0;

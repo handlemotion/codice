@@ -61,8 +61,9 @@ export function check(dir, o) {
 			const t = Date.parse(r.capturedAt);
 			if (Number.isNaN(t)) die(`${p}: bad capturedAt ${r.capturedAt}`);
 			times.push(t);
-			if (!groups.has(r.proc)) groups.set(r.proc, new Set());
-			groups.get(r.proc).add(createHash("sha256").update(r.body).digest("hex"));
+			// A list, not a set: a request sent twice must count twice.
+			if (!groups.has(r.proc)) groups.set(r.proc, []);
+			groups.get(r.proc).push(createHash("sha256").update(r.body).digest("hex"));
 		}
 		return { run: f.run, groups, times };
 	};
@@ -91,9 +92,10 @@ export function check(dir, o) {
 	for (const k of [...new Set([...B.groups.keys(), ...A.groups.keys()])].sort()) {
 		const b = B.groups.get(k);
 		const a = A.groups.get(k);
-		const same = b && a && b.size === a.size && [...b].every((h) => a.has(h));
+		// The same bodies the same number of times; the order concurrent requests land in is not compared.
+		const same = b && a && b.length === a.length && [...b].sort().join() === [...a].sort().join();
 		if (!same) differ = true;
-		lines.push(`${same ? "same" : "DIFF"} ${k} ${b?.size ?? 0} ${a?.size ?? 0}`);
+		lines.push(`${same ? "same" : "DIFF"} ${k} ${b?.length ?? 0} ${a?.length ?? 0}`);
 	}
 	return { lines, differ };
 }
@@ -149,6 +151,11 @@ function selfTest() {
 	dif.a.rows[0].body = '{"count":3}';
 	r = check(mk("diff", dif.b, dif.a), opts());
 	if (r.differ && r.lines.some((l) => l.startsWith("DIFF items/update"))) console.log("ok   differing bodies reported as DIFF"); else { failed++; console.error("FAIL diff"); }
+	// A request sent twice once matched one sent once.
+	const dup = good("RUN-A");
+	dup.a.rows.push(row(5173, "items/update", '{"count":2}', 14));
+	r = check(mk("dup", dup.b, dup.a), opts());
+	if (r.differ && r.lines.includes("DIFF items/update 1 2")) console.log("ok   a request sent twice is a DIFF"); else { failed++; console.error("FAIL duplicate", r.lines); }
 	// Two files merged from two different real runs: each run is valid alone, the pair is not.
 	const m = { b: good("RUN-A").b, a: good("RUN-B").a };
 	m.a.rows.forEach((x) => (x.capturedAt = iso(105)));

@@ -170,7 +170,8 @@ async function main(argv) {
 	if (val("--writes")) {
 		const p = resolve(val("--writes")); if (!existsSync(p)) die(`no writes file at ${p}`);
 		const lines = readFileSync(p, "utf8").split("\n").filter((l) => l.trim() && !l.startsWith("#"));
-		const leaks = prove(lines, guardOpts);
+		let leaks;
+		try { leaks = prove(lines, guardOpts); } catch (e) { die(`${p}: ${e.message}`); }
 		for (const l of leaks) console.log(`LEAK\t${l.method} ${l.url}\t${l.reason}`);
 		if (leaks.length) die(`${leaks.length} of ${lines.length} writes in ${p} would reach the backend. Fix the guard options; nothing was captured`);
 		proved = `every one of ${lines.length} writes in --writes blocked`;
