@@ -1,6 +1,7 @@
 /**
- * Regenerates Códice's Phase 0 SAT corpus in `docs/sat-md` from the SAT's published files and
- * records each file's version in `docs/sat-md/sources.json`.
+ * Regenerates Códice's SAT corpus in `docs/sat-md` from the SAT's published files (the Phase 0
+ * Anexo 20 files, and the current RMF as the SAT compiles it) and records each file's version in
+ * `docs/sat-md/sources.json`.
  *
  *   pnpm --filter @codice/api sat:knowledge            regenerate what changed
  *   pnpm --filter @codice/api sat:knowledge --check    exit 1 if the SAT published anything new
@@ -28,6 +29,7 @@ import {
   provenanceHeader,
   renderCatalogs,
   renderErrorMatrix,
+  rmfCompilationMarkdown,
   xsdCatalogCodes,
 } from "./sat-knowledge-render";
 import { workbookSheets } from "./sat-workbook";
@@ -38,8 +40,13 @@ const MANIFEST = join(OUT, "sources.json");
 const ANEXO_20_PAGE = "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm";
 const DOCUMENTS = "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos";
 const CATALOG_XSD = "http://www.sat.gob.mx/sitio_internet/cfd/catalogos/catCFDI.xsd";
+/** The SAT's page for the current RMF: the resolution, its amendments and their compilations. */
+const RMF_SITE = "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE";
+const RMF_YEAR = 2026;
+const RMF_PAGE = `${RMF_SITE}/normatividad_rmf_rgce${RMF_YEAR}.html`;
+const RMF_FILE = `resolucion-miscelanea-fiscal-${RMF_YEAR}.md`;
 
-type SourceId = "anexo20" | "pagos" | "matrix" | "catalogs";
+type SourceId = "anexo20" | "pagos" | "matrix" | "catalogs" | "rmf";
 type Manifest = Record<SourceId, SatSource & { readonly outputs: readonly string[] }>;
 
 const args = new Set(process.argv.slice(2));
@@ -69,11 +76,29 @@ function linked(page: string, pattern: RegExp) {
   return `${DOCUMENTS}/${match[0]}`;
 }
 
+/**
+ * The latest compiled RMF the SAT's page links. Each compilation holds the whole RMF as amended by
+ * every resolution the DOF published until then, and marks each regla an amendment changed with
+ * that amendment's DOF date; the amendments themselves only quote the changed paragraphs. The page
+ * lists the compilations oldest first, beside those of the annexes.
+ */
+function latestRmfCompilation(page: string) {
+  const pattern = new RegExp(`documentos${RMF_YEAR}/rmf/compiladas/Compilado_[^"]+\\.pdf`, "gu");
+  const compilations = [...page.matchAll(pattern)]
+    .map((match) => match[0])
+    .filter((path) => !/Anexo/iu.test(path));
+  const latest = compilations.at(-1);
+  if (!latest) throw new Error(`${RMF_PAGE} no longer links a compiled RMF`);
+  return `${RMF_SITE}/${latest}`;
+}
+
 function run(command: string, commandArgs: string[], options: { readonly cwd?: string } = {}) {
   try {
     return execFileSync(command, commandArgs, {
       cwd: options.cwd,
       encoding: "utf8",
+      // The compiled RMF converts to a few MB of Markdown, past the 1 MB default.
+      maxBuffer: 64 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (error) {
@@ -112,6 +137,18 @@ function pdfGuide(id: "anexo20" | "pagos", src: SatSource, path: string) {
   return [write(meta.file, `${meta.title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`)];
 }
 
+function rmfCompilation(src: SatSource, path: string) {
+  const info = run("pdfinfo", [path]);
+  const pages = /^Pages:\s+(\d+)/mu.exec(info)?.[1] ?? "?";
+  const markdown = rmfCompilationMarkdown(run("markitdown", [path]));
+  const header = provenanceHeader({
+    source: src,
+    format: `PDF, ${pages} pages, the SAT's compilation of the RMF and its amendments, last modified by the SAT ${src.publishedAt ?? "unknown"}; the page footers are left out`,
+  });
+  const title = `# Resolución Miscelánea Fiscal para ${RMF_YEAR} (compilación del SAT)`;
+  return [write(RMF_FILE, `${title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`)];
+}
+
 /** The PDF's own modification date, ISO; the guides carry no date in their file names. */
 function pdfDate(path: string) {
   const info = run("pdfinfo", ["-isodates", path]);
@@ -120,11 +157,13 @@ function pdfDate(path: string) {
 
 async function main() {
   const page = new TextDecoder("utf-8").decode(await download(ANEXO_20_PAGE));
+  const rmfPage = new TextDecoder("utf-8").decode(await download(RMF_PAGE));
   const urls: Record<SourceId, string> = {
     anexo20: linked(page, /Anexo_20_Guia_de_llenado_CFDI\.pdf/u),
     pagos: `${DOCUMENTS}/Guia_llenado_pagos.pdf`,
     matrix: linked(page, /MatrizDeErrores_CFDI_v40_\d{8}\.xls/u),
     catalogs: linked(page, /catCFDI_V_4_\d{8}\.xls/u),
+    rmf: latestRmfCompilation(rmfPage),
   };
   const previous = (
     existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : {}
@@ -142,11 +181,13 @@ async function main() {
     console.log(`${same ? "unchanged" : "CHANGED  "} ${id} ${url} ${hash}`);
     if (!same) changed += 1;
     if (args.has("--check") || (same && !args.has("--force"))) continue;
-    const pdf = id === "anexo20" || id === "pagos";
+    const pdf = id === "anexo20" || id === "pagos" || id === "rmf";
     const src = source(url, bytes, pdf ? pdfDate(path) : fileNameDate(url));
     let outputs: string[];
-    if (pdf) {
+    if (id === "anexo20" || id === "pagos") {
       outputs = pdfGuide(id, src, path);
+    } else if (id === "rmf") {
+      outputs = rmfCompilation(src, path);
     } else if (id === "matrix") {
       const sheet = [...workbookSheets(path, work).values()][0];
       if (!sheet) throw new Error("The error matrix has no sheet");
@@ -194,7 +235,8 @@ async function main() {
   }
   write("sources.json", `${JSON.stringify(manifest, null, 2)}\n`);
   // From the repository root, where oxfmt finds the repository's formatting settings. Twice: the
-  // guides' broken PDF tables settle only on the second pass.
+  // guides' broken PDF tables settle only on the second pass. The RMF is in `ignorePatterns`: its
+  // numbered lines (`1. Contraseña…`) read as Markdown lists, which oxfmt renumbers.
   const formatted = [...written, "sources.json"].map((file) => join(OUT, file));
   for (let pass = 0; pass < 2; pass += 1) {
     run("pnpm", ["exec", "oxfmt", ...formatted], { cwd: ROOT });

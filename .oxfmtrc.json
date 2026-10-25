@@ -16,6 +16,7 @@
     ".claude/skills/token-mapping/**",
     ".agents/skills/ui-review/**",
     ".claude/skills/ui-review/**",
-    "pnpm-lock.yaml"
+    "pnpm-lock.yaml",
+    "docs/sat-md/resolucion-miscelanea-fiscal-*.md"
   ]
 }
