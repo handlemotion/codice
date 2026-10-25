@@ -23,19 +23,25 @@ the Worker by name (service binding `CODICE`), so it keeps working through every
 
 ## Steps
 
-1. **Repository settings.** Ruleset on `main`: pull request required, squash merge, required check
+1. **Repository settings** (apps done: the Cloudflare Workers app reads this repository and the
+   Claude app pushes to it; the `main` ruleset is for a repository admin). Ruleset on `main`: pull request required, squash merge, required check
    `Checks` (`ci.yml`). Install the Cloudflare Workers and Claude GitHub apps on `trstv/codice`.
-2. **Freeze and sync.** Stop Códice changes in Transitive. Compare Transitive's `apps/codice` and
+2. **Freeze and sync** (done 2026-10-25: `trstv/codice#3` ports `trstv/transitive#2764`; Transitive's
+   `apps/codice/AGENTS.md` marks it frozen). Stop Códice changes in Transitive. Compare Transitive's `apps/codice` and
    `docs/sat-md` with `apps/api` and `docs/sat-md` here (only the package names and paths may
    differ) and port anything that landed since the copy.
-3. **Move the Git build.** On the `codice` Worker's build settings: repository `trstv/codice`,
+3. **Move the Git build** (done 2026-10-25: triggers "codice production (trstv/codice main)" and
+   "codice previews (trstv/codice branches)"; the Transitive trigger is deleted, and
+   `trstv/transitive#2768` drops its watch paths; `SENTRY_AUTH_TOKEN` comes from Doppler `codice` `prd`). On the `codice` Worker's build settings: repository `trstv/codice`,
    production branch `main`, root directory `apps/api`, deploy command
    `pnpm run deploy:production`, non-production branches `pnpm exec wrangler versions upload`,
    build variables `SENTRY_ORG` = `jaantonio` and `SENTRY_AUTH_TOKEN`. Watch paths: include
    `apps/api/*`, `packages/*` and the root install inputs (`package.json`, `pnpm-lock.yaml`,
    `pnpm-workspace.yaml`); exclude `*.md` and test files. Remove `codice` from Transitive's
    `scripts/workers-build-watch-paths.mjs` in the same change.
-4. **First deploy from here.** Merge a PR here and check `cf builds list`,
+4. **First deploy from here** (done 2026-10-25: a manual build of `main` `5e3a430` deployed version
+   `a6945917`, migrations step ran with none pending, source maps uploaded; that release is named
+   `main`, the next merge names it by commit). Merge a PR here and check `cf builds list`,
    `cf workers versions list` and `cf workers deployments list` for `codice`, that the D1
    migrations step ran, and that the Sentry release for the commit has source maps.
 5. **Corpus workflow.** Create the Doppler identity (`docs/operations/doppler-secrets.md`), set the

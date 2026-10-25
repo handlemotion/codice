@@ -10,14 +10,14 @@ where they differ. Explicit user instructions override every repository file.
 
 ## Cutover status
 
-This repository is a copy of `apps/codice` from `trstv/transitive`. Until the cutover in
-`docs/operations/cutover.md` is done, `trstv/transitive` is the source of truth and the only
-repository that deploys, syncs secrets or runs the corpus workflow. Here:
+This repository is Códice's source of truth: it builds and deploys the Worker `codice` (cutover
+steps 2–4 of `docs/operations/cutover.md`, 2026-10-25), and `trstv/transitive` `apps/codice` is
+frozen. Transitive still runs the corpus workflow and the `SENTRY_DSN` sync until steps 5 and 6.
+Here:
 
-- Never connect a Cloudflare Git build, sync Worker secrets, run `ingest` against production or
-  enable the corpus workflow before the cutover step that says so.
-- A change that lands in `trstv/transitive` `apps/codice` or `docs/sat-md` before cutover is ported
-  here in the same shape, so the two stay identical.
+- Never sync Worker secrets, run `ingest` against production from a workflow, or enable the corpus
+  workflow before the cutover step that says so.
+- Make every Códice change here. Transitive's copy is removed in step 7.
 
 ## Layout
 
@@ -72,7 +72,7 @@ Regenerate these with their tool; never hand-edit them:
 - Pull requests target `main` and need the `Checks` job of `ci.yml` green.
 - Create branches, commit, push, and open or update pull requests on your own once local checks
   pass. Before each push run `pnpm check`, `pnpm check-types` and `pnpm test`.
-- After cutover a merge to `main` is the production delivery event: the Cloudflare Git build runs
+- A merge to `main` is the production delivery event: the Cloudflare Git build runs
   `deploy:production` (D1 migrations, version upload with source maps, deploy). Merge only when the
   user asks for that PR. Never run `wrangler deploy` or upload a local build.
 
