@@ -11,7 +11,7 @@
  *   pnpm --filter @codice/api eval --instance codice-bge-m3   a comparison instance
  *
  * Runs under Doppler `codice` `dev`, whose `CODICE_AI_SEARCH_TOKEN` has AI Search Run and Read only;
- * without it, `CLOUDFLARE_API_TOKEN`. About 50 queries a run.
+ * without it, `CLOUDFLARE_API_TOKEN`. About 150 queries a run.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -47,7 +47,8 @@ if (minTop3 !== undefined && !Number.isInteger(minTop3)) {
   throw new Error("--min-top3 is a whole number of questions");
 }
 
-type Question = { readonly q: string; readonly expect: readonly string[] };
+/** `kind` narrows the search to one passage kind, as a caller would for a definition question. */
+type Question = { readonly q: string; readonly expect: readonly string[]; readonly kind?: string };
 
 function token() {
   const value = process.env.CODICE_AI_SEARCH_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN;
@@ -108,6 +109,7 @@ async function main() {
         searchRequest({
           q: question.q,
           asOf,
+          kind: question.kind,
           limit: DEPTH,
           keywordMatchMode: match,
           rerankingThreshold,

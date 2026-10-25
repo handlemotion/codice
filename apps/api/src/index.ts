@@ -104,6 +104,7 @@ app.get("/v1/search", async (context) =>
       q: context.req.query("q"),
       asOf: context.req.query("asOf"),
       source: context.req.query("source"),
+      kind: context.req.query("kind"),
       limit: context.req.query("limit"),
     }),
   ),

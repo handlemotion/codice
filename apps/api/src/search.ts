@@ -15,6 +15,8 @@ export const SEARCH_LIMIT_DEFAULT = 5;
  * eval scores best (SPEC.md, "Retrieval eval"). Each result still carries its reranking score.
  */
 export const RERANKING_THRESHOLD = 0;
+/** The passage kinds (SPEC.md, "Items"); Phase 0 holds `guia` (the filling guides) and `anexo`. */
+export const PASSAGE_KINDS = ["ley", "reglamento", "regla", "anexo", "guia", "criterio"] as const;
 /** AI Search returns at most 50 results. */
 export const SEARCH_LIMIT_MAX = 50;
 
@@ -55,6 +57,8 @@ export type SearchInput = {
   readonly asOf: number;
   /** A source id, the passages' AI Search folder, such as `anexo-20-guia-de-llenado`. */
   readonly source?: string;
+  /** A passage kind (SPEC.md, "Items"), such as `guia` for the filling guides' definitions. */
+  readonly kind?: string;
   readonly limit: number;
   /** Overrides the instance's keyword match mode; the retrieval eval compares both. */
   readonly keywordMatchMode?: "and" | "or";
@@ -62,7 +66,7 @@ export type SearchInput = {
   readonly rerankingThreshold?: number;
 };
 
-/** The `search()` request: the question, the validity filter, and the source when given. */
+/** The `search()` request: the question, the validity filter, and the source and kind when given. */
 export function searchRequest(input: SearchInput) {
   return {
     messages: [{ role: "user" as const, content: input.q }],
@@ -72,6 +76,7 @@ export function searchRequest(input: SearchInput) {
           valid_from: { $lte: input.asOf },
           valid_until: { $gte: input.asOf },
           ...(input.source ? { folder: `${input.source}/` } : {}),
+          ...(input.kind ? { kind: input.kind } : {}),
         },
         max_num_results: input.limit,
         // AI Search otherwise answers a retrieval failure with no chunks, which reads as "no rule

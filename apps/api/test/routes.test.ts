@@ -242,6 +242,22 @@ describe("GET /v1/search", () => {
     ]);
   });
 
+  it("filters on a passage kind", async () => {
+    const calls: SearchCall[] = [];
+    const response = await request(
+      "/v1/search?q=ObjetoImp&asOf=2026-06-01&kind=guia",
+      fakeSearch([CHUNK], calls),
+    );
+
+    expect(response.status).toBe(200);
+    expect(calls[0]?.ai_search_options?.retrieval?.filters).toEqual({
+      valid_from: { $lte: 20260601 },
+      valid_until: { $gte: 20260601 },
+      kind: "guia",
+    });
+    expect(await response.json()).toMatchObject({ data: { source: null, kind: "guia" } });
+  });
+
   it("returns each chunk as a verbatim quote with validity, score and source provenance", async () => {
     const response = await request("/v1/search?q=CFDI40149", undefined, {
       "x-request-id": "ray-1",
@@ -252,6 +268,7 @@ describe("GET /v1/search", () => {
         query: "CFDI40149",
         asOf: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/u),
         source: null,
+        kind: null,
         results: [
           {
             passageId: "matriz-de-errores-cfdi-40/cfdi40149.md",
@@ -277,6 +294,7 @@ describe("GET /v1/search", () => {
     ["/v1/search", "`q` is required."],
     ["/v1/search?q=x&asOf=2026-02-30", "`asOf` must be a date as YYYY-MM-DD."],
     ["/v1/search?q=x&limit=100", "`limit` must be a whole number from 1 to 50."],
+    ["/v1/search?q=x&kind=nota", "`kind` is one of ley, reglamento, regla, anexo, guia, criterio."],
   ])("refuses %s", async (path, detail) => {
     const response = await request(path);
 

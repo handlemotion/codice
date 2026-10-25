@@ -134,7 +134,7 @@ await env.CODICE_SEARCH.search({
       filters: {
         valid_from: { $lte: asOf },
         valid_until: { $gte: asOf },
-        // optional: folder: "rmf-2026/", authority: "SAT"
+        // optional: folder: "rmf-2026/", kind: "guia", authority: "SAT"
       },
       max_num_results: limit,
     },
@@ -210,14 +210,14 @@ Responses use the repo envelope (`{ data, meta: { requestId } }`, `apiJson` in `
 errors are `application/problem+json`. Every response, including `/health` and `/ready`, carries
 `x-request-id`: the caller's when it is 1–128 characters, else a new UUID.
 
-| Method and path                          | Backed by                                        |
-| ---------------------------------------- | ------------------------------------------------ |
-| `GET /v1/search?q=&asOf=&source=&limit=` | AI Search `search()` + D1 `sources`              |
-| `GET /v1/passages/:id`                   | D1 `passages` + AI Search Items API + D1 sources |
-| `GET /v1/sources`, `/v1/sources/:id`     | D1 `sources`                                     |
-| `GET /v1/errors/:code`                   | D1 `error_codes`                                 |
-| `GET /v1/catalogs/:name`                 | D1 `catalog_entries`                             |
-| `GET /v1/catalogs/:name/:key?<column>=`  | D1 `catalog_entries`                             |
+| Method and path                                | Backed by                                        |
+| ---------------------------------------------- | ------------------------------------------------ |
+| `GET /v1/search?q=&asOf=&source=&kind=&limit=` | AI Search `search()` + D1 `sources`              |
+| `GET /v1/passages/:id`                         | D1 `passages` + AI Search Items API + D1 sources |
+| `GET /v1/sources`, `/v1/sources/:id`           | D1 `sources`                                     |
+| `GET /v1/errors/:code`                         | D1 `error_codes`                                 |
+| `GET /v1/catalogs/:name`                       | D1 `catalog_entries`                             |
+| `GET /v1/catalogs/:name/:key?<column>=`        | D1 `catalog_entries`                             |
 
 The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them their input.
 
@@ -264,13 +264,13 @@ entrypoint (`src/index.ts`; contract `@codice/contracts`, mirrored by Transitive
 
 ## MCP surface (`/mcp`)
 
-| Tool             | Arguments                      | Handler, as                   |
-| ---------------- | ------------------------------ | ----------------------------- |
-| `search`         | `q`, `asOf`, `source`, `limit` | `GET /v1/search`              |
-| `read_passage`   | `id`                           | `GET /v1/passages/:id`        |
-| `lookup_error`   | `code`                         | `GET /v1/errors/:code`        |
-| `lookup_catalog` | `name`, `key`, `where`         | `GET /v1/catalogs/:name/:key` |
-| `list_sources`   | none                           | `GET /v1/sources`             |
+| Tool             | Arguments                              | Handler, as                   |
+| ---------------- | -------------------------------------- | ----------------------------- |
+| `search`         | `q`, `asOf`, `source`, `kind`, `limit` | `GET /v1/search`              |
+| `read_passage`   | `id`                                   | `GET /v1/passages/:id`        |
+| `lookup_error`   | `code`                                 | `GET /v1/errors/:code`        |
+| `lookup_catalog` | `name`, `key`, `where`                 | `GET /v1/catalogs/:name/:key` |
+| `list_sources`   | none                                   | `GET /v1/sources`             |
 
 Each is a thin call to the same handler as `/v1` and returns its `data` as `structuredContent` (and
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
@@ -361,10 +361,10 @@ fetch source → sha256 → unchanged? stop
   `codice/sat-md-refresh` (one at a time; it waits while that PR is open), then dispatches the
   required checks onto it, since a PR opened with `GITHUB_TOKEN` starts no workflows. Job `ingest`
   ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item), then runs
-  `eval --min-top3 48` when a passage was uploaded or deleted, or when a manual run asks for it
+  `eval --min-top3 142` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~50 AI Search queries.
+  runs on pull requests: each run spends ~150 AI Search queries.
 
 ## Cost
 
@@ -392,7 +392,7 @@ Queries are the only cost that grows; the per-client rate limit bounds it.
   tests check request shaping and response mapping; they are not evidence of retrieval.
 - **Retrieval eval:** a fixed question set, each with the passage it must return in the top 3,
   run against the real instance (start from the rules in `docs/sat-md/README.md`). It decides the
-  tokenizer, match mode and embedding model, and runs after every ingestion change. ~50 questions
+  tokenizer, match mode and embedding model, and runs after every ingestion change. ~150 questions
   per run stays inside the free query allowance. `pnpm --filter @codice/api eval`
   (`scripts/eval.ts`, questions in `scripts/eval-questions.json`) sends the Worker's own request;
   `--match or` overrides the match mode for one run. Results: [Retrieval eval](#retrieval-eval).
@@ -476,6 +476,50 @@ to rank 4 (qwen) and 8 (bge-m3), behind the `TotalRetencionesISR` rules.
 Two stale items of the old split (`nodo-trasladop-importep-15`, `nodo-en-base`) are still in
 `codice`: AI Search answers their deletion with 429 `ai_search_instance_overloaded`. The next
 `ingest` deletes them; neither appears in a top 3 of the runs above.
+
+### 150 questions and the `kind` filter (2026-10-25)
+
+The question set grew from 50 to 150. The 100 new questions cover the catalogs (through the guide
+passages and matrix rows that quote each one: catalogs are D1 records, not passages), the Pagos 2.0
+guide (nodes and the appendix 6 questions) and the error matrix; 34 of them are worded the way an
+accountant who does not know the field names would ask (_"¿Cuánto tiempo tengo para hacer el
+complemento de pago después de que me pagan?"_). Each expected passage was read before it was
+chosen, and none was changed after a run.
+
+`kind` filters on the passages' `kind` metadata (`guia` for the two filling guides, `anexo` for the
+matrix). `/v1/search`, the MCP `search` tool and `CodiceKnowledge.search` take it as an optional
+parameter; the eval sends it for a question that carries `kind`. Only the definition question
+_"¿Qué significa el atributo ObjetoImp del concepto?"_ carries `kind: "guia"`: a caller asking what
+a field means sets it, and the matrix rows that name the field no longer outrank its definition.
+Same instance settings as above (`trigram`, `and`, threshold 0, qwen, 1,024).
+
+| Questions | `kind` filter             | Top 3   | Top 1   | MRR@10    |
+| --------- | ------------------------- | ------- | ------- | --------- |
+| 150       | none (before)             | 141     | 121     | 0.869     |
+| 150       | **`guia` on `ObjetoImp`** | **142** | **122** | **0.874** |
+
+The "after" row ran twice with the same result. A first "before" run scored 139 (119, 0.856): AI
+Search answered two questions with no results at all, and both ranked first on every later run.
+
+Decisions:
+
+- **`kind` filter** (adopted): `ObjetoImp` went from rank 6 to rank 1, and no other question
+  changed.
+- **Eval floor 142 of 150** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
+
+The eight misses left, none fixed by changing expected passages:
+
+- _"¿Cuándo es obligatorio el tipo de cambio en un CFDI en dólares?"_ (rank 9), as above.
+- _"TotalImpuestosRetenidos no es igual a la suma de los importes de las retenciones"_ (rank 4):
+  the Pagos `ImporteP` rule and `CFDI40211` share the wording.
+- _"El sello del comprobante no es válido"_ (rank 7): Anexo 20 question 35 and the `NoCertificado` passages outrank `CFDI40102`.
+- No expected passage in the top 10: _"El timbrado me rechazó con CFDI40161, ¿qué significa?"_
+  (the neighbouring codes `CFDI40162` and `CFDI40160` rank above it), _"¿Qué ClaveProdServ lleva el concepto
+  del CFDI con complemento para recepción de pagos?"_, _"El código postal de mi cliente no aparece
+  en el catálogo del SAT, ¿qué pongo en la factura?"_ (Anexo 20 question 29 sits inside the long
+  `apendice-7-pregunta-25-2` passage), _"Si la factura ya estaba pagada cuando la emití, ¿también
+  tengo que hacer complemento de pago?"_ and _"¿Cómo hago una nota de crédito que aplique a varias
+  facturas?"_. Four of the eight are plain-language questions.
 
 ## Infrastructure
 
@@ -581,7 +625,7 @@ to match.
    syncs `SENTRY_DSN` from `codice` `prd` to the Worker (done), for Sentry project `codice-api`.
    Still to do: the build's source-map token (Go-live checklist, step 5).
 2. **Scheduled ingestion** (workflow in place, not yet run). `codice-corpus.yml` checks the SAT,
-   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 48 of 50 (see
+   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 142 of 150 (see
    [Ingestion](#ingestion)). Its credentials exist and its identity ID is pinned; tick this off
    after the first green `workflow_dispatch` run from `main`.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
@@ -592,8 +636,9 @@ to match.
    service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
    (`sections.ts`) live here, in `scripts/`.
 6. **Better passages** (done 2026-10-25: Códice's splitter, 48 of 50; bge-m3 compared and not
-   adopted; see [Retrieval eval](#retrieval-eval)). Next: grow the question set, and try a `kind`
-   filter for definition questions (the `ObjetoImp` miss).
+   adopted; see [Retrieval eval](#retrieval-eval)). The question set grew to 150 and search
+   took an optional `kind` filter (done 2026-10-25, 142 of 150). Next: the misses listed under
+   "150 questions and the `kind` filter".
 7. **Large catalogs** (done; loaded remotely and the NOCASE index `0002` applied, 2026-10-25). `c_ClaveProdServ`,
    `c_ClaveUnidad`, `c_CodigoPostal`, `c_Colonia`, `c_Localidad`, `c_Municipio`,
    `c_NumPedimentoAduana` and `c_PatenteAduanal` load into D1 `catalog_entries` (see

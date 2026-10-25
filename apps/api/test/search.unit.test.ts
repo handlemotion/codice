@@ -83,6 +83,15 @@ describe("searchRequest", () => {
       keyword_match_mode: "or",
     });
   });
+
+  it("narrows to a passage kind", () => {
+    const request = searchRequest({ q: "x", asOf: 20261024, limit: 3, kind: "guia" });
+    expect(request.ai_search_options.retrieval.filters).toEqual({
+      valid_from: { $lte: 20261024 },
+      valid_until: { $gte: 20261024 },
+      kind: "guia",
+    });
+  });
 });
 
 describe("searchResults", () => {

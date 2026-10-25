@@ -12,6 +12,7 @@ import {
 } from "./records";
 import {
   parseAsOf,
+  PASSAGE_KINDS,
   SEARCH_LIMIT_DEFAULT,
   SEARCH_LIMIT_MAX,
   searchRequest,
@@ -38,6 +39,7 @@ export type SearchParameters = {
   readonly q?: string | undefined;
   readonly asOf?: string | undefined;
   readonly source?: string | undefined;
+  readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
 };
 
@@ -60,6 +62,10 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   if (asOf === null) throw invalid("`asOf` must be a date as YYYY-MM-DD.");
   const source = parameters.source?.trim() || undefined;
   if (source && !SOURCE.test(source)) throw invalid("`source` is not a source id.");
+  const kind = parameters.kind?.trim() || undefined;
+  if (kind && !(PASSAGE_KINDS as readonly string[]).includes(kind)) {
+    throw invalid(`\`kind\` is one of ${PASSAGE_KINDS.join(", ")}.`);
+  }
   const limit =
     parameters.limit === undefined || parameters.limit === ""
       ? SEARCH_LIMIT_DEFAULT
@@ -67,7 +73,7 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   if (!Number.isInteger(limit) || limit < 1 || limit > SEARCH_LIMIT_MAX) {
     throw invalid(`\`limit\` must be a whole number from 1 to ${SEARCH_LIMIT_MAX}.`);
   }
-  return { q, asOf, source, limit };
+  return { q, asOf, source, kind, limit };
 }
 
 /** Searches the passages in force on `asOf` and adds each result's source provenance. */
@@ -89,6 +95,7 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     query: input.q,
     asOf: isoDate(input.asOf),
     source: input.source ?? null,
+    kind: input.kind ?? null,
     results: results.map((result) => {
       const source = provenance.get(result.source);
       return {
