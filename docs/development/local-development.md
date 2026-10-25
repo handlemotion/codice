@@ -70,3 +70,11 @@ curl https://codice.local.transitive.app/mcp \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search","arguments":{"q":"CFDI40149"}}}'
 ```
+
+## Troubleshooting
+
+- **`Exec format error (os error 8)` from turbo**: pnpm self-installed its `packageManager`
+  version without its native binary. `bash scripts/ensure-pnpm-native.sh` puts it in place (the
+  cloud SessionStart hook runs it).
+- **A proxy answers `502` for `*.local.transitive.app`**: exempt the host from the egress proxy
+  (`NO_PROXY=.local.transitive.app`, or `curl --noproxy '*'`).
