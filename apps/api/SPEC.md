@@ -361,7 +361,7 @@ fetch source → sha256 → unchanged? stop
   `codice/sat-md-refresh` (one at a time; it waits while that PR is open), then dispatches the
   required checks onto it, since a PR opened with `GITHUB_TOKEN` starts no workflows. Job `ingest`
   ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item), then runs
-  `eval --min-top3 142` when a passage was uploaded or deleted, or when a manual run asks for it
+  `eval --min-top3 140` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
   runs on pull requests: each run spends ~150 AI Search queries.
@@ -505,7 +505,9 @@ Decisions:
 
 - **`kind` filter** (adopted): `ObjetoImp` went from rank 6 to rank 1, and no other question
   changed.
-- **Eval floor 142 of 150** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
+- **Eval floor 140 of 150** (`codice-corpus.yml`, `EVAL_MIN_TOP3`): the recorded 142, less 2 so
+  one or two empty answers from AI Search, as in the first "before" run, do not fail the corpus
+  run. A real regression of three questions still does.
 
 The eight misses left, none fixed by changing expected passages:
 
@@ -625,7 +627,7 @@ to match.
    syncs `SENTRY_DSN` from `codice` `prd` to the Worker (done), for Sentry project `codice-api`.
    Still to do: the build's source-map token (Go-live checklist, step 5).
 2. **Scheduled ingestion** (workflow in place, not yet run). `codice-corpus.yml` checks the SAT,
-   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 142 of 150 (see
+   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 140 of 150 (see
    [Ingestion](#ingestion)). Its credentials exist and its identity ID is pinned; tick this off
    after the first green `workflow_dispatch` run from `main`.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
