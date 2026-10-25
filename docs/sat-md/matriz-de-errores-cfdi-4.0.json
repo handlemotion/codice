@@ -1,0 +1,1043 @@
+{
+  "source": {
+    "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/MatrizDeErrores_CFDI_v40_20260325.xls",
+    "sha256": "bdc350035c7ed720af5be15509e01d0bda7c12cec4ad9797b0c34f889c1140a7",
+    "publishedAt": "2026-03-25",
+    "retrievedAt": "2026-10-21"
+  },
+  "title": "Matriz de códigos de error para el Comprobante fiscal digital por Internet. Versión 4.0",
+  "codes": [
+    {
+      "number": "1",
+      "element": "Comprobante",
+      "attribute": "Fecha",
+      "validation": "Este debe cumplir con el patrón (20[1-9][0-9])-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T(([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]) y debe corresponder con la hora local donde se expide el comprobante.",
+      "code": "CFDI40101",
+      "message": "El campo Fecha no cumple con el patrón requerido."
+    },
+    {
+      "number": "2",
+      "element": "Comprobante",
+      "attribute": "Sello",
+      "validation": "Desencriptar el contenido de este atributo usando el certificado incluido en el atributo \"Certificado\". Generar la cadena original del comprobante. Aplicar el algoritmo de digestión SHA-256. El resultado de la digestión debe ser igual al resultado de la desencripción del sello.",
+      "code": "CFDI40102",
+      "message": "El resultado de la digestión debe ser igual al resultado de la desencripción del sello."
+    },
+    {
+      "number": "3",
+      "element": "Comprobante",
+      "attribute": "FormaPago",
+      "validation": "Atributo condicional para expresar la clave de la forma de pago de los bienes o servicios amparados por el comprobante.",
+      "code": "CFDI40103",
+      "message": "Si existe el tipo de comprobante T, N o P el campo FormaPago no debe existir."
+    },
+    {
+      "number": "4",
+      "element": "Comprobante",
+      "attribute": "FormaPago",
+      "validation": "Este atributo, debe contener un valor del catálogo c_FormaPago.",
+      "code": "CFDI40104",
+      "message": "El campo FormaPago no contiene un valor del catálogo c_FormaPago."
+    },
+    {
+      "number": "5",
+      "element": "Comprobante",
+      "attribute": "FormaPago",
+      "validation": "Este atributo debe contener el valor “99” cuando el atributo MetodoPago contenga el valor “PPD”.",
+      "code": "CFDI40105",
+      "message": "El campo FormaPago no contiene el valor \"99\"."
+    },
+    {
+      "number": "6",
+      "element": "Comprobante",
+      "attribute": "Certificado",
+      "validation": "El atributo debe contener un archivo .cer válido.",
+      "code": "CFDI40106",
+      "message": "EL certificado no cumple con alguno de los valores permitidos."
+    },
+    {
+      "number": "7",
+      "element": "Comprobante",
+      "attribute": "SubTotal",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40107",
+      "message": "El valor de este campo SubTotal excede la cantidad de decimales que soporta la moneda."
+    },
+    {
+      "number": "8",
+      "element": "Comprobante",
+      "attribute": "SubTotal",
+      "validation": "Cuando el TipoDeComprobante sea I, E o N, el importe registrado en el atributo debe ser igual al redondeo de la suma de los importes de los conceptos registrados.",
+      "code": "CFDI40108",
+      "message": "El TipoDeComprobante es I,E o N, el importe registrado en el campo no es igual al redondeo de la suma de los importes de los conceptos registrados."
+    },
+    {
+      "number": "9",
+      "element": "Comprobante",
+      "attribute": "SubTotal",
+      "validation": "Si el comprobante es T o P el importe debe ser 0, o cero con decimales.",
+      "code": "CFDI40109",
+      "message": "El TipoDeComprobante es T o P y el importe no es igual a 0, o cero con decimales."
+    },
+    {
+      "number": "10",
+      "element": "Comprobante",
+      "attribute": "Descuento",
+      "validation": "El valor registrado debe ser menor o igual que el atributo Subtotal.",
+      "code": "CFDI40110",
+      "message": "El valor registrado en el campo Descuento no es menor o igual que el campo Subtotal."
+    },
+    {
+      "number": "11",
+      "element": "Comprobante",
+      "attribute": "Descuento",
+      "validation": "Cuando el TipoDeComprobante sea I, E o N y algún concepto incluya el atributo Descuento, debe existir este atributo y debe ser igual al redondeo de la suma de los atributos Descuento registrados en los conceptos; en otro caso se debe omitir este atributo.",
+      "code": "CFDI40111",
+      "message": "El TipoDeComprobante no es I,E o N, y un concepto incluye el campo descuento."
+    },
+    {
+      "number": "12",
+      "element": "Comprobante",
+      "attribute": "Descuento",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40112",
+      "message": "El valor del campo Descuento excede la cantidad de decimales que soporta la moneda."
+    },
+    {
+      "number": "13",
+      "element": "Comprobante",
+      "attribute": "Moneda",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Moneda.",
+      "code": "CFDI40113",
+      "message": "El campo Moneda no contiene un valor del catálogo c_Moneda."
+    },
+    {
+      "number": "14",
+      "element": "Comprobante",
+      "attribute": "TipoCambio",
+      "validation": "Si este atributo es MXN, puede omitirse el atributo TipoCambio, pero si se incluye, debe tener el valor \"1\".",
+      "code": "CFDI40114",
+      "message": "El campo TipoCambio no tiene el valor \"1\" y la moneda indicada es MXN."
+    },
+    {
+      "number": "15",
+      "element": "Comprobante",
+      "attribute": "TipoCambio",
+      "validation": "Este atributo es requerido cuando el atributo Moneda tenga un valor distinto de MXN y XXX.",
+      "code": "CFDI40115",
+      "message": "El campo TipoCambio se debe registrar cuando el campo Moneda tiene un valor distinto de MXN y XXX."
+    },
+    {
+      "number": "16",
+      "element": "Comprobante",
+      "attribute": "TipoCambio",
+      "validation": "Este atributo no se debe registrar cuando el atributo Moneda tenga el valor XXX.",
+      "code": "CFDI40116",
+      "message": "El campo TipoCambio no se debe registrar cuando el campo Moneda tiene el valor XXX."
+    },
+    {
+      "number": "17",
+      "element": "Comprobante",
+      "attribute": "TipoCambio",
+      "validation": "Este atributo debe cumplir con el patrón [0-9]{1,18}(.[0-9]{1,6})?.",
+      "code": "CFDI40117",
+      "message": "El campo TipoCambio no cumple con el patrón requerido."
+    },
+    {
+      "number": "18",
+      "element": "Comprobante",
+      "attribute": "TipoCambio",
+      "validation": "Si el valor de este atributo está fuera del porcentaje aplicable a la moneda tomado del catálogo c_Moneda, el emisor debe obtener del PAC que vaya a timbrar el CFDI, de manera no automática, una clave de confirmación para ratificar que el valor es correcto e integrar dicha clave en el atributo Confirmacion.",
+      "code": "CFDI40118",
+      "message": "Cuando el valor del campo TipoCambio se encuentre fuera de los límites establecidos, debe existir el campo Confirmacion."
+    },
+    {
+      "number": "19",
+      "element": "Comprobante",
+      "attribute": "Total",
+      "validation": "Atributo requerido para representar la suma del subtotal, menos los descuentos aplicables, más las contribuciones recibidas (impuestos trasladados - federales y/o locales, derechos, productos, aprovechamientos, aportaciones de seguridad social, contribuciones de mejoras) menos los impuestos retenidos y/o locales.",
+      "code": "CFDI40119",
+      "message": "El campo Total no corresponde con la suma del subtotal, menos los descuentos aplicables, más las contribuciones recibidas (impuestos trasladados - federales o locales, derechos, productos, aprovechamientos, aportaciones de seguridad social, contribuciones de mejoras) menos los impuestos retenidos y/o locales."
+    },
+    {
+      "number": "20",
+      "element": "Comprobante",
+      "attribute": "Total",
+      "validation": "Si el valor es superior al límite que establezca el SAT en la Resolución Miscelánea Fiscal vigente, el emisor debe obtener del PAC que vaya a timbrar el CFDI, de manera no automática, una clave de confirmación para ratificar que el valor es correcto e integrar dicha clave en el atributo Confirmacion.",
+      "code": "CFDI40120",
+      "message": "Cuando el valor del campo Total se encuentre fuera de los límites establecidos, debe existir el campo Confirmacion."
+    },
+    {
+      "number": "21",
+      "element": "Comprobante",
+      "attribute": "TipoDeComprobante",
+      "validation": "Este atributo, debe contener un valor del catálogo c_TipoDeComprobante.",
+      "code": "CFDI40121",
+      "message": "El campo TipoDeComprobante, no contiene un valor del catálogo c_TipoDeComprobante."
+    },
+    {
+      "number": "22",
+      "element": "Comprobante",
+      "attribute": "Exportacion",
+      "validation": "Atributo requerido para expresar si el comprobante ampara una operación de exportación.",
+      "code": "CFDI40122",
+      "message": "El campo Exportacion contiene el valor \"02\", el CFDI debe contener el complemento para Comercio Exterior."
+    },
+    {
+      "number": "23",
+      "element": "Comprobante",
+      "attribute": "Exportacion",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Exportacion.",
+      "code": "CFDI40123",
+      "message": "El campo Exportacion no contiene un valor del catálogo c_Exportacion."
+    },
+    {
+      "number": "24",
+      "element": "Comprobante",
+      "attribute": "MetodoPago",
+      "validation": "Este atributo, debe contener un valor del catálogo c_MetodoPago.",
+      "code": "CFDI40124",
+      "message": "El campo MetodoPago, no contiene un valor del catálogo c_MetodoPago."
+    },
+    {
+      "number": "25",
+      "element": "Comprobante",
+      "attribute": "MetodoPago",
+      "validation": "Se debe omitir el atributo MetodoPago cuando el TipoDeComprobante es T o P.",
+      "code": "CFDI40125",
+      "message": "Se debe omitir el campo MetodoPago cuando el TipoDeComprobante es T o P."
+    },
+    {
+      "number": "26",
+      "element": "Comprobante",
+      "attribute": "LugarExpedicion",
+      "validation": "Este atributo, debe contener un valor del catálogo c_CodigoPostal.",
+      "code": "CFDI40126",
+      "message": "El campo LugarExpedicion, no contiene un valor del catálogo c_CodigoPostal."
+    },
+    {
+      "number": "27",
+      "element": "Comprobante",
+      "attribute": "Confirmacion",
+      "validation": "Este atributo no debe existir cuando los atributos TipoCambio y/o Total están dentro del rango permitido.",
+      "code": "CFDI40127",
+      "message": "El campo Confirmacion no debe existir cuando los campos TipoCambio y/o Total están dentro del rango permitido."
+    },
+    {
+      "number": "28",
+      "element": "Comprobante",
+      "attribute": "Confirmacion",
+      "validation": "El Proveedor de Certificación debe verificar que el emisor le haya solicitado esta clave de confirmación.",
+      "code": "CFDI40128",
+      "message": "Número de confirmación inválido."
+    },
+    {
+      "number": "29",
+      "element": "Comprobante",
+      "attribute": "Confirmacion",
+      "validation": "El Proveedor de Certificación debe verificar que la clave de confirmación no se utilice en más de un comprobante.",
+      "code": "CFDI40129",
+      "message": "Número de confirmación utilizado previamente."
+    },
+    {
+      "number": "30",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "",
+      "validation": "Este Nodo debe existir siempre que el atributo TipoDeComprobante sea “I”, y el atributo Rfc del nodo receptor contiene el valor \"XAXX010101000\" y el valor del atributo Nombre del nodo Receptor contiene el valor “PUBLICO EN GENERAL”.",
+      "code": "CFDI40130",
+      "message": "Cuando el tipo de comprobante sea Ingreso y el campo Rfc del nodo receptor corresponda al valor \"XAXX010101000\" y el campo Nombre del nodo Receptor contenga la descripción “PUBLICO EN GENERAL”, el nodo Información Global debe existir."
+    },
+    {
+      "number": "31",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "Periodicidad",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Periodicidad",
+      "code": "CFDI40131",
+      "message": "El campo Periodicidad, no contiene un valor del catálogo c_Periodicidad."
+    },
+    {
+      "number": "32",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "Periodicidad",
+      "validation": "Cuando el valor de este atributo contenga la clave “05” el atributo RegimenFiscal debe contener el valor “621”.",
+      "code": "CFDI40132",
+      "message": "El campo RegimenFiscal, no contiene el valor 621"
+    },
+    {
+      "number": "33",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "Meses",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Meses",
+      "code": "CFDI40133",
+      "message": "El campo Meses, no contiene un valor del catálogo c_Meses."
+    },
+    {
+      "number": "34",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "Meses",
+      "validation": "Si el atributo Periodicidad contiene un valor diferente de “05”, este atributo debe contener alguno de los valores “01”, “02”, “03”, “04”, “05”, “06”, “07”, “08”, “09”, “10”, “11”, \"12\".",
+      "code": "CFDI40134",
+      "message": "El campo Meses, no contiene alguno de los valores “01”, “02”, “03”, “04”, “05”, “06”, “07”, “08”, “09”, “10”, “11” o \"12\"."
+    },
+    {
+      "number": "35",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "Meses",
+      "validation": "Si el atributo Periodicidad contiene el valor “05”, este atributo debe contener alguno de los valores “13”, “14”, “15”, “16”, “17” o “18”.",
+      "code": "CFDI40135",
+      "message": "El campo Meses, no contiene alguno de los valores “13”, “14”, “15”, “16”, “17” o “18”."
+    },
+    {
+      "number": "36",
+      "element": "cfdi:InformacionGlobal",
+      "attribute": "Año",
+      "validation": "Atributo requerido para expresar el año al que corresponde la información del comprobante global.",
+      "code": "CFDI40136",
+      "message": "El valor registrado en el campo Año, no es igual al año en curso o no contiene un valor de hasta 5 ejercicios anteriores."
+    },
+    {
+      "number": "37",
+      "element": "cfdi:CfdiRelacionados",
+      "attribute": "TipoRelacion",
+      "validation": "Este atributo, debe contener un valor del catálogo c_TipoRelacion.",
+      "code": "CFDI40137",
+      "message": "El campo TipoRelacion, no contiene un valor del catálogo c_TipoRelacion."
+    },
+    {
+      "number": "38",
+      "element": "cfdi:Emisor",
+      "attribute": "Nombre",
+      "validation": "Este atributo, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT.",
+      "code": "CFDI40138",
+      "message": "El campo Nombre del emisor, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT."
+    },
+    {
+      "number": "39",
+      "element": "cfdi:Emisor",
+      "attribute": "Nombre",
+      "validation": "Este atributo, debe pertenecer al nombre asociado al RFC registrado en el atributo Rfc del Nodo Emisor.",
+      "code": "CFDI40139",
+      "message": "El campo Nombre del emisor, debe pertenecer al nombre asociado al RFC registrado en el campo Rfc del Emisor."
+    },
+    {
+      "number": "40",
+      "element": "cfdi:Emisor",
+      "attribute": "RegimenFiscal",
+      "validation": "Este atributo, debe contener un valor del catálogo c_RegimenFiscal.",
+      "code": "CFDI40140",
+      "message": "El campo RegimenFiscal, no contiene un valor del catálogo c_RegimenFiscal."
+    },
+    {
+      "number": "41",
+      "element": "cfdi:Emisor",
+      "attribute": "RegimenFiscal",
+      "validation": "El régimen fiscal que se registre en este atributo debe corresponder con el tipo de persona del emisor.",
+      "code": "CFDI40141",
+      "message": "La clave del campo RegimenFiscal debe corresponder con el tipo de persona (fisica o moral)."
+    },
+    {
+      "number": "42",
+      "element": "cfdi:Emisor",
+      "attribute": "FacAtrAdquirente",
+      "validation": "Este atributo, debe contener el número de operación siempre que la respuesta del servicio del Validador de RFC para emitir facturas a través del adquirente, sea en sentido positivo.",
+      "code": "CFDI40142",
+      "message": "El campo FacAtrAdquirente, no contiene un número de operación valido."
+    },
+    {
+      "number": "43",
+      "element": "cfdi:Receptor",
+      "attribute": "Rfc",
+      "validation": "Cuando no se utilice un RFC genérico, el RFC debe estar en la lista de RFC inscritos no cancelados en el SAT.",
+      "code": "CFDI40143",
+      "message": "Este RFC del receptor no existe en la lista de RFC inscritos no cancelados del SAT."
+    },
+    {
+      "number": "44",
+      "element": "cfdi:Receptor",
+      "attribute": "Nombre",
+      "validation": "Este atributo, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT.",
+      "code": "CFDI40144",
+      "message": "El campo Nombre del receptor, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT."
+    },
+    {
+      "number": "45",
+      "element": "cfdi:Receptor",
+      "attribute": "Nombre",
+      "validation": "Este atributo, debe pertenecer al nombre asociado al RFC registrado en el atributo Rfc del Nodo Receptor.",
+      "code": "CFDI40145",
+      "message": "El campo Nombre del receptor, debe pertenecer al nombre asociado al RFC registrado en el campo Rfc del Receptor."
+    },
+    {
+      "number": "46",
+      "element": "cfdi:Receptor",
+      "attribute": "Nombre",
+      "validation": "Si el valor registrado en este atributo es “PUBLICO EN GENERAL”, el valor del atributo RFC del receptor debe ser “XAXX010101000”.",
+      "code": "CFDI40146",
+      "message": "El campo RFC del receptor debe contener el valor \"XAXX010101000\"."
+    },
+    {
+      "number": "47",
+      "element": "cfdi:Receptor",
+      "attribute": "DomicilioFiscalReceptor",
+      "validation": "Este atributo, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT.",
+      "code": "CFDI40147",
+      "message": "El campo DomicilioFiscalReceptor del receptor, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT."
+    },
+    {
+      "number": "48",
+      "element": "cfdi:Receptor",
+      "attribute": "DomicilioFiscalReceptor",
+      "validation": "Este atributo, debe pertenecer al nombre asociado al RFC registrado en el atributo Rfc del Nodo Receptor.",
+      "code": "CFDI40148",
+      "message": "El campo DomicilioFiscalReceptor del receptor, debe pertenecer al nombre asociado al RFC registrado en el campo Rfc del Receptor."
+    },
+    {
+      "number": "49",
+      "element": "cfdi:Receptor",
+      "attribute": "DomicilioFiscalReceptor",
+      "validation": "Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
+      "code": "CFDI40149",
+      "message": "El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion."
+    },
+    {
+      "number": "50",
+      "element": "cfdi:Receptor",
+      "attribute": "ResidenciaFiscal",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Pais.",
+      "code": "CFDI40150",
+      "message": "El campo ResidenciaFiscal, no contiene un valor del catálogo c_Pais."
+    },
+    {
+      "number": "51",
+      "element": "cfdi:Receptor",
+      "attribute": "ResidenciaFiscal",
+      "validation": "Si el RFC del receptor es de un RFC registrado en el SAT o un RFC genérico nacional, este atributo NO debe existir.",
+      "code": "CFDI40151",
+      "message": "El RFC del receptor es de un RFC registrado en el SAT o un RFC genérico nacional y existe el campo ResidenciaFiscal."
+    },
+    {
+      "number": "52",
+      "element": "cfdi:Receptor",
+      "attribute": "ResidenciaFiscal",
+      "validation": "El valor del atributo no puede ser MEX.",
+      "code": "CFDI40152",
+      "message": "El valor del campo ResidenciaFiscal no puede ser MEX."
+    },
+    {
+      "number": "53",
+      "element": "cfdi:Receptor",
+      "attribute": "ResidenciaFiscal",
+      "validation": "Si el RFC del receptor es un RFC genérico extranjero y el comprobante incluye el complemento de comercio exterior, o se registró el atributo NumRegIdTrib, este atributo debe existir.",
+      "code": "CFDI40153",
+      "message": "Se debe registrar un valor de acuerdo al catálogo c_Pais en en el campo ResidenciaFiscal, cuando en el en el campo NumRegIdTrib se registre información."
+    },
+    {
+      "number": "54",
+      "element": "cfdi:Receptor",
+      "attribute": "NumRegIdTrib",
+      "validation": "Si el valor del atributo es un RFC inscrito no cancelado en el SAT o un RFC genérico nacional, no se debe registrar este atributo.",
+      "code": "CFDI40154",
+      "message": "El valor del campo es un RFC inscrito no cancelado en el SAT o un RFC genérico nacional, y se registró el campo NumRegIdTrib."
+    },
+    {
+      "number": "55",
+      "element": "cfdi:Receptor",
+      "attribute": "NumRegIdTrib",
+      "validation": "Si el RFC del receptor es un RFC genérico extranjero y el comprobante incluye el complemento de comercio exterior, debe existir este atributo.",
+      "code": "CFDI40155",
+      "message": "Para registrar el campo NumRegIdTrib, el CFDI debe contener el complemento de comercio exterior y el RFC del receptor debe ser un RFC genérico extranjero."
+    },
+    {
+      "number": "56",
+      "element": "cfdi:Receptor",
+      "attribute": "NumRegIdTrib",
+      "validation": "Este atributo debe cumplir con el patrón correspondiente incluido en la columna “Formato de Registro de Identidad Tributaria” que publique en el catalogo de C_Pais.",
+      "code": "CFDI40156",
+      "message": "El campo NumRegIdTrib no cumple con el patrón correspondiente."
+    },
+    {
+      "number": "57",
+      "element": "cfdi:Receptor",
+      "attribute": "RegimenFiscalReceptor",
+      "validation": "Este atributo, debe contener un valor del catálogo c_RegimenFiscal.",
+      "code": "CFDI40157",
+      "message": "El campo RegimenFiscalR, no contiene un valor del catálogo c_RegimenFiscal."
+    },
+    {
+      "number": "58",
+      "element": "cfdi:Receptor",
+      "attribute": "RegimenFiscalReceptor",
+      "validation": "El régimen fiscal que se registre en este atributo debe corresponder con el tipo de persona del receptor.",
+      "code": "CFDI40158",
+      "message": "La clave del campo RegimenFiscalR debe corresponder con el tipo de persona (física o moral)."
+    },
+    {
+      "number": "59",
+      "element": "cfdi:Receptor",
+      "attribute": "RegimenFiscalReceptor",
+      "validation": "Si el atributo Rfc del Receptor contiene el valor “XAXX010101000” o el valor “XEXX010101000” en este atributo se debe registrar la clave “616”",
+      "code": "CFDI40159",
+      "message": "La clave del campo RegimenFiscalR no corresponde de acuerdo al RFC del receptor."
+    },
+    {
+      "number": "60",
+      "element": "cfdi:Receptor",
+      "attribute": "UsoCFDI",
+      "validation": "Este atributo, debe contener un valor del catálogo c_UsoCFDI.",
+      "code": "CFDI40160",
+      "message": "El campo UsoCFDI, no contiene un valor del catálogo c_UsoCFDI."
+    },
+    {
+      "number": "61",
+      "element": "cfdi:Receptor",
+      "attribute": "UsoCFDI",
+      "validation": "El valor que se registre en este atributo debe aplicar para el tipo de persona del receptor y el régimen correspondiente conforme al catálogo c_UsoCFDI.",
+      "code": "CFDI40161",
+      "message": "La clave del campo UsoCFDI debe corresponder con el tipo de persona (física o moral) y el régimen correspondiente conforme al catálogo c_UsoCFDI."
+    },
+    {
+      "number": "62",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ClaveProdServ",
+      "validation": "Este atributo, debe contener un valor del catálogo c_ClaveProdServ.",
+      "code": "CFDI40162",
+      "message": "El campo ClaveProdServ, no contiene un valor del catálogo c_ClaveProdServ."
+    },
+    {
+      "number": "63",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ClaveProdServ",
+      "validation": "Deben existir los complementos que señale el catálogo c_ClaveProdServ aplicables para este atributo.",
+      "code": "CFDI40163",
+      "message": "No existe el complemento requerido para el valor de ClaveProdServ."
+    },
+    {
+      "number": "64",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ClaveProdServ",
+      "validation": "Deben existir los impuestos trasladados y/o retenidos que señale el catálogo c_ClaveProdServ aplicables para este atributo.",
+      "code": "CFDI40164",
+      "message": "No está declarado el impuesto relacionado con el valor de ClaveProdServ."
+    },
+    {
+      "number": "65",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ClaveUnidad",
+      "validation": "Este atributo, debe contener un valor del catálogo c_ClaveUnidad.",
+      "code": "CFDI40165",
+      "message": "El campo ClaveUnidad no contiene un valor del catálogo c_ClaveUnidad."
+    },
+    {
+      "number": "66",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ValorUnitario",
+      "validation": "El valor de este atributo debe ser mayor que cero (0) cuando el tipo de comprobante es Ingreso, Egreso o Nomina.",
+      "code": "CFDI40166",
+      "message": "El valor valor del campo ValorUnitario debe ser mayor que cero (0) cuando el tipo de comprobante es Ingreso, Egreso o Nomina."
+    },
+    {
+      "number": "67",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "Importe",
+      "validation": "El valor de este atributo debe ser mayor o igual que el límite inferior y menor o igual que el límite superior.",
+      "code": "CFDI40167",
+      "message": "El valor del campo Importe no se encuentra entre el limite inferior y superior permitido."
+    },
+    {
+      "number": "68",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "Descuento",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que se tengan registrados en el atributo Importe del concepto.",
+      "code": "CFDI40168",
+      "message": "El valor del campo Descuento no contiene la misma cantidad de decimales registrados en el campo Importe del concepto."
+    },
+    {
+      "number": "69",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "Descuento",
+      "validation": "El valor registrado debe ser menor o igual al atributo Importe.",
+      "code": "CFDI40169",
+      "message": "El valor del campo Descuento es mayor que el campo Importe."
+    },
+    {
+      "number": "70",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ObjetoImp",
+      "validation": "Este atributo, debe contener un valor del catálogo c_ObjetoImp.",
+      "code": "CFDI40170",
+      "message": "El campo ObjetoImp, no contiene un valor del catálogo c_ObjetoImp."
+    },
+    {
+      "number": "71",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ObjetoImp",
+      "validation": "Si este atributo contiene el valor \"02\" el nodo hijo Impuestos del nodo concepto debe existir.",
+      "code": "CFDI40171",
+      "message": "El nodo concepto, no contiene el nodo hijo Impuestos."
+    },
+    {
+      "number": "72",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ObjetoImp",
+      "validation": "Si este atributo contiene el valor \"01\", \"03\", \"04\" o \"05\", el nodo hijo Impuestos del nodo Concepto no debe existir.",
+      "code": "CFDI40172",
+      "message": "El nodo hijo Impuestos del nodo Concepto, no debe existir."
+    },
+    {
+      "number": "73",
+      "element": "cfdi:Conceptos/Concepto:Impuestos",
+      "attribute": "Impuestos",
+      "validation": "En caso de utilizar el nodo Impuestos en un concepto, se deben incluir impuestos de traslado y/o retenciones.",
+      "code": "CFDI40173",
+      "message": "En caso de utilizar el nodo Impuestos en un concepto, se deben incluir impuestos de traslado y/o retenciones."
+    },
+    {
+      "number": "74",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "Base",
+      "validation": "El valor debe ser mayor que cero.",
+      "code": "CFDI40174",
+      "message": "El valor del campo Base que corresponde a Traslado debe ser mayor que cero."
+    },
+    {
+      "number": "75",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "Impuesto",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Impuesto.",
+      "code": "CFDI40175",
+      "message": "El valor del campo Impuesto que corresponde a Traslado no contiene un valor del catálogo c_Impuesto."
+    },
+    {
+      "number": "76",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "TipoFactor",
+      "validation": "Este atributo, debe contener un valor del catálogo c_TipoFactor.",
+      "code": "CFDI40176",
+      "message": "El valor del campo TipoFactor que corresponde a Traslado no contiene un valor del catálogo c_TipoFactor."
+    },
+    {
+      "number": "77",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "TipoFactor",
+      "validation": "Si el valor registrado es Exento no se deben registrar los atributos TasaOCuota ni Importe.",
+      "code": "CFDI40177",
+      "message": "Si el valor registrado en el campo TipoFactor que corresponde a Traslado es Exento no se deben registrar los campos TasaOCuota ni Importe."
+    },
+    {
+      "number": "78",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "TipoFactor",
+      "validation": "Si el valor registrado es Tasa o Cuota, se deben registrar los atributos TasaOCuota e Importe.",
+      "code": "CFDI40178",
+      "message": "Si el valor registrado en el campo TipoFactor que corresponde a Traslado es Tasa o Cuota, se deben registrar los campos TasaOCuota e Importe."
+    },
+    {
+      "number": "79",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "TasaOCuota",
+      "validation": "Si el valor registrado es fijo debe corresponder a un valor del catálogo c_TasaOCuota, coincidir con el tipo de impuesto registrado en el atributo Impuesto y el factor debe corresponder con el atributo TipoFactor.",
+      "code": "CFDI40179",
+      "message": "El valor del campo TasaOCuota que corresponde a Traslado no contiene un valor del catálogo c_TasaOcuota o se encuentra fuera de rango."
+    },
+    {
+      "number": "80",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado",
+      "attribute": "Importe",
+      "validation": "El valor de este atributo debe ser mayor o igual que el límite inferior y menor o igual que el límite superior.",
+      "code": "CFDI40180",
+      "message": "El valor del campo Importe o que corresponde a Traslado no se encuentra entre el limite inferior y superior permitido."
+    },
+    {
+      "number": "81",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "Base",
+      "validation": "El valor debe ser mayor que cero.",
+      "code": "CFDI40181",
+      "message": "El valor del campo Base que corresponde a Retención debe ser mayor que cero."
+    },
+    {
+      "number": "82",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "Impuesto",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Impuesto.",
+      "code": "CFDI40182",
+      "message": "El valor del campo Impuesto que corresponde a Retención no contiene un valor del catálogo c_Impuesto."
+    },
+    {
+      "number": "83",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "TipoFactor",
+      "validation": "Este atributo, debe contener un valor del catálogo c_TipoFactor.",
+      "code": "CFDI40183",
+      "message": "El valor del campo TipoFactor que corresponde a Retención no contiene un valor del catálogo c_TipoFactor."
+    },
+    {
+      "number": "84",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "TipoFactor",
+      "validation": "El valor registrado debe ser distinto de Exento.",
+      "code": "CFDI40184",
+      "message": "Si el valor registrado en el campo TipoFactor que corresponde a Retención debe ser distinto de Exento."
+    },
+    {
+      "number": "85",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "TasaOCuota",
+      "validation": "Si el valor registrado es fijo debe corresponder a un valor del catálogo c_TasaOCuota, coincidir con el tipo de impuesto registrado en el atributo Impuesto y el factor debe corresponder con el atributo TipoFactor.",
+      "code": "CFDI40185",
+      "message": "El valor del campo TasaOCuota que corresponde a Retención, no contiene un valor del catálogo c_TasaOcuota o se encuentra fuera de rango."
+    },
+    {
+      "number": "86",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "Importe",
+      "validation": "El valor de este atributo debe ser mayor o igual que el límite inferior y menor o igual que el límite superior.",
+      "code": "CFDI40186",
+      "message": "El valor del campo Importe que corresponde a Retención no se encuentra entre el limite inferior y superior permitido."
+    },
+    {
+      "number": "87",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "RfcACuentaTerceros",
+      "validation": "Si el valor de este atributo, es distinto de “EXT990101NI1”, debe encontrarse en la lista l_LCO.",
+      "code": "CFDI40187",
+      "message": "El valor registrado en el campo RfcACuentaTerceros, no se encuentra en la lista l_LCO."
+    },
+    {
+      "number": "88",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "RfcACuentaTerceros",
+      "validation": "El valor registrado en este atributo deber ser diferente al valor registrado en los atributos Rfc de los nodos  Emisor y Receptor.",
+      "code": "CFDI40188",
+      "message": "El valor del campo RfcACuentaTerceros, debe ser diferente de los valores de los campos Rfc del Emisor y Receptor."
+    },
+    {
+      "number": "89",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "NombreACuentaTerceros",
+      "validation": "Si el valor del atributo RfcACuentaTerceros es distinto de “EXT990101NI1\", debe encontrarse en la lista de RFC inscritos no cancelados en el SAT, en otro caso debe contener la descripción “EXPEDICIÓN DE CFDI POR RESIDENTES EN MÉXICO QUE PRESTAN SERVICIOS DE INTERMEDIACIÓN ENTRE TERCEROS A OFERENTES DE BIENES Y SERVICIOS RESIDENTES EN EL EXTRANJERO”.",
+      "code": "CFDI40189",
+      "message": "El valor registrado debe encontrarse en la lista de RFC inscritos no cancelados en el SAT, en otro caso debe contener la descripción “EXPEDICIÓN DE CFDI POR RESIDENTES EN MÉXICO QUE PRESTAN SERVICIOS DE INTERMEDIACIÓN ENTRE TERCEROS A OFERENTES DE BIENES Y SERVICIOS RESIDENTES EN EL EXTRANJERO”."
+    },
+    {
+      "number": "90",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "NombreACuentaTerceros",
+      "validation": "Este atributo, debe pertenecer al nombre asociado al RFC registrado en el atributo Rfc del Nodo ACuentaTerceros.",
+      "code": "CFDI40190",
+      "message": "El campo NombreACuentaTerceros, debe pertenecer al nombre asociado al RFC registrado en el campo Rfc del tercero."
+    },
+    {
+      "number": "91",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "RegimenFiscalACuentaTerceros",
+      "validation": "Este atributo, debe contener un valor del catálogo c_RegimenFiscal.",
+      "code": "CFDI40191",
+      "message": "El campo RegimenFiscalACuentaTerceros, no contiene un valor del catálogo c_RegimenFiscal."
+    },
+    {
+      "number": "92",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "DomicilioFiscalACuentaTerceros",
+      "validation": "El valor de este atributo debe encontrarse en la lista de RFC inscritos no cancelados en el SAT.",
+      "code": "CFDI40192",
+      "message": "El valor registrado en el atributo DomicilioFiscalACuentaTerceros, debe encontrarse en la lista de RFC inscritos no cancelados en el SAT."
+    },
+    {
+      "number": "93",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "DomicilioFiscalACuentaTerceros",
+      "validation": "El valor de este atributo, debe pertenecer al nombre asociado al RFC registrado en el atributo RfcACuentaTerceros del Nodo ACuentaTerceros, en caso de que el valor del atributo RfcACuentaTerceros sea \"EXT990101NI1\", el valor registrado en éste atributo debe ser igual al valor del atributo \"LugarExpedicion\".",
+      "code": "CFDI40193",
+      "message": "El valor registrado en el atributo DomicilioFiscalACuentaTerceros, debe pertenecer al nombre asociado al RFC registrado en el campo Rfc del tercero, o debe ser igual al valor del atributo \"LugarExpedicion\"."
+    },
+    {
+      "number": "94",
+      "element": "cfdi:Conceptos/Concepto:InformacionAduanera",
+      "attribute": "NumeroPedimento",
+      "validation": "Este atributo, debe cumplir con las reglas de validación definidas.",
+      "code": "CFDI40194",
+      "message": "El número de pedimento es inválido."
+    },
+    {
+      "number": "95",
+      "element": "cfdi:Conceptos/Concepto:InformacionAduanera",
+      "attribute": "NumeroPedimento",
+      "validation": "El NumeroPedimento no debe existir si se incluye el complemento de comercio exterior.",
+      "code": "CFDI40195",
+      "message": "El NumeroPedimento no debe existir si se incluye el complemento de comercio exterior."
+    },
+    {
+      "number": "96",
+      "element": "cfdi:Conceptos/Concepto:Parte",
+      "attribute": "ClaveProdServ",
+      "validation": "Este atributo, debe contener un valor del catálogo c_ClaveProdServ.",
+      "code": "CFDI40196",
+      "message": "El campo ClaveProdServ, no contiene un valor del catálogo c_ClaveProdServ."
+    },
+    {
+      "number": "97",
+      "element": "cfdi:Conceptos/Concepto:Parte",
+      "attribute": "ValorUnitario",
+      "validation": "El valor de este atributo debe ser mayor que cero (0).",
+      "code": "CFDI40197",
+      "message": "El valor del campo ValorUnitario debe ser mayor que cero (0)."
+    },
+    {
+      "number": "98",
+      "element": "cfdi:Conceptos/Concepto:Parte",
+      "attribute": "Importe",
+      "validation": "El valor de este atributo debe ser mayor o igual que el límite inferior y menor o igual que el límite superior.",
+      "code": "CFDI40198",
+      "message": "El valor del campo Importe no se encuentra entre el limite inferior y superior permitido."
+    },
+    {
+      "number": "99",
+      "element": "cfdi:Conceptos/Concepto:Parte:InformacionAduanera",
+      "attribute": "NumeroPedimento",
+      "validation": "Este atributo, debe cumplir con las reglas de validación definidas.",
+      "code": "CFDI40199",
+      "message": "El número de pedimento es inválido."
+    },
+    {
+      "number": "100",
+      "element": "cfdi:Conceptos/Concepto:Parte:InformacionAduanera",
+      "attribute": "NumeroPedimento",
+      "validation": "El NumeroPedimento no debe existir si se incluye el complemento de comercio exterior.",
+      "code": "CFDI40200",
+      "message": "El NumeroPedimento no debe existir si se incluye el complemento de comercio exterior."
+    },
+    {
+      "number": "101",
+      "element": "cfdi:Impuestos",
+      "attribute": "Impuestos",
+      "validation": "Cuando el TipoDeComprobante sea T o P, este elemento no debe existir.",
+      "code": "CFDI40201",
+      "message": "Cuando el TipoDeComprobante sea T o P, el elemento Impuestos no debe existir."
+    },
+    {
+      "number": "102",
+      "element": "cfdi:Impuestos",
+      "attribute": "TotalImpuestosRetenidos",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40202",
+      "message": "El valor del campo TotalImpuestosRetenidos debe tener hasta la cantidad de decimales que soporte la moneda."
+    },
+    {
+      "number": "103",
+      "element": "cfdi:Impuestos",
+      "attribute": "TotalImpuestosRetenidos",
+      "validation": "El valor de este atributo debe ser igual a la suma de los importes registrados en el elemento hijo Retencion.",
+      "code": "CFDI40203",
+      "message": "El valor del campo TotalImpuestosRetenidos debe ser igual a la suma de los importes registrados en el elemento hijo Retencion."
+    },
+    {
+      "number": "104",
+      "element": "cfdi:Impuestos",
+      "attribute": "TotalImpuestosTrasladados",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40204",
+      "message": "El valor del campo TotalImpuestosTrasladados debe tener hasta la cantidad de decimales que soporte la moneda."
+    },
+    {
+      "number": "105",
+      "element": "cfdi:Impuestos",
+      "attribute": "TotalImpuestosTrasladados",
+      "validation": "El valor de este atributo debe ser igual a la suma de los importes registrados en el elemento hijo Traslado.",
+      "code": "CFDI40205",
+      "message": "El valor del campo TotalImpuestosTrasladados no es igual a la suma de los importes registrados en el elemento hijo Traslado."
+    },
+    {
+      "number": "106",
+      "element": "cfdi:Impuestos:Retenciones",
+      "attribute": "Retenciones",
+      "validation": "Debe existir el atributo TotalImpuestosRetenidos.",
+      "code": "CFDI40206",
+      "message": "Debe existir el campo TotalImpuestosRetenidos."
+    },
+    {
+      "number": "107",
+      "element": "cfdi:Impuestos:Retenciones/Retencion",
+      "attribute": "Impuesto",
+      "validation": "Es atributo, debe contener un valor del catálogo c_Impuesto.",
+      "code": "CFDI40207",
+      "message": "El campo Impuesto no contiene un valor del catálogo c_Impuesto."
+    },
+    {
+      "number": "108",
+      "element": "cfdi:Impuestos:Retenciones/Retencion",
+      "attribute": "Impuesto",
+      "validation": "Debe haber sólo un registro por cada tipo de impuesto retenido.",
+      "code": "CFDI40208",
+      "message": "Debe haber sólo un registro por cada tipo de impuesto retenido."
+    },
+    {
+      "number": "109",
+      "element": "cfdi:Impuestos:Retenciones/Retencion",
+      "attribute": "Importe",
+      "validation": "Debe existir el atributo TotalImpuestosRetenidos.",
+      "code": "CFDI40209",
+      "message": "Debe existir el campo TotalImpuestosRetenidos."
+    },
+    {
+      "number": "110",
+      "element": "cfdi:Impuestos:Retenciones/Retencion",
+      "attribute": "Importe",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40210",
+      "message": "El valor del campo Importe correspondiente a Retención debe tener hasta la cantidad de decimales que soporte la moneda."
+    },
+    {
+      "number": "111",
+      "element": "cfdi:Impuestos:Retenciones/Retencion",
+      "attribute": "Importe",
+      "validation": "Debe ser igual al redondeo de la suma de los importes de los impuestos retenidos registrados en los conceptos donde el impuesto sea igual al atributo impuesto de este elemento.",
+      "code": "CFDI40211",
+      "message": "El campo Importe correspondiente a Retención no es igual al redondeo de la suma de los importes de los impuestos retenidos registrados en los conceptos donde el impuesto sea igual al campo impuesto de este elemento."
+    },
+    {
+      "number": "112",
+      "element": "cfdi:Impuestos:Traslados",
+      "attribute": "Traslados",
+      "validation": "Debe existir el atributo TotalImpuestosTrasladados, cuando existan conceptos con un TipoFactor distinto a Exento.",
+      "code": "CFDI40212",
+      "message": "Debe existir el campo TotalImpuestosTrasladados."
+    },
+    {
+      "number": "113",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Traslado",
+      "validation": "En el caso de que sólo existan conceptos con TipoFactor Exento, en este nodo solo deben existir los atributos Base, Impuesto y TipoFactor.",
+      "code": "CFDI40213",
+      "message": "Deben exitir los campos Base, Impuesto y TipoFactor"
+    },
+    {
+      "number": "114",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Base",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40214",
+      "message": "El valor del campo Importe correspondiente a Traslado debe tener hasta la cantidad de decimales que soporte la moneda."
+    },
+    {
+      "number": "115",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Base",
+      "validation": "Debe ser igual al redondeo de la suma de los importes de los atributos Base trasladados registrados en los conceptos donde el impuesto del concepto sea igual al atributo impuesto de este elemento y la TasaOCuota del concepto sea igual al atributo TasaOCuota de este elemento.",
+      "code": "CFDI40215",
+      "message": "El campo Importe correspondiente a Traslado no es igual al redondeo de la suma de los importes de las bases trasladados registrados en los conceptos donde el impuesto del concepto sea igual al campo impuesto de este elemento y la TasaOCuota del concepto sea igual al campo TasaOCuota de este elemento."
+    },
+    {
+      "number": "116",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Base",
+      "validation": "En caso de que solo existan conceptos con TipoFactor Exento, la suma de este atributo debe ser igual al redondeo de la suma de los importes de los atributos Base registrados en los conceptos.",
+      "code": "CFDI40216",
+      "message": "El importe del campo Base correspondiente a Traslado no es igual al redondeo de la suma de los importes de las bases trasladados registrados en los conceptos."
+    },
+    {
+      "number": "117",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Impuesto",
+      "validation": "Este atributo, debe contener un valor del catálogo c_Impuesto.",
+      "code": "CFDI40217",
+      "message": "El campo Impuesto no contiene un valor del catálogo c_Impuesto."
+    },
+    {
+      "number": "118",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Impuesto",
+      "validation": "Debe haber sólo un registro con la misma combinación de impuesto, factor y tasa por cada traslado.",
+      "code": "CFDI40218",
+      "message": "Debe haber sólo un registro con la misma combinación de impuesto, factor y tasa por cada traslado."
+    },
+    {
+      "number": "119",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "TasaOCuota",
+      "validation": "El valor seleccionado debe corresponder a un valor del catalogo donde la columna impuesto corresponda con el atributo impuesto y la columna factor corresponda con el atributo TipoFactor.",
+      "code": "CFDI40219",
+      "message": "El valor seleccionado debe corresponder a un valor del catalogo donde la columna impuesto corresponda con el campo impuesto y la columna factor corresponda con el campo TipoFactor."
+    },
+    {
+      "number": "120",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Importe",
+      "validation": "El valor de este atributo debe tener hasta la cantidad de decimales que soporte la moneda.",
+      "code": "CFDI40220",
+      "message": "El valor del campo Importe correspondiente a Traslado debe tener hasta la cantidad de decimales que soporte la moneda."
+    },
+    {
+      "number": "121",
+      "element": "cfdi:Impuestos:Traslados/Traslado",
+      "attribute": "Importe",
+      "validation": "Debe ser igual al redondeo de la suma de los importes de los impuestos trasladados registrados en los conceptos donde el impuesto del concepto sea igual al atributo impuesto de este elemento y la TasaOCuota del concepto sea igual al atributo TasaOCuota de este elemento.",
+      "code": "CFDI40221",
+      "message": "El campo Importe correspondiente a Traslado no es igual al redondeo de la suma de los importes de los impuestos trasladados registrados en los conceptos donde el impuesto del concepto sea igual al campo impuesto de este elemento y la TasaOCuota del concepto sea igual al campo TasaOCuota de este elemento."
+    },
+    {
+      "number": "122",
+      "element": "Comprobante",
+      "attribute": "Exportacion",
+      "validation": "Cuando el atributo Exportacion contenga la clave “01” o “03” del catálogo de CFDI c_Exportacion, el complemento de Comercio Exterior no debe existir.",
+      "code": "CFDI40222",
+      "message": "El complemento de Comercio Exterior no debe existir cuando el campo Exportacion contenga un valor igual a \"01\" o “03” del catálogo de CFDI c_Exportacion."
+    },
+    {
+      "number": "123",
+      "element": "cfdi:Conceptos/Concepto:ACuentaTerceros",
+      "attribute": "RegimenFiscalACuentaTerceros",
+      "validation": "Si el atributo RfcACuentaTerceros contiene el valor “EXT990101NI1” en este atributo se debe registrar la clave “616”.",
+      "code": "CFDI140223",
+      "message": "El valor registrado en el atributo RegimenFiscalACuentaTerceros es distinto a “616”."
+    },
+    {
+      "number": "124",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "Impuesto",
+      "validation": "Si el RFC del emisor tiene la marca Retención con valor “1” en la lista de RFC inscritos no cancelados en el SAT, el atributo “RegimenFiscal” del Nodo Emisor, tiene el valor “626”, el atributo “Rfc” del Nodo “Emisor” tiene una longitud de 13 posiciones (persona física) y el atributo “Rfc” del Nodo “Receptor” tiene una longitud de 12 posiciones (persona moral). Puede existir el nodo “Retenciones” siempre que el atributo “Impuesto” del nodo “Retencion”, tenga un valor distinto de 001 (ISR).",
+      "code": "CFDI140224",
+      "message": "El valor 001 (ISR) en el atributo \"Impuesto\" del nodo hijo “Retencion” del elemento “Retenciones” a nivel Concepto no debe existir."
+    },
+    {
+      "number": "125",
+      "element": "cfdi:Conceptos/Concepto:Impuestos:Retenciones/Retencion",
+      "attribute": "Impuesto",
+      "validation": "Si el RFC del emisor tiene la marca Retención con valor “2” en la lista de RFC inscritos no cancelados en el SAT, el atributo RegimenFiscal del Nodo Emisor tiene el valor 626, el atributo “Rfc” del Nodo “Emisor” tiene una longitud de 13 posiciones (persona física) y el atributo “Rfc” del Nodo “Receptor” tiene una longitud de 12 posiciones (persona moral). Debe existir el nodo “Retenciones” con al menos un nodo hijo “Retencion”, con el valor 001 (ISR) en el atributo “Impuesto” y en el atributo “TasaOCuota” se debe registrar el valor 0.0125.",
+      "code": "CFDI140225",
+      "message": "Debe existir el valor 001 (ISR) y en el atributo “TasaOCuota” se debe registrar el valor 0.0125 en el atributo “Impuesto” del nodo hijo “Retencion” del elemento “Retenciones” a nivel Concepto."
+    },
+    {
+      "number": "126",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ObjetoImp",
+      "validation": "Si este atributo contiene el valor “06\" o “08\", en el nodo hijo Impuestos del nodo Concepto no deben existir los nodos hijo “Retencion” y “Traslado” con el atributo “Impuesto” con el valor \"002\" y/o \"003\"; puede existir el nodo “Retenciones”, con al menos un nodo hijo “Retencion” con el valor \"001\" en el atributo “Impuesto”.",
+      "code": "CFDI140226",
+      "message": "Cuando en el campo ObjetoImp se registre el valor \"06\" o \"08\", los valores \"002\" (IVA) y/o \"003\" (IEPS) en el campo \"Impuesto\" de los nodo hijos “Retencion” y/o \"Traslado\" del elemento “Retenciones” y/o \"Traslados\" a nivel Concepto no deben existir."
+    },
+    {
+      "number": "127",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ObjetoImp",
+      "validation": "Si este atributo contiene el valor “07\", en el nodo hijo Impuestos del nodo Concepto no deben existir los nodos hijo “Retencion” y “Traslado” con el atributo “Impuesto” con el valor \"002\"; puede existir el nodo “Retenciones”, con al menos un nodo hijo “Retencion” con el valor \"001\" en el atributo “Impuesto”; debe existir el nodo hijo “Traslado” con el valor \"003\" en el atributo “Impuesto” y puede existir el nodo hijo \"Retencion\" con el valor \"003\" en el atributo \"Impuesto\" .",
+      "code": "CFDI140227",
+      "message": "Cuando en el campo ObjetoImp se registre el valor \"07\", el valor \"002\" (IVA) en el campo \"Impuesto\" de los nodos hijo “Retencion” y/o \"Traslado\" del elemento “Retenciones” y/o \"Traslados\" a nivel Concepto no debe existir; debe existir el valor \"003\" (IEPS) en el campo “Impuesto” del nodo hijo \"Traslado\" del elemento \"Traslados\" a nivel Concepto."
+    },
+    {
+      "number": "128",
+      "element": "cfdi:Conceptos/Concepto",
+      "attribute": "ClaveProdServ",
+      "validation": "Cuando se registre cualquiera de las siguientes claves 15101505, 15101514 o 15101515 y el TipoDeComprobante sea “I” o “E, debe existir el ”Complemento Concepto para la facturación de Hidrocarburos y Petrolíferos” por cada nodo Concepto registrado.",
+      "code": "CFDI140228",
+      "message": "Cuando el TipoDeComprobante es \"I\" o \"E\" y el campo ClaveProdServ contiene cualquiera de las claves “15101505”, “15101514” o “15101515”, el CFDI debe contener el \"Complemento Concepto para la facturación de Hidrocarburos y Petrolíferos\"."
+    },
+    {
+      "number": "129",
+      "element": "Error no clasificado",
+      "attribute": "No clasificado",
+      "validation": "Error no clasificado.",
+      "code": "CFDI40999",
+      "message": "Error no clasificado."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"${CLAUDE_CODE_REMOTE:-}\" = true ] || exit 0; log=/tmp/codice-cloud-session.log; if bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/cloud-session-start.sh\" >\"$log\" 2>&1; then echo \"codice: dependencies installed (run pnpm dev:up to start the Worker; log: $log)\"; else echo \"codice: cloud session setup FAILED (log: $log)\"; tail -n 30 \"$log\"; fi; true",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

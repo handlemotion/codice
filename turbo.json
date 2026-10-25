@@ -1,0 +1,43 @@
+{
+  "$schema": "https://v2-10-13.turborepo.dev/schema.json",
+  "ui": "tui",
+  "globalPassThroughEnv": [
+    "NODE_EXTRA_CA_CERTS",
+    "CONDUCTOR_PORT",
+    "CONDUCTOR_IS_LOCAL",
+    "NODE_ENV"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/docs/sat-md/**"],
+      "outputs": ["dist/**"]
+    },
+    "check-types": {
+      "inputs": ["**/*.{ts,tsx}"]
+    },
+    "test": {
+      "env": ["TEST_VITEST_ARGS"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest.node.config.mts",
+        "$TURBO_ROOT$/docs/sat-md/**"
+      ],
+      "outputs": []
+    },
+    "lint": {
+      "inputs": ["**/*.{ts,tsx,js,jsx,mjs,cjs}"]
+    },
+    "format": {
+      "inputs": ["**/*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,css,md,mdx}"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["DOPPLER_TOKEN", "CLOUDFLARE_API_TOKEN"]
+    },
+    "db:generate": {
+      "cache": false
+    }
+  }
+}

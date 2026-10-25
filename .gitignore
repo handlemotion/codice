@@ -1,0 +1,41 @@
+# dependencies
+node_modules
+.wrangler
+.tmp/
+
+# testing
+coverage
+
+# misc
+.DS_Store
+*.pem
+tmp/
+
+# openlogs (local dev log capture)
+.openlogs/
+
+# debug
+npm-debug.log*
+
+# local state and env files
+.local/
+.env
+.env*
+
+# turbo
+.turbo
+
+# TypeScript project-reference emit
+.tsbuild/
+*.tsbuildinfo
+
+# build output
+dist/
+
+# agent research artifacts
+.context/
+.firecrawl/
+
+# Python bytecode
+__pycache__/
+*.pyc

@@ -1,0 +1,29 @@
+{
+  "extends": "@codice/typescript-config/base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext"],
+    "types": ["./worker-configuration.d.ts", "node"],
+    "outDir": ".tsbuild",
+    "tsBuildInfoFile": ".tsbuild/tsconfig.tsbuildinfo"
+  },
+  "include": ["worker-configuration.d.ts", "src/**/*.ts", "test/**/*.ts"],
+  "exclude": [
+    ".tsbuild",
+    "node_modules",
+    "test/corpus.unit.test.ts",
+    "test/sat-knowledge.unit.test.ts",
+    "test/large-catalogs.unit.test.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/monitoring"
+    }
+  ]
+}

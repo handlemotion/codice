@@ -1,0 +1,22 @@
+packages:
+  - apps/*
+  - packages/*
+
+autoInstallPeers: true
+
+minimumReleaseAge: 1440
+
+minimumReleaseAgeExclude:
+  - "@cloudflare/workers-types"
+  - hono@4.13.2
+  - miniflare@5.20260907.0-alpha
+  - wrangler@4.129.1
+
+allowBuilds:
+  "@sentry/cli": true
+  bufferutil: false
+  core-js-pure: false
+  esbuild: true
+  lefthook: true
+  sharp: true
+  workerd: true

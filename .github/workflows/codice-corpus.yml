@@ -1,0 +1,222 @@
+# Códice corpus: keeps docs/sat-md and the Códice index current (apps/api/SPEC.md, "Ingestion").
+#
+# OFF UNTIL CUTOVER. `trstv/transitive` still runs this workflow against production. Both jobs run
+# only when the repository variable CODICE_CORPUS_ENABLED is `true`, and the schedule is commented
+# out; turn both on, and the Transitive copy off, in the same step (docs/operations/cutover.md).
+#
+# Two independent jobs, both from `main` only:
+# - sources: asks the SAT whether it published new files (`sat:knowledge --check`). When it did, it
+#   regenerates docs/sat-md and opens a pull request from `codice/sat-md-refresh`. A PR opened with
+#   GITHUB_TOKEN starts no workflows, so the job dispatches the two required checks onto its branch.
+# - ingest: loads `main`'s docs/sat-md into AI Search and D1 (`ingest`, a no-op for unchanged
+#   passages), then runs the retrieval eval when a passage changed, or on request. The eval spends
+#   ~50 AI Search queries, so it never runs on pull requests, and it fails below the top-3 result
+#   recorded in SPEC.md, "Retrieval eval". `--wait` holds the eval until AI Search has indexed
+#   every item, so it measures the new passages.
+#
+# Doppler auth holds no long-lived secret in GitHub: the job exchanges its OIDC token for a
+# short-lived Doppler token through a Service Account Identity whose subject is this repository's
+# `main`. Setup: docs/operations/doppler-secrets.md.
+name: Códice corpus
+
+on:
+  # Enable at cutover (see the header).
+  # schedule:
+  #   - cron: "23 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      eval:
+        description: Run the retrieval eval even if no passage changed (~50 AI Search queries)
+        default: false
+        type: boolean
+
+concurrency:
+  group: codice-corpus
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Top 3 of 50 recorded in apps/api/SPEC.md, "Retrieval eval". Raise it with the next record.
+  EVAL_MIN_TOP3: 47
+  REFRESH_BRANCH: codice/sat-md-refresh
+
+jobs:
+  sources:
+    name: SAT sources
+    if: github.ref == 'refs/heads/main' && vars.CODICE_CORPUS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Check the SAT for new files
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          open=$(gh pr list --head "$REFRESH_BRANCH" --state open --json url --jq '.[0].url // empty')
+          if [[ -n "$open" ]]; then
+            echo "::notice::$open is still open; merge or close it before the next refresh."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pnpm --filter @codice/api sat:knowledge --check | tee "$RUNNER_TEMP/check.log"
+          status=${PIPESTATUS[0]}
+          # `--check` exits 1 both when a file changed and on a failure; only its summary tells them apart.
+          if [[ $status -eq 0 ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          elif grep -q "SAT source(s) changed" "$RUNNER_TEMP/check.log"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            exit "$status"
+          fi
+
+      - name: Install converters
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-calc poppler-utils
+          pipx install 'markitdown[pdf]==0.1.7'
+
+      - name: Regenerate docs/sat-md and open a pull request
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pnpm --filter @codice/api sat:knowledge
+          if [[ -z "$(git status --porcelain -- docs/sat-md)" ]]; then
+            echo "::notice::The SAT files changed but the generated Markdown did not."
+            exit 0
+          fi
+          git switch -c "$REFRESH_BRANCH"
+          git add docs/sat-md
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "SAT knowledge: regenerate docs/sat-md from the SAT's new files"
+          # The branch belongs to this workflow and has no open PR (checked above): replace it.
+          git push --force origin "$REFRESH_BRANCH"
+          {
+            echo "The SAT published new files; \`sat:knowledge\` regenerated \`docs/sat-md\`."
+            echo
+            echo '```'
+            grep -E "^(CHANGED|unchanged)" "$RUNNER_TEMP/check.log"
+            echo '```'
+            echo
+            echo "Review the diff (the PDF conversion is lossy) and merge. The next Códice corpus run"
+            echo "(weekly, or run it by hand) then ingests it and runs the retrieval eval."
+            echo
+            echo "Opened by ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}."
+          } > "$RUNNER_TEMP/body.md"
+          gh pr create --base main --head "$REFRESH_BRANCH" \
+            --title "SAT knowledge: regenerate docs/sat-md" --body-file "$RUNNER_TEMP/body.md"
+          # The required check, on the PR's head commit.
+          gh workflow run ci.yml --ref "$REFRESH_BRANCH"
+
+  ingest:
+    name: Ingest and eval
+    if: github.ref == 'refs/heads/main' && vars.CODICE_CORPUS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install Doppler CLI
+        run: |
+          set -euo pipefail
+          curl -sLf --retry 3 https://cli.doppler.com/install.sh | sudo sh
+          doppler --version
+
+      - name: Doppler OIDC login
+        env:
+          # Doppler Service Account Identity on codice-corpus for trstv/codice (not a secret). The
+          # Transitive identity's subject names trstv/transitive; create this repository's identity
+          # and pin its ID here at cutover (docs/operations/doppler-secrets.md).
+          DOPPLER_IDENTITY_ID: ${{ vars.CODICE_CORPUS_DOPPLER_IDENTITY_ID }}
+        run: |
+          set -euo pipefail
+          OIDC_TOKEN=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/trstv" | jq -r .value)
+          # Claims are not secret; print the ones Doppler validates so a mismatch is diagnosable.
+          echo "$OIDC_TOKEN" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null \
+            | jq -r '"oidc sub=\(.sub) aud=\(.aud) iss=\(.iss)"' || true
+          doppler oidc login --scope=. --identity="$DOPPLER_IDENTITY_ID" --token="$OIDC_TOKEN" --no-check-version
+          doppler me --json --no-check-version | jq -r '"authenticated as \(.name // .slug)"'
+
+      # The ingestion converts catCFDI's large catalogs when the file changed (SPEC.md, "Ingestion").
+      - name: Install LibreOffice
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-calc
+
+      - name: Ingest
+        id: ingest
+        run: |
+          set -euo pipefail
+          doppler run -p codice -c prd --no-check-version -- \
+            pnpm --filter @codice/api ingest --wait | tee "$RUNNER_TEMP/ingest.log"
+          plan=$(grep -E "^AI Search: [0-9]+ to upload, [0-9]+ to delete" "$RUNNER_TEMP/ingest.log")
+          echo "$plan" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$plan" == "AI Search: 0 to upload, 0 to delete"* ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Retrieval eval
+        if: steps.ingest.outputs.changed == 'true' || inputs.eval
+        run: |
+          set -uo pipefail
+          # The package script runs under Doppler `codice` `dev` (a token that can only search).
+          pnpm --filter @codice/api eval --min-top3 "$EVAL_MIN_TOP3" \
+            | tee "$RUNNER_TEMP/eval.log"
+          status=${PIPESTATUS[0]}
+          # The last line on stdout is the run's summary: top3, top1, mrr10.
+          {
+            echo '```'
+            tail -n 1 "$RUNNER_TEMP/eval.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Doppler logout
+        if: always()
+        run: doppler oidc logout --scope=. --no-check-version || true

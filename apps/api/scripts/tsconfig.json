@@ -1,0 +1,23 @@
+{
+  "extends": "@codice/typescript-config/base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "incremental": false,
+    "noEmit": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext"],
+    "types": ["../worker-configuration.d.ts", "node"]
+  },
+  "include": [
+    "../worker-configuration.d.ts",
+    "./**/*.ts",
+    "../test/corpus.unit.test.ts",
+    "../test/sat-knowledge.unit.test.ts",
+    "../test/large-catalogs.unit.test.ts"
+  ]
+}

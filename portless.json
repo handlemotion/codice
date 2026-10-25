@@ -1,0 +1,8 @@
+{
+  "apps": {
+    "apps/api": {
+      "name": "codice.local",
+      "script": "dev:app"
+    }
+  }
+}

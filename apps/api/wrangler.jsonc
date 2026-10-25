@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codice",
+  "account_id": "2504eb0d24f17f6efbf89c1296a08389",
+  "main": "src/index.ts",
+  "minify": true,
+  "compatibility_date": "2026-08-14",
+  "compatibility_flags": ["nodejs_compat"],
+  // No route or custom domain yet: codice.io is attached only with explicit approval. See
+  // SPEC.md, "Go-live checklist".
+  "workers_dev": false,
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
+  "secrets": {
+    "required": ["SENTRY_DSN"],
+  },
+  // Hybrid search over the corpus passages (built-in storage). Instance settings: SPEC.md, "Search".
+  // AI Search does not run locally, so `wrangler dev` reaches the real instance.
+  "ai_search": [
+    {
+      "binding": "CODICE_SEARCH",
+      "instance_name": "codice",
+      "remote": true,
+    },
+  ],
+  // Structured records: CFDI error codes and SAT catalogs. Schema: src/db/schema.ts.
+  "d1_databases": [
+    {
+      "binding": "CODICE_DATABASE",
+      "database_name": "codice",
+      "database_id": "c4df9b36-a98a-4963-b43f-83b2697e195b",
+      "migrations_dir": "migrations",
+    },
+  ],
+  // Per-client limit for the public `/v1` and `/mcp` routes. SPEC.md, "Rate limiting".
+  "ratelimits": [
+    {
+      "name": "CODICE_PUBLIC_RATE_LIMITER",
+      "namespace_id": "1601",
+      "simple": { "limit": 60, "period": 60 },
+    },
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 },
+  },
+  "upload_source_maps": true,
+}

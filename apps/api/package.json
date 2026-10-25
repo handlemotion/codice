@@ -1,0 +1,44 @@
+{
+  "name": "@codice/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wrangler deploy --dry-run",
+    "check-types": "tsc -b --pretty false && tsc -p scripts/tsconfig.json --pretty false",
+    "dev": "PORTLESS_LAN=0 PORTLESS_TLD=transitive.app openlogs --out-dir ../../.openlogs/codice --name codice -- node ../../scripts/portless-run.mjs",
+    "dev:app": "doppler run -p codice -c dev -- node ../../scripts/worker-dev.mjs",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply CODICE_DATABASE --local",
+    "db:migrate:remote": "wrangler d1 migrations apply CODICE_DATABASE --remote",
+    "deploy:production": "pnpm run db:migrate:remote && WRANGLER_OUTPUT_FILE_PATH=/tmp/codice-wrangler-$WORKERS_CI_COMMIT_SHA.ndjson wrangler versions upload --tag $WORKERS_CI_COMMIT_SHA --outdir dist --upload-source-maps --var SENTRY_RELEASE:$WORKERS_CI_COMMIT_SHA && pnpm exec sentry-cli sourcemaps upload --org $SENTRY_ORG --project codice-api --release $WORKERS_CI_COMMIT_SHA --strip-prefix 'dist/..' --validate --strict --wait dist && wrangler versions deploy --version-id $(node -e 'const entry = JSON.parse(require(\"node:fs\").readFileSync(\"/tmp/codice-wrangler-\" + process.env.WORKERS_CI_COMMIT_SHA + \".ndjson\", \"utf8\").trim().split(\"\\n\").at(-1)); if (entry.type !== \"version-upload\" || !entry.version_id) throw new Error(\"Missing uploaded Worker version ID\"); process.stdout.write(entry.version_id)') --yes && wrangler triggers deploy",
+    "test": "vitest run --config vitest.unit.config.mts && vitest run",
+    "ingest": "tsx scripts/ingest.ts",
+    "sat:knowledge": "tsx scripts/sat-knowledge.ts",
+    "eval": "doppler run -p codice -c dev -- tsx scripts/eval.ts"
+  },
+  "dependencies": {
+    "@codice/contracts": "workspace:*",
+    "@codice/monitoring": "workspace:*",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@sentry/cloudflare": "^10.73.0",
+    "agents": "0.22.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.7",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@codice/typescript-config": "workspace:*",
+    "@types/node": "^24.13.3",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.12",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.129.1"
+  },
+  "portless": {
+    "name": "codice.local",
+    "script": "dev:app"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codice-test",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-14",
+  "compatibility_flags": ["nodejs_compat"],
+  // Local AI Search binding: route tests check request shaping, never retrieval (SPEC.md, "Testing").
+  "ai_search": [
+    {
+      "binding": "CODICE_SEARCH",
+      "instance_name": "codice",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "CODICE_DATABASE",
+      "database_name": "codice-test",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "CODICE_PUBLIC_RATE_LIMITER",
+      "namespace_id": "1601",
+      // Low so a test reaches the limit in a few requests; each test uses its own client address.
+      "simple": { "limit": 3, "period": 60 },
+    },
+  ],
+}

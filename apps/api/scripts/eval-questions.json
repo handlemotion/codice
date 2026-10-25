@@ -1,0 +1,226 @@
+[
+  {
+    "q": "¿Qué código postal va en DomicilioFiscalReceptor cuando el receptor tiene RFC genérico XAXX010101000?",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40149.md"]
+  },
+  {
+    "q": "RFC genérico extranjero XEXX010101000: el domicilio fiscal del receptor debe ser igual al lugar de expedición",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40149.md"]
+  },
+  { "q": "CFDI40149", "expect": ["matriz-de-errores-cfdi-40/cfdi40149.md"] },
+  {
+    "q": "El código postal del receptor debe estar asociado al RFC registrado en el campo Rfc",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalr.md",
+      "complemento-pagos-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md",
+      "matriz-de-errores-cfdi-40/cfdi40148.md",
+      "matriz-de-errores-cfdi-40/cfdi40147.md"
+    ]
+  },
+  {
+    "q": "¿Qué régimen fiscal se registra para un residente en el extranjero con RFC XEXX010101000?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-receptor-regimenfiscalre.md",
+      "complemento-pagos-guia-de-llenado/nodo-receptor-regimenfiscalreceptor.md"
+    ]
+  },
+  {
+    "q": "Uso del CFDI para un residente en el extranjero con RFC genérico: clave S01 sin efectos fiscales",
+    "expect": ["anexo-20-guia-de-llenado/nodo-receptor-usocfdi.md"]
+  },
+  {
+    "q": "¿Qué UsoCFDI lleva el comprobante con complemento para recepción de pagos?",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-receptor-usocfdi.md"]
+  },
+  {
+    "q": "¿Cuándo se debe registrar la ResidenciaFiscal del receptor extranjero?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-receptor-residenciafiscal.md",
+      "complemento-pagos-guia-de-llenado/nodo-receptor-residenciafiscal.md",
+      "matriz-de-errores-cfdi-40/cfdi40153.md"
+    ]
+  },
+  {
+    "q": "La residencia fiscal del receptor no puede ser MEX",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40152.md"]
+  },
+  {
+    "q": "Número de registro de identidad tributaria del receptor extranjero NumRegIdTrib",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-receptor-numregidtrib.md",
+      "complemento-pagos-guia-de-llenado/nodo-receptor-numregidtrib.md",
+      "matriz-de-errores-cfdi-40/cfdi40155.md",
+      "matriz-de-errores-cfdi-40/cfdi40156.md",
+      "matriz-de-errores-cfdi-40/cfdi40154.md"
+    ]
+  },
+  {
+    "q": "El régimen fiscal del receptor no corresponde con el tipo de persona física o moral",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40158.md"]
+  },
+  {
+    "q": "La clave de uso CFDI no corresponde al tipo de persona y al régimen del receptor",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40161.md"]
+  },
+  {
+    "q": "El nombre del receptor no pertenece al RFC registrado",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40145.md"]
+  },
+  {
+    "q": "El RFC del receptor no está en la lista de RFC inscritos no cancelados",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40143.md"]
+  },
+  {
+    "q": "El régimen fiscal del emisor debe corresponder con el tipo de persona",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40141.md"]
+  },
+  {
+    "q": "TipoCambio debe ser 1 cuando la moneda es MXN",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40114.md",
+      "anexo-20-guia-de-llenado/nodo-formato-tipocambio.md"
+    ]
+  },
+  {
+    "q": "¿Cuándo es obligatorio el tipo de cambio en un CFDI en dólares?",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40115.md",
+      "anexo-20-guia-de-llenado/nodo-formato-tipocambio.md"
+    ]
+  },
+  {
+    "q": "No se registra TipoCambio cuando la moneda es XXX",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40116.md"]
+  },
+  {
+    "q": "En un comprobante de pago o traslado no debe existir FormaPago",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40103.md"]
+  },
+  {
+    "q": "MetodoPago se omite cuando el tipo de comprobante es T o P",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40125.md"]
+  },
+  {
+    "q": "El subtotal de un comprobante de pago debe ser cero",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40109.md",
+      "complemento-pagos-guia-de-llenado/nodo-comprobante-subtotal.md"
+    ]
+  },
+  {
+    "q": "La moneda del comprobante de recepción de pagos debe ser XXX",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-comprobante-moneda.md"]
+  },
+  {
+    "q": "El total no corresponde con la suma del subtotal menos descuentos más impuestos trasladados menos retenidos",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40119.md"]
+  },
+  {
+    "q": "El descuento debe ser menor o igual que el subtotal",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40110.md"]
+  },
+  {
+    "q": "Exportación 02 requiere el complemento de comercio exterior",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40122.md"]
+  },
+  {
+    "q": "El lugar de expedición debe ser un código postal del catálogo c_CodigoPostal",
+    "expect": [
+      "matriz-de-errores-cfdi-40/cfdi40126.md",
+      "anexo-20-guia-de-llenado/nodo-formato-lugarexpedicion.md"
+    ]
+  },
+  {
+    "q": "Factura global al público en general: InformacionGlobal con RFC XAXX010101000 y nombre PUBLICO EN GENERAL",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40130.md", "matriz-de-errores-cfdi-40/cfdi40146.md"]
+  },
+  {
+    "q": "Periodicidad bimestral en la factura global solo para el régimen 621",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40132.md"]
+  },
+  {
+    "q": "El concepto con ObjetoImp 02 debe contener el nodo Impuestos",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40171.md"]
+  },
+  {
+    "q": "¿Qué significa el atributo ObjetoImp del concepto?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-en-objetoimp.md",
+      "complemento-pagos-guia-de-llenado/nodo-concepto-objetoimp.md"
+    ]
+  },
+  {
+    "q": "Traslado con tipo factor Exento no debe llevar TasaOCuota ni Importe",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40177.md"]
+  },
+  {
+    "q": "La retención no puede tener tipo factor Exento",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40184.md"]
+  },
+  {
+    "q": "Solo debe haber un registro por cada tipo de impuesto retenido",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40208.md"]
+  },
+  {
+    "q": "TotalImpuestosTrasladados no es igual a la suma de los importes de los traslados",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40205.md"]
+  },
+  {
+    "q": "Número de pedimento inválido en la información aduanera del concepto",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40194.md", "matriz-de-errores-cfdi-40/cfdi40199.md"]
+  },
+  {
+    "q": "El RFC a cuenta de terceros debe ser diferente al del emisor y receptor",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40188.md"]
+  },
+  {
+    "q": "CFDI40223 régimen fiscal a cuenta de terceros distinto de 616",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi140223.md"]
+  },
+  {
+    "q": "Retención de ISR al 1.25% para el Régimen Simplificado de Confianza",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi140225.md", "matriz-de-errores-cfdi-40/cfdi140224.md"]
+  },
+  { "q": "CFDI40158", "expect": ["matriz-de-errores-cfdi-40/cfdi40158.md"] },
+  { "q": "CFDI40138", "expect": ["matriz-de-errores-cfdi-40/cfdi40138.md"] },
+  {
+    "q": "El valor unitario del concepto debe ser mayor que cero",
+    "expect": ["matriz-de-errores-cfdi-40/cfdi40166.md", "matriz-de-errores-cfdi-40/cfdi40197.md"]
+  },
+  {
+    "q": "¿Cómo se registra el número de parcialidad en el documento relacionado del pago?",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-numparcialidad.md"]
+  },
+  {
+    "q": "Importe del saldo anterior del documento relacionado ImpSaldoAnt",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-impsaldoant.md"]
+  },
+  {
+    "q": "¿Cómo se calcula el saldo insoluto del documento relacionado?",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-impsaldoinsoluto.md"]
+  },
+  {
+    "q": "Equivalencia del documento relacionado cuando la moneda del pago es distinta",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-equivalenciadr.md"]
+  },
+  {
+    "q": "Tipo de cambio del pago TipoCambioP cuando la moneda es MXN",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-tipocambiop.md"]
+  },
+  {
+    "q": "Fecha en que el beneficiario recibe el pago",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-fechapago.md"]
+  },
+  {
+    "q": "Forma de pago del complemento de pagos FormaDePagoP no puede ser 99",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-pago-formadepagop.md"]
+  },
+  {
+    "q": "Monto total de los pagos en el nodo Totales",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-totales-montototalpagos.md"]
+  },
+  {
+    "q": "Identificador del documento relacionado: UUID de la factura que se paga",
+    "expect": ["complemento-pagos-guia-de-llenado/nodo-doctorelacionado-iddocumento.md"]
+  }
+]

@@ -1,0 +1,48 @@
+{
+  "name": "@codice/monorepo",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/trstv/codice"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "node scripts/dev.mjs",
+    "dev:up": "node scripts/dev-up.mjs",
+    "dev:restart": "node scripts/dev-restart.mjs",
+    "dev:proxy:start": "PORTLESS_LAN=0 PORTLESS_TLD=transitive.app portless proxy start --https --tld transitive.app",
+    "dev:proxy:stop": "sudo ./node_modules/.bin/portless proxy stop",
+    "check-types": "tsc -b --pretty false",
+    "test": "pnpm test:tooling && turbo run test --affected --concurrency=2",
+    "test:all": "pnpm test:tooling && turbo run test --concurrency=2",
+    "test:tooling": "vitest run --config vitest.node.config.mts",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "check": "oxfmt --check . && oxlint .",
+    "check:ci": "node scripts/check-ci.mjs",
+    "fix": "oxfmt . && oxlint --fix .",
+    "hooks:install": "lefthook install",
+    "prepare": "node scripts/install-git-hooks.mjs"
+  },
+  "devDependencies": {
+    "@sentry/cli": "2.58.6",
+    "jsonc-parser": "^3.3.1",
+    "lefthook": "^2.1.10",
+    "lint-staged": "^17.0.8",
+    "openlogs": "0.0.4",
+    "oxfmt": "^0.58.0",
+    "oxlint": "^1.73.0",
+    "picomatch": "^4.0.5",
+    "portless": "0.15.5",
+    "tsx": "^4.23.0",
+    "turbo": "^2.10.13",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.4.2+sha512.08adc6613180275c7c9edada39dcf08c9c61ad4e7eaf330a4f3461f102b0f907423454d117f98e72d47fef0616070644d7bffc973a6a57f5090a6d7c368b07c9"
+}
