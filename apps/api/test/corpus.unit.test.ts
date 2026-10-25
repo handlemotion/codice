@@ -9,6 +9,7 @@ import {
   catalogEntryRows,
   ingestionPlan,
   ITEM_KEY_MAX,
+  stuckItem,
   type Passage,
 } from "../scripts/corpus";
 import { errorCodePassageId } from "../src/records";
@@ -153,7 +154,7 @@ describe("catalogEntryRows", () => {
 describe("ingestionPlan", () => {
   const passage = (key: string, sha256: string) => ({ key, sha256 }) as Passage;
 
-  it("uploads new, changed, missing and failed passages and deletes items no passage has", () => {
+  it("uploads new, changed, missing and stuck passages and deletes items no passage has", () => {
     const plan = ingestionPlan({
       passages: [
         passage("a/same.md", "1"),
@@ -181,7 +182,54 @@ describe("ingestionPlan", () => {
       "a/lost.md",
       "a/failed.md",
     ]);
+    expect(plan.repair).toEqual([{ id: "i4", key: "a/failed.md" }]);
     expect(plan.remove).toEqual([{ id: "i3", key: "a/gone.md" }]);
     expect(plan.unchanged).toBe(1);
+  });
+
+  it("deletes stuck items before uploading their passages again", () => {
+    const plan = ingestionPlan({
+      passages: [passage("a/timed-out.md", "1"), passage("a/reindexing.md", "2")],
+      recorded: new Map([
+        ["a/timed-out.md", "1"],
+        ["a/reindexing.md", "2"],
+      ]),
+      items: [
+        { id: "i1", key: "a/timed-out.md", status: "outdated", next_action: null },
+        { id: "i2", key: "a/reindexing.md", status: "outdated", next_action: "reindex" },
+        { id: "i3", key: "a/gone.md", status: "error" },
+      ],
+    });
+    expect(plan.repair).toEqual([
+      { id: "i1", key: "a/timed-out.md" },
+      { id: "i3", key: "a/gone.md" },
+    ]);
+    expect(plan.upload.map((entry) => entry.key)).toEqual(["a/timed-out.md"]);
+    expect(plan.remove).toEqual([]);
+    expect(plan.unchanged).toBe(1);
+  });
+});
+
+describe("stuckItem", () => {
+  const item = (status: string, next_action?: string | null) => ({
+    id: "i",
+    key: "a/b.md",
+    status,
+    next_action,
+  });
+
+  it("selects failed items and outdated items AI Search will do nothing with", () => {
+    expect(stuckItem(item("error"))).toBe(true);
+    expect(stuckItem(item("error", "reindex"))).toBe(true);
+    expect(stuckItem(item("outdated", null))).toBe(true);
+  });
+
+  it("leaves items that are indexed or still indexing", () => {
+    expect(stuckItem(item("outdated", "reindex"))).toBe(false);
+    // A listing without the field says nothing about the item: keep it.
+    expect(stuckItem(item("outdated"))).toBe(false);
+    for (const status of ["queued", "running", "completed", "skipped"]) {
+      expect(stuckItem(item(status, null))).toBe(false);
+    }
   });
 });
