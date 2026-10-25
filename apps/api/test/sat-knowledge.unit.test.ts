@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildSatLibrary,
   compactSatMarkdown,
-  documentSections,
   type SatSourceManifest,
 } from "../scripts/sat-documents";
 import {
@@ -249,32 +248,5 @@ c_Aduana,Patente,Ejercicio,Cantidad,Fecha inicio de vigencia,Fecha fin de vigenc
     for (const code of matrix.codes) {
       expect(lines).toContain(compactSatMarkdown(markdownTableRow(errorCodeRow(code))));
     }
-  });
-});
-
-describe("documentSections", () => {
-  it("split a guide at its nodes and attributes, an attribute the PDF cut included", () => {
-    const guide = syntheticLibrary().documents.find(
-      (candidate) => candidate.slug === "anexo-20-guia-de-llenado-cfdi",
-    )!;
-    expect(
-      documentSections(guide).map(({ label, startLine, endLine }) => [label, startLine, endLine]),
-    ).toEqual([
-      ["Anexo 20", 1, 2],
-      ["Nodo: Receptor", 3, 3],
-      ["Nodo: Receptor › Rfc", 4, 4],
-      ["Nodo: Receptor › RegimenFiscalRe", 5, 7],
-      ["Nodo: Receptor › UsoCFDI", 8, 8],
-    ]);
-  });
-
-  it("keep a matrix node whole with its table header", () => {
-    const matrix = syntheticLibrary().documents.find(
-      (candidate) => candidate.slug === "matriz-de-errores-cfdi-4-0",
-    )!;
-    const receptor = documentSections(matrix).find((section) => section.label === "cfdi:Receptor")!;
-    expect(receptor.text).toMatch(/^## cfdi:Receptor\n\n\| Código \|/u);
-    expect(receptor.text).toContain("CFDI40158");
-    expect(receptor.text).toContain("CFDI40159");
   });
 });

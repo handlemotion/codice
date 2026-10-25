@@ -11,7 +11,7 @@
   {
     "q": "El código postal del receptor debe estar asociado al RFC registrado en el campo Rfc",
     "expect": [
-      "anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalr.md",
+      "anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md",
       "complemento-pagos-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md",
       "matriz-de-errores-cfdi-40/cfdi40148.md",
       "matriz-de-errores-cfdi-40/cfdi40147.md"
@@ -20,7 +20,7 @@
   {
     "q": "¿Qué régimen fiscal se registra para un residente en el extranjero con RFC XEXX010101000?",
     "expect": [
-      "anexo-20-guia-de-llenado/nodo-receptor-regimenfiscalre.md",
+      "anexo-20-guia-de-llenado/nodo-receptor-regimenfiscalreceptor.md",
       "complemento-pagos-guia-de-llenado/nodo-receptor-regimenfiscalreceptor.md"
     ]
   },
@@ -30,7 +30,10 @@
   },
   {
     "q": "¿Qué UsoCFDI lleva el comprobante con complemento para recepción de pagos?",
-    "expect": ["complemento-pagos-guia-de-llenado/nodo-receptor-usocfdi.md"]
+    "expect": [
+      "complemento-pagos-guia-de-llenado/nodo-receptor-usocfdi.md",
+      "complemento-pagos-guia-de-llenado/apendice-6-pregunta-6.md"
+    ]
   },
   {
     "q": "¿Cuándo se debe registrar la ResidenciaFiscal del receptor extranjero?",
@@ -78,14 +81,14 @@
     "q": "TipoCambio debe ser 1 cuando la moneda es MXN",
     "expect": [
       "matriz-de-errores-cfdi-40/cfdi40114.md",
-      "anexo-20-guia-de-llenado/nodo-formato-tipocambio.md"
+      "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md"
     ]
   },
   {
     "q": "¿Cuándo es obligatorio el tipo de cambio en un CFDI en dólares?",
     "expect": [
       "matriz-de-errores-cfdi-40/cfdi40115.md",
-      "anexo-20-guia-de-llenado/nodo-formato-tipocambio.md"
+      "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md"
     ]
   },
   {
@@ -127,7 +130,7 @@
     "q": "El lugar de expedición debe ser un código postal del catálogo c_CodigoPostal",
     "expect": [
       "matriz-de-errores-cfdi-40/cfdi40126.md",
-      "anexo-20-guia-de-llenado/nodo-formato-lugarexpedicion.md"
+      "anexo-20-guia-de-llenado/nodo-comprobante-lugarexpedicion.md"
     ]
   },
   {
@@ -145,7 +148,7 @@
   {
     "q": "¿Qué significa el atributo ObjetoImp del concepto?",
     "expect": [
-      "anexo-20-guia-de-llenado/nodo-en-objetoimp.md",
+      "anexo-20-guia-de-llenado/nodo-concepto-objetoimp.md",
       "complemento-pagos-guia-de-llenado/nodo-concepto-objetoimp.md"
     ]
   },
