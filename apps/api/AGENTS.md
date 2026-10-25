@@ -10,11 +10,12 @@ the behavior changes.
   `/v1/sources/:id`, `/v1/errors/:code`, `/v1/catalogs/:name`, `/v1/catalogs/:name/:key`, their
   MCP tools at `/mcp`, and the `CodiceKnowledge` entrypoint the Agent binds as `CODICE` (SPEC.md,
   "Internal entrypoint"; change it and `@codice/contracts` together, and keep Transitive's
-  `@transitive/api-contracts/codice` in step until cutover). The ingestion
-  loads `docs/sat-md` into AI Search and D1. The Cloudflare Git build deploys it (SPEC.md,
-  "Go-live checklist"), until cutover from `trstv/transitive` `main`, not from this repository
-  (`docs/operations/cutover.md`); no route or custom domain yet. Attaching `codice.io` needs
-  explicit approval.
+  mirror `@transitive/api-contracts/codice` in step). The ingestion loads `docs/sat-md` into AI
+  Search and D1. Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
+  build of this repository's `main` deploys the Worker `codice` (root `apps/api`, deploy command
+  `pnpm run deploy:production`; SPEC.md, "Go-live checklist"), and `codice-corpus.yml` and
+  `sync-worker-secrets.yml` run from here. No route or custom domain yet, and `codice.io` is not
+  purchased; attaching it needs explicit approval.
 - Search is AI Search's: never add chunking, embedding or ranking code here. Change the instance's
   settings only with a retrieval eval run (`pnpm --filter @codice/api eval`) recorded
   in SPEC.md.

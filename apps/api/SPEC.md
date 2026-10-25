@@ -1,6 +1,8 @@
 # Códice: specification
 
-Status: Phase 0, not deployed. The Worker serves the whole [HTTP API](#http-api-v1) and
+Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git build since the
+cutover on 2026-10-25, with no route or custom domain: Transitive's Agent reaches it through its
+`CODICE` service binding. The Worker serves the whole [HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind the public rate limit; the ingestion has loaded
 `docs/sat-md` into the AI Search instance and D1 (see [Infrastructure](#infrastructure)).
 
@@ -459,7 +461,9 @@ Decisions:
 
 - **Embedding model `@cf/qwen/qwen3-embedding-0.6b`, chunk size 1,024** (kept). bge-m3 scored no
   better than qwen at the same chunk size, and both lose a question at 512.
-- **Eval floor 48 of 50** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
+- **Eval floor 48 of 50** (`codice-corpus.yml`, `EVAL_MIN_TOP3`). The first scheduled-ingestion
+  run from `main` (run 40165931157, 2026-10-25) was green at the same scores: 48 top 3, 43 top 1,
+  MRR@10 0.909.
 
 The two misses left, both real (the passage that outranks the rule does not answer the question):
 
@@ -473,10 +477,6 @@ The two misses left, both real (the passage that outranks the rule does not answ
 At 512 tokens, _"Retención de ISR al 1.25% para el Régimen Simplificado de Confianza"_ also falls
 to rank 4 (qwen) and 8 (bge-m3), behind the `TotalRetencionesISR` rules.
 
-Two stale items of the old split (`nodo-trasladop-importep-15`, `nodo-en-base`) are still in
-`codice`: AI Search answers their deletion with 429 `ai_search_instance_overloaded`. The next
-`ingest` deletes them; neither appears in a top 3 of the runs above.
-
 ## Infrastructure
 
 Created 2026-10-24; Phase 0 loaded the same day:
@@ -487,7 +487,8 @@ Created 2026-10-24; Phase 0 loaded the same day:
 | D1 database        | `codice` | `CODICE_DATABASE`            |
 | Rate limit         | `1601`   | `CODICE_PUBLIC_RATE_LIMITER` |
 
-No route, no custom domain, no Cloudflare Git build. The AI Search binding is `"remote": true`, so
+No route, no custom domain, `workers.dev` off; the Cloudflare Git build of `main` deploys the
+Worker (see [Monitoring and deploy](#monitoring-and-deploy)). The AI Search binding is `"remote": true`, so
 `wrangler dev` (`pnpm dev:up` in the local stack, or `pnpm --filter @codice/api dev`,
 Doppler `codice` `dev`) queries the real instance through Wrangler's Cloudflare auth, and seeds the
 local D1 with `ingest --local` when it is empty; the tests use a local binding.
@@ -510,61 +511,56 @@ the Worker; it skips the Worker while the script or the secret does not exist.
 
 ### Go-live checklist
 
-Until cutover (`docs/operations/cutover.md`) production builds, secrets sync and the corpus
-workflow run from `trstv/transitive`; this repository builds and tests the same code but deploys
-nothing. The paths in the steps below are Transitive's.
+Since the cutover on 2026-10-25 (`docs/operations/cutover.md`) this repository builds and deploys
+the Worker, syncs its secret (`sync-worker-secrets.yml`) and refreshes the corpus
+(`codice-corpus.yml`). Steps 1 to 6 are done; step 7 waits on `codice.io`, which is not purchased.
+Each remaining step needs explicit approval.
 
-Each step needs explicit approval. Status 2026-10-25: the Sentry project is `codice-api` in org
-`jaantonio`, and `SENTRY_DSN` is in Doppler `codice` `prd` and bound to the Worker (steps 1, 3, 4;
-the alert connection in step 1 is unchecked).
-The Git build of `main` deploys on every merge, but with deploy command `npx wrangler deploy` and no
-build variables (step 5 is not yet matched), so it applies no D1 migrations and uploads no source
-maps: `0002` was applied by hand on 2026-10-25. `codice.io` is not purchased yet.
+Status 2026-10-25: the Cloudflare Git build of `trstv/codice` `main` (root `apps/api`, deploy
+command `pnpm run deploy:production`) deployed version `a6945917`, the active deployment. The
+Sentry project is `codice-api` in org `jaantonio`, and `SENTRY_DSN` is in Doppler `codice` `prd`
+and bound to the Worker; the alert connection in step 1 is unchecked. D1 `0002` was applied by hand
+on 2026-10-25, before the build ran `deploy:production`.
 
 The Worker must exist before anything can bind its secret: the secrets API answers `10007`
 (Worker does not exist), and Wrangler refuses to upload a new Worker whose required `SENTRY_DSN`
 is unset. So the order is fixed:
 
-1. **Sentry.** Project `codice-api` (org `jaantonio`, platform Cloudflare Workers), connected to
-   the org-wide `Production issues → incident.io` alert
-   (`docs/architecture/production-monitoring.md`). Its DSN is `SENTRY_DSN` in Doppler `codice`
-   `prd`; the build needs a source-map upload token (step 5).
-2. **Sync access** (before the sync change reaches `main`). Give the Doppler service account
-   `github-worker-secrets-sync` read access to `codice` `prd`, and add the `codice` webhook
-   (`docs/operations/doppler-secrets.md`, "Worker sync"). Without the access the daily sync fails at
-   `codice`, after every `transitive` Worker has synced.
-3. **Create the Worker.** A placeholder `codice` script from the dashboard (Hello World, no route,
-   `workers.dev` off). It serves nothing; the first Git build replaces it.
-4. **Bind the secret.** Run "Sync Worker secrets" by hand with `worker` `codice` and `apply` on (a
-   `SENTRY_DSN` written before the Worker existed is older than the watermark, so the scheduled run
-   skips it). Check: `cf workers secrets list` for `codice` shows `SENTRY_DSN`.
-5. **Register the Git build** on the existing `codice` Worker, with the settings of `providers`.
-   Registered; still to match: the deploy command and the build variables.
-   - Repository `trstv/transitive`, production branch `main`, root directory `apps/codice`. At
-     cutover it moves to `trstv/codice`, root directory `apps/api` (`docs/operations/cutover.md`).
+1. **Sentry** (done). Project `codice-api` (org `jaantonio`, platform Cloudflare Workers), to be
+   connected to the org-wide `Production issues → incident.io` alert. Its DSN is `SENTRY_DSN` in
+   Doppler `codice` `prd`, next to the build's source-map token `SENTRY_AUTH_TOKEN`.
+2. **Sync access** (done). `sync-worker-secrets.yml` signs in to Doppler with the corpus identity
+   `trstv-codice-main` and reads the Worker secrets token in `codice` `prd`
+   (`docs/operations/doppler-secrets.md`, "Worker secret sync"). Left: point the Doppler webhook on
+   `codice` `prd` at this repository's dispatches.
+3. **Create the Worker** (done). A placeholder `codice` script from the dashboard (Hello World, no
+   route, `workers.dev` off), replaced by the first Git build.
+4. **Bind the secret** (done). Run "Sync Worker secrets" (`sync-worker-secrets.yml`) by hand with
+   `worker` `codice` and `apply` on. Check: `cf workers secrets list` for `codice` shows
+   `SENTRY_DSN`.
+5. **Register the Git build** (done) on the `codice` Worker:
+   - Repository `trstv/codice`, production branch `main`, root directory `apps/api`.
    - Deploy command `pnpm run deploy:production`; non-production branches
      `pnpm exec wrangler versions upload` (previews never apply D1 migrations).
-   - Build variables: `SENTRY_ORG` = `jaantonio` and `SENTRY_AUTH_TOKEN` (from step 1).
-   - Watch paths: `codice` is in `scripts/workers-build-watch-paths.mjs`; run
-     `node scripts/workers-build-watch-paths.mjs apply --yes` with a token that can edit Workers
-     Builds. It derives:
-     includes `apps/codice/*`, `packages/access-policy/*`, `packages/api-contracts/*`,
-     `packages/monitoring/*`, `packages/typescript-config/*` and the root install inputs; excludes
-     `*.md` and test files.
-6. **First `deploy:production`.** The first merge after step 5 builds Códice with migrations and
-   source maps. D1 `0000` to `0002` are already applied. Verify with `cf builds list`,
-   `cf workers versions list` and `cf workers deployments list`, and that the Sentry release for the commit has source maps.
-7. **Attach `codice.io`.** Add the zone to the account if it is not there, then a PR with the
-   custom domain route in `wrangler.jsonc` and `ready: "https://codice.io/ready"` on the `codice`
-   entry of `scripts/secrets/sync-worker-secrets.mjs`. Verify `GET https://codice.io/ready` → 200.
+   - Build variables: `SENTRY_ORG` = `jaantonio` and `SENTRY_AUTH_TOKEN` (Doppler `codice` `prd`).
+   - Watch paths: include `apps/api/*`, `packages/*` and the root install inputs
+     (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`); exclude `*.md` and test files.
+6. **First `deploy:production`** (done). A build of `main` deployed version `a6945917`; the D1
+   migrations step ran with none pending and the source maps uploaded. After each merge, verify
+   with `cf builds list`, `cf workers versions list` and `cf workers deployments list`, and that the
+   Sentry release for the commit has source maps.
+7. **Attach `codice.io`** (not purchased). Buy the domain and add its zone to the account, then a
+   PR with the custom domain route in `apps/api/wrangler.jsonc`. Verify
+   `GET https://codice.io/ready` → 200.
 
 ## Rollout
 
 1. Scaffold, spec, dormant resources (done).
-2. Phase 0: ingestion into AI Search and D1; `/v1` and `/mcp`; retrieval eval passing (done, not
-   deployed).
+2. Phase 0: ingestion into AI Search and D1; `/v1` and `/mcp`; retrieval eval passing (done,
+   deployed 2026-10-25).
 3. The Agent calls Códice through a service binding and deletes its bundled search (done).
-4. Register the Cloudflare Git build and attach `codice.io` (needs explicit approval).
+4. Register the Cloudflare Git build (done 2026-10-25, from this repository) and attach
+   `codice.io` (not purchased; needs explicit approval).
 5. Phases 1 and 2 of the corpus; public launch.
 
 ## Next steps
@@ -572,22 +568,22 @@ is unset. So the order is fixed:
 The work after Phase 0, in order. Tick an item off here when it lands, and update the sections above
 to match.
 
-1. **Credentials** (partly done). Doppler project `codice` holds `CODICE_AI_SEARCH_TOKEN` in `prd`
+1. **Credentials** (done). Doppler project `codice` holds `CODICE_AI_SEARCH_TOKEN` in `prd`
    (Cloudflare token `codice-ai-search`: AI Search Write and Run, for the ingestion) and in `dev`
    (`codice-ai-search-dev`: AI Search Run and Read, for searches and the eval; it cannot change
    the index), and `CODICE_D1_TOKEN` in `prd` (`codice-d1`: D1 Edit, for `wrangler d1 execute`
    outside an operator's session). The Doppler service account `codice-corpus` (read on `dev` and
    `prd`) has the GitHub identity the scheduled ingestion signs in with. `sync-worker-secrets.yml`
-   syncs `SENTRY_DSN` from `codice` `prd` to the Worker (done), for Sentry project `codice-api`.
-   Still to do: the build's source-map token (Go-live checklist, step 5).
-2. **Scheduled ingestion** (workflow in place, not yet run). `codice-corpus.yml` checks the SAT,
-   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 48 of 50 (see
-   [Ingestion](#ingestion)). Its credentials exist and its identity ID is pinned; tick this off
-   after the first green `workflow_dispatch` run from `main`.
+   syncs `SENTRY_DSN` from `codice` `prd` to the Worker, for Sentry project `codice-api`, and the
+   Git build reads its source-map token `SENTRY_AUTH_TOKEN` from `codice` `prd`.
+2. **Scheduled ingestion** (done 2026-10-25: run 40165931157 from `main` was green, 48 of 50 top 3,
+   43 top 1, MRR@10 0.909). `codice-corpus.yml` checks the SAT every Monday, opens a `docs/sat-md`
+   PR, ingests `main` and runs the eval with a floor of 48 of 50 (see [Ingestion](#ingestion)).
 3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
    and `/v1/sources/:id`, and the MCP tools `read_passage`, `lookup_error`, `lookup_catalog` and
    `list_sources`.
-4. **Deploy** (explicit approval): the Go-live checklist under "Monitoring and deploy".
+4. **Deploy** (done 2026-10-25 from this repository's Git build). Left: attach `codice.io` once
+   it is purchased (Go-live checklist, step 7; explicit approval).
 5. **Agent switch-over** (Rollout 3, done): the Agent calls `CodiceKnowledge` through its `CODICE`
    service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
    (`sections.ts`) live here, in `scripts/`.

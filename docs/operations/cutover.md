@@ -1,9 +1,11 @@
 # Cutover from `trstv/transitive`
 
 This repository started as a copy of Transitive's `apps/codice`, `docs/sat-md`, the two shared
-packages it used and the dev tooling. Production still builds, syncs secrets and refreshes the
-corpus from `trstv/transitive`. This checklist moves each of those here, then removes Códice from
-Transitive. Each step that touches production needs explicit approval.
+packages it used and the dev tooling. The cutover finished on 2026-10-25: the Cloudflare Git build
+of this repository's `main` (root `apps/api`, deploy command `pnpm run deploy:production`) deploys
+the Worker `codice`, and `codice-corpus.yml` and `sync-worker-secrets.yml` run from here. Códice is
+removed from Transitive. The steps below record how; each step that touches production needed
+explicit approval.
 
 What does not change: the Worker name (`codice`), its D1 database, AI Search instance, rate-limit
 namespace, Sentry project (`codice-api`) and Doppler project (`codice`). Transitive's Agent binds
@@ -18,7 +20,7 @@ the Worker by name (service binding `CODICE`), so it keeps working through every
 | `successEnvelope`, `problemResponse` (api-contracts) | `packages/contracts/src/problem.ts`          |
 | `packages/monitoring` (Sentry sampling, span URLs)   | `packages/monitoring` (`@codice/monitoring`) |
 | `docs/sat-md`                                        | `docs/sat-md`                                |
-| `.github/workflows/codice-corpus.yml`                | same path, off until step 5                  |
+| `.github/workflows/codice-corpus.yml`                | same path, scheduled every Monday            |
 | `scripts/worker-dev.mjs` and the dev stack scripts   | Códice-only copies in `scripts/`             |
 
 ## Steps
@@ -45,7 +47,8 @@ the Worker by name (service binding `CODICE`), so it keeps working through every
    `cf workers versions list` and `cf workers deployments list` for `codice`, that the D1
    migrations step ran, and that the Sentry release for the commit has source maps.
 5. **Corpus workflow** (done 2026-10-25: identity `trstv-codice-main` pinned in
-   `codice-corpus.yml`, schedule on, Transitive's copy deleted in `trstv/transitive#2769`). Create
+   `codice-corpus.yml`, schedule on, Transitive's copy deleted in `trstv/transitive#2769`; run 40165931157 from `main` was
+   green: 48 of 50 in the top 3, 43 top 1, MRR@10 0.909). Create
    the Doppler identity (`docs/operations/doppler-secrets.md`), pin its ID in `codice-corpus.yml`,
    uncomment the schedule, and delete Transitive's `codice-corpus.yml` in the same window, so only
    one repository ingests and opens refresh PRs.
@@ -53,12 +56,12 @@ the Worker by name (service binding `CODICE`), so it keeps working through every
    copy of Transitive's Worker secrets token in `codice` `prd`; Transitive's script drops `codice`).
    Left: point the Doppler webhook on `codice` `prd` at this repository's dispatches
    (`docs/operations/doppler-secrets.md`, "Worker secret sync").
-7. **Remove Códice from Transitive.** `apps/codice`; the `codice` entries in `tsconfig.json`,
+7. **Remove Códice from Transitive** (done 2026-10-25: `trstv/transitive#2769`; `docs/sat-md`
+   stays in Transitive as a copy for its agents). `apps/codice`; the `codice` entries in `tsconfig.json`,
    `.github/workflows/ci.yml` (build filter), `scripts/dev.mjs`, `scripts/dev-up.mjs`,
    `scripts/dev-restart.mjs`, `scripts/worker-dev.mjs`, `scripts/portless-run.mjs`,
    `scripts/lib/dev-stack-probes.mjs`, `scripts/lib/codice-local-records.mjs`,
    `scripts/check-legacy-analytics-identifiers.mjs` and their tests; the Códice sections of
    `docs/development/local-development.md` and `docs/operations/doppler-secrets.md`; and the row in
    its `AGENTS.md`. Keep `@transitive/api-contracts/codice` while the Agent calls the binding (it
-   mirrors `@codice/contracts`). Decide whether `docs/sat-md` stays in Transitive as reference for
-   its agents or is read from here.
+   mirrors `@codice/contracts`).
