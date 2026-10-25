@@ -318,7 +318,28 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
   };
 }
 
+/** An AI Search item as the Items listing returns it. */
+export type RemoteItem = {
+  readonly id: string;
+  readonly key: string;
+  readonly status?: string;
+  /** What AI Search will do with the item next; `null` when it will do nothing. */
+  readonly next_action?: string | null;
+};
+
+/**
+ * An item AI Search will never finish indexing: one that failed (`error`), or one `outdated` with
+ * `next_action: null` (left so after a `workers_ai_timeout_error`, 2026-10-25). Uploading the same
+ * key again does not change it; only deleting it and uploading again does. A listing without
+ * `next_action` marks no `outdated` item stuck: such an item may still be re-indexing.
+ */
+export function stuckItem(item: RemoteItem) {
+  return item.status === "error" || (item.status === "outdated" && item.next_action === null);
+}
+
 export type IngestionPlan = {
+  /** Stuck items to delete before the uploads, with their keys. */
+  readonly repair: readonly { readonly id: string; readonly key: string }[];
   readonly upload: readonly Passage[];
   /** Remote item ids to delete, with their keys. */
   readonly remove: readonly { readonly id: string; readonly key: string }[];
@@ -326,33 +347,28 @@ export type IngestionPlan = {
 };
 
 /**
- * What to change in AI Search: upload a passage that is new, changed since the hash D1 recorded,
- * missing from the instance, or failed to index (a Workers AI timeout, for one); delete every item
- * no passage has any more.
+ * What to change in AI Search: delete every stuck item first (`stuckItem`); upload a passage that is
+ * new, changed since the hash D1 recorded, missing from the instance, or stuck; delete every other
+ * item no passage has any more.
  */
 export function ingestionPlan(input: {
   readonly passages: readonly Passage[];
   /** Item key → hash, from D1 `passages`. */
   readonly recorded: ReadonlyMap<string, string>;
   /** The instance's items. */
-  readonly items: readonly {
-    readonly id: string;
-    readonly key: string;
-    readonly status?: string;
-  }[];
+  readonly items: readonly RemoteItem[];
 }): IngestionPlan {
-  const remoteKeys = new Set(
-    input.items.filter((item) => item.status !== "error").map((item) => item.key),
-  );
+  const stuck = input.items.filter(stuckItem);
+  const healthy = input.items.filter((item) => !stuckItem(item));
+  const remoteKeys = new Set(healthy.map((item) => item.key));
   const localKeys = new Set(input.passages.map((passage) => passage.key));
   const upload = input.passages.filter(
     (passage) => !remoteKeys.has(passage.key) || input.recorded.get(passage.key) !== passage.sha256,
   );
   return {
+    repair: stuck.map(({ id, key }) => ({ id, key })),
     upload,
-    remove: input.items
-      .filter((item) => !localKeys.has(item.key))
-      .map(({ id, key }) => ({ id, key })),
+    remove: healthy.filter((item) => !localKeys.has(item.key)).map(({ id, key }) => ({ id, key })),
     unchanged: input.passages.length - upload.length,
   };
 }

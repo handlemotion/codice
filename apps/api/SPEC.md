@@ -309,13 +309,19 @@ fetch source → sha256 → unchanged? stop
   generates `docs/sat-md` from the SAT's published files (`--check` exits 1 when the SAT published
   something new, `--force` regenerates all; it needs LibreOffice, and MarkItDown with Poppler for
   the PDF guides). `pnpm --filter @codice/api ingest` (`scripts/ingest.ts`) reads it,
-  splits the guides with Códice's splitter (`scripts/sections.ts`, below), uploads only passages
-  that are new, changed, missing or failed to index, deletes items no passage has any more, then
-  replaces the D1 records. The Items listing repeats and skips items while they index, so the plan
-  counts each item id once and a skipped item is handled on the next run. `--dry-run` prints the
-  plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
-  before D1, until AI Search has indexed every item (none queued, running or outdated; one that
-  failed to index fails the run). `--instance <name>` loads a comparison instance for an eval of
+  splits the guides with Códice's splitter (`scripts/sections.ts`, below), deletes stuck items,
+  uploads only passages that are new, changed, missing or stuck, deletes items no passage has any
+  more, then replaces the D1 records. A stuck item is one AI Search will never finish indexing:
+  status `error`, or `outdated` with `next_action: null` (`stuckItem` in `scripts/corpus.ts`). On
+  2026-10-25 `complemento-pagos-guia-de-llenado/nodo-concepto-descuento.md` stayed so after a
+  `workers_ai_timeout_error`: AI Search never retried it, uploading the same key again changed
+  nothing, and only deleting it and uploading again indexed it; so the plan deletes a stuck item
+  before uploading its passage. The Items listing repeats and skips items while they index, so the
+  plan counts each item id once and a skipped item is handled on the next run. `--dry-run` prints
+  the plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
+  before D1, until AI Search has indexed every item (none queued, running or outdated). It does not
+  wait for stuck items: once only they are left, it fails the run and names each by key, and the
+  next run repairs them. `--instance <name>` loads a comparison instance for an eval of
   other settings: every passage it lacks, no D1 and no catalogs. A change to the splitter changes
   passage keys, and with them the Agent's citations: prove the corpus with
   `test/corpus.unit.test.ts` and `test/sections.unit.test.ts` first.
