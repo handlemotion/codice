@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /** The last `YYYYMMDD` day of a record that is still in force. */
 export const IN_FORCE_UNTIL = 99991231;
@@ -39,6 +39,31 @@ export const sources = sqliteTable(
       sql`${table.authority} IN ('SAT', 'DOF', 'SCJN', 'TFJA', 'Congreso')`,
     ),
     check("sources_validity_check", sql`${table.validFrom} <= ${table.validUntil}`),
+  ],
+);
+
+/**
+ * A version of a source that a newer one replaced, with the last day it applied as `valid_until`
+ * (SPEC.md, "Versions"). `sources` holds the version in force; the passages of a superseded version
+ * stay searchable with that version's validity, and cite it through this row.
+ */
+export const sourceVersions = sqliteTable(
+  "source_versions",
+  {
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => sources.id),
+    title: text("title").notNull(),
+    url: text("url").notNull(),
+    sha256: text("sha256").notNull(),
+    publishedAt: text("published_at"),
+    retrievedAt: integer("retrieved_at", { mode: "timestamp_ms" }).notNull(),
+    validFrom: integer("valid_from").notNull(),
+    validUntil: integer("valid_until").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.sourceId, table.validFrom] }),
+    check("source_versions_validity_check", sql`${table.validFrom} <= ${table.validUntil}`),
   ],
 );
 
@@ -91,9 +116,10 @@ export const catalogEntries = sqliteTable(
 );
 
 /**
- * The passages uploaded to AI Search, keyed by item key, with the hash of the body uploaded. The
- * ingestion compares hashes to upload only new or changed passages: AI Search reports `0` as the
- * checksum of an uploaded item.
+ * The passages uploaded to AI Search, keyed by item key, with the hash of the body uploaded and the
+ * validity the item's metadata holds. The ingestion compares hashes to upload only new or changed
+ * passages: AI Search reports `0` as the checksum of an uploaded item. A superseded passage keeps
+ * its row under its versioned key, with the last day it applied as `valid_until`.
  */
 export const passages = sqliteTable(
   "passages",
@@ -106,6 +132,10 @@ export const passages = sqliteTable(
     /** The heading path, such as `Nodo: Receptor › UsoCFDI`. */
     heading: text("heading").notNull(),
     sha256: text("sha256").notNull(),
+    ...validity,
   },
-  (table) => [index("passages_source_idx").on(table.sourceId)],
+  (table) => [
+    index("passages_source_idx").on(table.sourceId),
+    check("passages_validity_check", sql`${table.validFrom} <= ${table.validUntil}`),
+  ],
 );

@@ -9,6 +9,7 @@ import {
   passageRow,
   recordsDatabase,
   sourcesById,
+  sourcesOn,
 } from "./records";
 import {
   parseAsOf,
@@ -70,7 +71,10 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   return { q, asOf, source, limit };
 }
 
-/** Searches the passages in force on `asOf` and adds each result's source provenance. */
+/**
+ * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
+ * each result's source as it read that day.
+ */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
   const input = searchInput(parameters);
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
@@ -81,9 +85,11 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     throw searchUnavailable("codice.search_failed", cause);
   }
   const results = searchResults(response.chunks);
-  const provenance = await sourcesById(
+  // The version of each source in force on `asOf`, the one a superseded passage was read from.
+  const provenance = await sourcesOn(
     recordsDatabase(env),
     results.map((result) => result.source),
+    input.asOf,
   );
   return {
     query: input.q,
@@ -132,7 +138,8 @@ export async function readPassage(env: CodiceBindings, id: string) {
     if (cause instanceof CodiceProblem) throw cause;
     throw searchUnavailable("codice.passage_failed", cause);
   }
-  const provenance = await sourcesById(db, [row.sourceId]);
+  // The source version the passage was last read from: a superseded one's, else the current one.
+  const provenance = await sourcesOn(db, [row.sourceId], row.validUntil);
   return {
     passageId: row.key,
     heading: row.heading,

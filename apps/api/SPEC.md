@@ -106,7 +106,9 @@ the Phase 0 passages (520 since the parser change).
   Phase 0 sources: `anexo-20-guia-de-llenado` and `complemento-pagos-guia-de-llenado` (one item a
   section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
   `apendice-8-3` for the third part of an appendix), and
-  `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`).
+  `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). A passage a newer version of
+  its source replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
+  (`anexo-20-guia-de-llenado/nodo-receptor-usocfdi.20220101.md`; see [Versions](#versions)).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
 - **Custom metadata** (4 of the 5 allowed; one left for later):
 
@@ -119,8 +121,9 @@ the Phase 0 passages (520 since the parser change).
 
 Dates are `YYYYMMDD` numbers, not datetimes, so an in-force passage has a real upper bound and a
 range filter never meets a missing value. The Items API takes metadata values as strings and stores
-these two as numbers, as the instance's schema types them. Phase 0 holds one version of each source:
-`valid_from` is its publication date and `valid_until` is `99991231`.
+these two as numbers, as the instance's schema types them. A passage's `valid_from` is the
+publication date of the first source version that held its text; `valid_until` is `99991231` while
+in force, and the day before the next version once superseded ([Versions](#versions)).
 
 ### Query
 
@@ -143,8 +146,9 @@ await env.CODICE_SEARCH.search({
 ```
 
 The Worker maps each returned chunk to a result: `item.key` → passage id, `text` → quote,
-`item.metadata` → validity, `score` and `scoring_details` → relevance, and the source's provenance
-from D1. `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
+`item.metadata` → validity, `score` and `scoring_details` → relevance, and the provenance of the
+source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
+holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
 ## Records and provenance (D1)
 
@@ -154,10 +158,15 @@ hand-written migrations).
 - `sources`: id, title, authority, url, sha256, published_at, retrieved_at, valid_from,
   valid_until. The ingestion writes it; `/v1/search` and `/v1/passages/:id` add it to each
   result, and `/v1/sources` reads it.
-- `passages`: item key, source id, heading path, and the sha256 of the body uploaded. The
-  ingestion compares it to upload only new or changed passages (AI Search's own item `checksum` is
-  `0` for uploaded items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs
-  no AI Search call.
+- `source_versions`: the superseded versions of a source (source id, title, url, sha256,
+  published_at, retrieved_at, valid_from, valid_until), one per (source id, valid_from). `sources`
+  holds the version in force; a superseded passage cites the version it was read from through
+  this table.
+- `passages`: item key, source id, heading path, the sha256 of the body uploaded, and the item's
+  valid_from and valid_until, current and superseded passages alike. The ingestion compares the
+  hash to upload only new or changed passages (AI Search's own item `checksum` is `0` for uploaded
+  items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs no AI Search
+  call.
 - `error_codes`: the `CFDI40xxx` matrix (code, node, attribute, validation, message). Each row
   is also a search passage, so a plain-language question (_"código postal de un receptor con RFC
   genérico"_) finds its code; the record answers the exact lookup.
@@ -168,12 +177,17 @@ hand-written migrations).
   [Large catalogs](#large-catalogs)).
 
 The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generates. Schema:
-`src/db/schema.ts`, migrations `migrations/0000_*.sql` (records) and `0001_*.sql` (`passages`).
+`src/db/schema.ts`, migrations `migrations/0000_*.sql` (records), `0001_*.sql` (`passages`),
+`0002_*.sql` (the NOCASE catalog index) and `0003_*.sql` to `0005_*.sql` (versions:
+`source_versions`, then the passages' validity in three steps, because SQLite cannot add a
+`NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
+custom `0004`, then tighten it with its check).
 
 - `sources.id` is the AI Search folder of the source's passages (`rmf-2026`). `authority` is one of
   `SAT`, `DOF`, `SCJN`, `TFJA`, `Congreso` (a check constraint).
 - `valid_from` and `valid_until` are `YYYYMMDD` integers, as in the search metadata;
-  `valid_until` defaults to `99991231` and may not precede `valid_from`. `published_at` is an ISO
+  `valid_until` defaults to `99991231` (except in `source_versions`, which holds only ended
+  versions) and may not precede `valid_from`. `published_at` is an ISO
   date or null; `retrieved_at` is epoch milliseconds.
 - `error_codes` is keyed by `code` as published. `catalog_entries` has a surrogate id and an index
   on (catalog, key), because a key can repeat (c_TasaOCuota). The index is `COLLATE NOCASE`
@@ -228,7 +242,9 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
   `items.get(id).download()`. It answers `{ passageId, heading, text, authority, kind, validFrom,
 validUntil, source }`: `text` is the whole body as uploaded (heading path, then the verbatim
   Markdown), not one chunk; the validity comes from the item's metadata; `source` is the D1
-  provenance. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
+  provenance of the version the passage was last read from (the one in force on its
+  `valid_until`: a superseded passage's own version, else the current one). A superseded passage's
+  dated id (`…/nodo-receptor-usocfdi.20220101.md`) reads like any other. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
   `passage_not_found`; an Items API failure is `502 search_unavailable`.
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
@@ -306,8 +322,9 @@ fetch source → sha256 → unchanged? stop
   generates `docs/sat-md` from the SAT's published files (`--check` exits 1 when the SAT published
   something new, `--force` regenerates all; it needs LibreOffice, and MarkItDown with Poppler for
   the PDF guides). `pnpm --filter @codice/api ingest` (`scripts/ingest.ts`) reads it,
-  splits the guides with Códice's splitter (`scripts/sections.ts`, below), uploads only passages
-  that are new, changed, missing or failed to index, deletes items no passage has any more, then
+  splits the guides with Códice's splitter (`scripts/sections.ts`, below), keeps the passages a new
+  source version supersedes under dated keys ([Versions](#versions)), uploads only passages that
+  are new, changed, missing or failed to index, deletes items no record has any more, then
   replaces the D1 records. The Items listing repeats and skips items while they index, so the plan
   counts each item id once and a skipped item is handled on the next run. `--dry-run` prints the
   plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
@@ -366,6 +383,35 @@ fetch source → sha256 → unchanged? stop
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
   runs on pull requests: each run spends ~50 AI Search queries.
 
+### Versions
+
+When the SAT publishes a new version of a source, its old passages stay searchable for the dates
+they applied. The ingestion (`ingestionPlan` in `scripts/corpus.ts`) compares each source with its
+D1 `sources` row: a new hash with a later `valid_from` is a new version. Then, for each passage D1
+holds in force for that source:
+
+- **Same text** (same key and hash): it stays as it is and keeps the `valid_from` it first applied
+  from, so an `asOf` in either version finds it once.
+- **Changed or dropped**: its old text moves to `<source>/<anchor>.<valid_from>.md`, with its
+  `valid_from` and `valid_until` set to the day before the new version's `valid_from`. The
+  ingestion downloads the old body from the current item (Items REST `download`), refuses it unless
+  its SHA-256 is the hash D1 recorded, and uploads it under the dated key with the item's authority
+  and kind. Then the new text replaces the current item (a changed passage), or the current item
+  is deleted (a dropped one).
+- **New**: uploaded with the new version's `valid_from`.
+
+The replaced `sources` row goes to `source_versions` with the same `valid_until`. Superseded
+passages and source versions already recorded stay on later runs; a source the corpus no longer
+has loses them with it. Each day meets one version of a passage: `asOf` 2026-02-28 answers the old
+text and 2026-03-01 the new, and each cites its own source version.
+
+A run that stops is safe to repeat: the dated copies upload before anything replaces the current
+items, a dated key AI Search already holds is not copied again, and D1 records the run last, so the
+next run plans the same records. A current item that no longer holds the recorded text with no
+dated copy fails the run instead of keeping the wrong text. Any change that is not a new version
+(the same file re-split by a splitter change, a hash change with the same `valid_from`) replaces
+passages in place, as before; the error codes and catalogs keep only their current records.
+
 ## Cost
 
 AI Search billing starts on 2026-11-01. Each account gets every month: 5M ingestion tokens,
@@ -386,8 +432,8 @@ Queries are the only cost that grows; the per-client rate limit bounds it.
 
 ## Testing
 
-- **Unit:** passage splitting, the validity filter, chunk-to-result mapping. Pure functions, Node
-  vitest.
+- **Unit:** passage splitting, the validity filter, chunk-to-result mapping, the ingestion plan
+  (versions included). Pure functions, Node vitest.
 - **Worker routes:** `@cloudflare/vitest-pool-workers`. AI Search does not run locally, so route
   tests check request shaping and response mapping; they are not evidence of retrieval.
 - **Retrieval eval:** a fixed question set, each with the passage it must return in the top 3,
@@ -599,9 +645,12 @@ to match.
    `c_NumPedimentoAduana` and `c_PatenteAduanal` load into D1 `catalog_entries` (see
    [Large catalogs](#large-catalogs)), so `/v1/catalogs/:name/:key` answers for every catCFDI
    catalog, and a column filter narrows a repeated key (`c_Colonia` by `c_CodigoPostal`).
-8. **Versions.** Keep a superseded source's passages with a real `valid_until` when the SAT
-   publishes a new version, so an `asOf` before the change still answers. Phase 0 keeps one version
-   per source.
+8. **Versions** (done in code, not yet exercised by a real SAT change; see [Versions](#versions)).
+   A new source version keeps the passages it changes or drops under dated keys with a real
+   `valid_until`, in AI Search and D1, and records the old source version in `source_versions`, so
+   an `asOf` before the change answers the old text with its own provenance. Migrations `0003` to
+   `0005` add the schema; they apply with the next `deploy:production` (or by hand while the Git
+   build does not run migrations, as `0002` was).
 9. **Corpus Phases 1 and 2**, and the open questions below before a public launch.
 
 ## Open questions

@@ -225,12 +225,47 @@ describe("D1 batches", () => {
       errorCodes: [],
       catalogEntries: [entry("c_UsoCFDI", "S01", { c_UsoCFDI: "S01" })],
     };
-    const sql = recordsSql(corpus, LARGE_CATALOG_NAMES);
+    const sql = recordsSql(corpus, LARGE_CATALOG_NAMES, { passages: [], sourceVersions: [] });
     expect(sql).toContain(
       "DELETE FROM catalog_entries WHERE catalog NOT IN ('c_ClaveProdServ', 'c_ClaveUnidad', 'c_CodigoPostal', 'c_Colonia', 'c_Localidad', 'c_Municipio', 'c_NumPedimentoAduana', 'c_PatenteAduanal');",
     );
     expect(sql).not.toMatch(/DELETE FROM sources;/u);
     expect(sql).toContain("DELETE FROM sources WHERE id NOT IN ('catalogos-cfdi-40');");
+    expect(sql).toContain(
+      "DELETE FROM source_versions WHERE source_id NOT IN ('catalogos-cfdi-40');",
+    );
     expect(sql).toContain(`'${SOURCE.sha256}'`);
+  });
+
+  it("records the passages with their validity and the superseded source versions", () => {
+    const corpus: Corpus = {
+      sources: [SOURCE_ROW],
+      passages: [],
+      errorCodes: [],
+      catalogEntries: [],
+    };
+    const sql = recordsSql(corpus, LARGE_CATALOG_NAMES, {
+      passages: [
+        {
+          key: "catalogos-cfdi-40/x.20220101.md",
+          sourceId: SOURCE_ROW.id,
+          heading: "X",
+          sha256: "1",
+          validFrom: 20220101,
+          validUntil: 20261014,
+        },
+      ],
+      sourceVersions: [{ ...SOURCE_ROW, validFrom: 20220101, validUntil: 20261014 }],
+    });
+    expect(sql).toContain(
+      "INSERT INTO passages (key, source_id, heading, sha256, valid_from, valid_until) VALUES ('catalogos-cfdi-40/x.20220101.md', 'catalogos-cfdi-40', 'X', '1', 20220101, 20261014);",
+    );
+    expect(sql).toMatch(
+      /INSERT INTO source_versions \(source_id, .*\) VALUES \('catalogos-cfdi-40', .*, 20220101, 20261014\) ON CONFLICT \(source_id, valid_from\) DO UPDATE/u,
+    );
+    // After the source it references.
+    expect(sql.indexOf("INSERT INTO source_versions")).toBeGreaterThan(
+      sql.indexOf("INSERT INTO sources"),
+    );
   });
 });
