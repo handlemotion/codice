@@ -11,7 +11,7 @@
  *   pnpm --filter @codice/api eval --instance codice-bge-m3   a comparison instance
  *
  * Runs under Doppler `codice` `dev`, whose `CODICE_AI_SEARCH_TOKEN` has AI Search Run and Read only;
- * without it, `CLOUDFLARE_API_TOKEN`. About 150 queries a run.
+ * without it, `CLOUDFLARE_API_TOKEN`. About 170 queries a run.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";

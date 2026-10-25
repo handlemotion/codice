@@ -6,7 +6,7 @@ what a `CFDI40xxx` error means, how a payment complement is filled). This repo o
 from memory; these files are the SAT's text.
 
 Generated from the SAT's [Anexo 20 page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm)
-by `pnpm --filter @codice/api sat:knowledge`. Every file here except this README is
+and its RMF page by `pnpm --filter @codice/api sat:knowledge`. Every file here except this README is
 generated: never edit one by hand. Códice (`apps/api`) ingests them for search, and the Agent
 reads them from Códice. [`sources.json`](./sources.json) records each SAT file's URL,
 SHA-256, publication date, and retrieval date, and each Markdown file starts with the same
@@ -18,6 +18,16 @@ provenance.
 | Payment complement (REP, Pagos 2.0): Pago, DoctoRelacionado, TipoCambioP, … rules                  | [`complemento-pagos-guia-de-llenado.md`](./complemento-pagos-guia-de-llenado.md)                                 |
 | Validation matrix: every `CFDI40xxx` code, the rule behind it, and its message, one node a section | [`matriz-de-errores-cfdi-4.0.md`](./matriz-de-errores-cfdi-4.0.md), [`.json`](./matriz-de-errores-cfdi-4.0.json) |
 | Catalogs (catCFDI): c_RegimenFiscal, c_UsoCFDI, c_FormaPago, c_Moneda, c_Pais, c_TasaOCuota, …     | [`catalogos-cfdi-4.0.md`](./catalogos-cfdi-4.0.md), [`.json`](./catalogos-cfdi-4.0.json)                         |
+| Resolución Miscelánea Fiscal 2026 (RMF): every regla, as the SAT compiles it with its amendments   | [`resolucion-miscelanea-fiscal-2026.md`](./resolucion-miscelanea-fiscal-2026.md)                                 |
+
+The RMF comes from the SAT's [RMF and RGCE page](https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/normatividad_rmf_rgce2026.html):
+`sat:knowledge` takes the latest compiled RMF it links (`Compilado_…`), the only file with each
+regla's whole current text. The SAT marks each regla an amendment changed with that amendment's
+DOF date (`- Reformada en la Primera RMRMF para 2026, publicada en el DOF el 09 de julio de 2026.`).
+The compilation is informative: the SAT's own note says the DOF publication is what has legal
+effect. It lags the DOF: an amendment published after it (the Segunda RMRMF of 1 October 2026,
+reglas 9.4.4 and 11.7.3) is in the next compilation. The page footers are left out, and the file is
+not formatted (oxfmt would renumber its numbered lines as Markdown lists).
 
 Not included: the large catalogs (c_ClaveProdServ, c_ClaveUnidad, c_CodigoPostal, c_Colonia,
 c_Localidad, c_Municipio, c_NumPedimentoAduana, c_PatenteAduanal). Códice loads them into its D1

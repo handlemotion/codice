@@ -1,6 +1,9 @@
 # Códice: specification
 
-Status: Phase 0, not deployed. The Worker serves the whole [HTTP API](#http-api-v1) and
+Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git build since the
+cutover on 2026-10-25, with no route or custom domain: Transitive's Agent reaches it through its
+`CODICE` service binding. Phase 1 has begun with the RMF. The Worker serves the whole
+[HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind the public rate limit; the ingestion has loaded
 `docs/sat-md` into the AI Search instance and D1 (see [Infrastructure](#infrastructure)).
 
@@ -69,11 +72,11 @@ records, not prose: they go to D1, not to search.
 
 ## Corpus
 
-| Phase | Sources                                                                                                                                                                   |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1. |
-| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments; Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements.               |
-| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                             |
+| Phase | Sources                                                                                                                                                                          |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.        |
+| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements. |
+| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                    |
 
 The AI Search website crawler only crawls domains we own, so SAT and DOF pages are fetched by our
 ingestion and uploaded as items (`.html` items are converted to Markdown by AI Search).
@@ -106,7 +109,10 @@ the Phase 0 passages (520 since the parser change).
   Phase 0 sources: `anexo-20-guia-de-llenado` and `complemento-pagos-guia-de-llenado` (one item a
   section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
   `apendice-8-3` for the third part of an appendix), and
-  `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`).
+  `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). Phase 1: `rmf-2026`, one
+  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)). A passage
+  whose text a newer one replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
+  (`rmf-2026/regla-2.7.1.21.20251228.md`; see [Versions](#versions)).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
 - **Custom metadata** (4 of the 5 allowed; one left for later):
 
@@ -119,8 +125,12 @@ the Phase 0 passages (520 since the parser change).
 
 Dates are `YYYYMMDD` numbers, not datetimes, so an in-force passage has a real upper bound and a
 range filter never meets a missing value. The Items API takes metadata values as strings and stores
-these two as numbers, as the instance's schema types them. Phase 0 holds one version of each source:
-`valid_from` is its publication date and `valid_until` is `99991231`.
+these two as numbers, as the instance's schema types them. A guide or matrix passage's
+`valid_from` is its source's publication date; a regla of the RMF has its own: the DOF date of the
+version the SAT's compilation holds (`20251228` for the RMF as published, `20260709` for a regla the
+Primera RMRMF changed or added). An unchanged passage keeps the `valid_from` of the first version
+that held its text. `valid_until` is `99991231` while in force, and the day before the text that
+replaced it starts once superseded ([Versions](#versions)).
 
 ### Query
 
@@ -143,8 +153,9 @@ await env.CODICE_SEARCH.search({
 ```
 
 The Worker maps each returned chunk to a result: `item.key` → passage id, `text` → quote,
-`item.metadata` → validity, `score` and `scoring_details` → relevance, and the source's provenance
-from D1. `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
+`item.metadata` → validity, `score` and `scoring_details` → relevance, and the provenance of the
+source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
+holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
 ## Records and provenance (D1)
 
@@ -154,10 +165,15 @@ hand-written migrations).
 - `sources`: id, title, authority, url, sha256, published_at, retrieved_at, valid_from,
   valid_until. The ingestion writes it; `/v1/search` and `/v1/passages/:id` add it to each
   result, and `/v1/sources` reads it.
-- `passages`: item key, source id, heading path, and the sha256 of the body uploaded. The
-  ingestion compares it to upload only new or changed passages (AI Search's own item `checksum` is
-  `0` for uploaded items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs
-  no AI Search call.
+- `source_versions`: the superseded versions of a source (source id, title, url, sha256,
+  published_at, retrieved_at, valid_from, valid_until), one per (source id, valid_from). `sources`
+  holds the version in force; a superseded passage cites the version it was read from through
+  this table.
+- `passages`: item key, source id, heading path, the sha256 of the body uploaded, and the item's
+  valid_from and valid_until, current and superseded passages alike. The ingestion compares the
+  hash to upload only new or changed passages (AI Search's own item `checksum` is `0` for uploaded
+  items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs no AI Search
+  call.
 - `error_codes`: the `CFDI40xxx` matrix (code, node, attribute, validation, message). Each row
   is also a search passage, so a plain-language question (_"código postal de un receptor con RFC
   genérico"_) finds its code; the record answers the exact lookup.
@@ -168,12 +184,17 @@ hand-written migrations).
   [Large catalogs](#large-catalogs)).
 
 The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generates. Schema:
-`src/db/schema.ts`, migrations `migrations/0000_*.sql` (records) and `0001_*.sql` (`passages`).
+`src/db/schema.ts`, migrations `migrations/0000_*.sql` (records), `0001_*.sql` (`passages`),
+`0002_*.sql` (the NOCASE catalog index) and `0003_*.sql` to `0005_*.sql` (versions:
+`source_versions`, then the passages' validity in three steps, because SQLite cannot add a
+`NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
+custom `0004`, then tighten it with its check).
 
 - `sources.id` is the AI Search folder of the source's passages (`rmf-2026`). `authority` is one of
   `SAT`, `DOF`, `SCJN`, `TFJA`, `Congreso` (a check constraint).
 - `valid_from` and `valid_until` are `YYYYMMDD` integers, as in the search metadata;
-  `valid_until` defaults to `99991231` and may not precede `valid_from`. `published_at` is an ISO
+  `valid_until` defaults to `99991231` (except in `source_versions`, which holds only ended
+  versions) and may not precede `valid_from`. `published_at` is an ISO
   date or null; `retrieved_at` is epoch milliseconds.
 - `error_codes` is keyed by `code` as published. `catalog_entries` has a surrogate id and an index
   on (catalog, key), because a key can repeat (c_TasaOCuota). The index is `COLLATE NOCASE`
@@ -228,7 +249,9 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
   `items.get(id).download()`. It answers `{ passageId, heading, text, authority, kind, validFrom,
 validUntil, source }`: `text` is the whole body as uploaded (heading path, then the verbatim
   Markdown), not one chunk; the validity comes from the item's metadata; `source` is the D1
-  provenance. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
+  provenance of the version the passage was last read from (the one in force on its
+  `valid_until`: a superseded passage's own version, else the current one). A superseded passage's
+  dated id (`…/nodo-receptor-usocfdi.20220101.md`) reads like any other. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
   `passage_not_found`; an Items API failure is `502 search_unavailable`.
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
@@ -306,13 +329,20 @@ fetch source → sha256 → unchanged? stop
   generates `docs/sat-md` from the SAT's published files (`--check` exits 1 when the SAT published
   something new, `--force` regenerates all; it needs LibreOffice, and MarkItDown with Poppler for
   the PDF guides). `pnpm --filter @codice/api ingest` (`scripts/ingest.ts`) reads it,
-  splits the guides with Códice's splitter (`scripts/sections.ts`, below), uploads only passages
-  that are new, changed, missing or failed to index, deletes items no passage has any more, then
-  replaces the D1 records. The Items listing repeats and skips items while they index, so the plan
-  counts each item id once and a skipped item is handled on the next run. `--dry-run` prints the
-  plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
-  before D1, until AI Search has indexed every item (none queued, running or outdated; one that
-  failed to index fails the run). `--instance <name>` loads a comparison instance for an eval of
+  splits the guides with Códice's splitter (`scripts/sections.ts`, below), keeps the passages a
+  newer text supersedes under dated keys ([Versions](#versions)), deletes stuck items, uploads only
+  passages that are new, changed, missing or stuck, deletes items no record has any more, then
+  replaces the D1 records. A stuck item is one AI Search will never finish indexing:
+  status `error`, or `outdated` with `next_action: null` (`stuckItem` in `scripts/corpus.ts`). On
+  2026-10-25 `complemento-pagos-guia-de-llenado/nodo-concepto-descuento.md` stayed so after a
+  `workers_ai_timeout_error`: AI Search never retried it, uploading the same key again changed
+  nothing, and only deleting it and uploading again indexed it; so the plan deletes a stuck item
+  before uploading its passage. The Items listing repeats and skips items while they index, so the
+  plan counts each item id once and a skipped item is handled on the next run. `--dry-run` prints
+  the plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
+  before D1, until AI Search has indexed every item (none queued, running or outdated). It does not
+  wait for stuck items: once only they are left, it fails the run and names each by key, and the
+  next run repairs them. `--instance <name>` loads a comparison instance for an eval of
   other settings: every passage it lacks, no D1 and no catalogs. A change to the splitter changes
   passage keys, and with them the Agent's citations: prove the corpus with
   `test/corpus.unit.test.ts` and `test/sections.unit.test.ts` first.
@@ -326,6 +356,20 @@ fetch source → sha256 → unchanged? stop
   appendix is one passage a question; any other section is cut at blank lines into parts of at
   most 3,000 characters (about one 1,024-token chunk). The passages are verbatim slices that cover
   each guide in order.
+- The RMF (Phase 1): `sat:knowledge` takes the latest compiled RMF the SAT's RMF page links
+  (`Compilado_…`, the RMF with every amendment published until then) and converts it with
+  MarkItDown, leaving out the page footers; the amendments themselves quote only the paragraphs
+  they change, so they cannot give a regla's whole text. The splitter (`rmfReglas`) cuts one passage
+  a regla, from its title (or the SAT's note above it, `- Reformada en la Primera RMRMF para 2026,
+publicada en el DOF el 09 de julio de 2026.`) through its references line, labelled by its
+  Título, Capítulo, Sección and Subsección as the document's contents spell them. A regla's
+  `valid_from` is the last DOF date in its note, else the RMF's own (28 December 2025); a repealed
+  regla (`2.12.4. Se deroga.`) has no passage, nor do the glossary and the transitorios. Of the
+  1,214 reglas, 36 carry a Primera RMRMF date. The compilation lags the DOF: the Segunda RMRMF (DOF
+  1 October 2026: reglas 9.4.4 and 11.7.3) is not in it, so those two passages hold the July text
+  until the SAT publishes the next compilation and the corpus workflow picks it up. It also omits
+  the note on 2.7.3.5, which the Primera RMRMF changed, so that regla keeps the RMF's date. One
+  title is known to be wrong: 2.12.2's label starts with the previous regla's wrapped references.
 - The large catalogs skip `docs/sat-md`: the ingestion downloads the catCFDI file
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
@@ -360,11 +404,53 @@ fetch source → sha256 → unchanged? stop
   published new files it regenerates `docs/sat-md` and opens a pull request from
   `codice/sat-md-refresh` (one at a time; it waits while that PR is open), then dispatches the
   required checks onto it, since a PR opened with `GITHUB_TOKEN` starts no workflows. Job `ingest`
-  ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item), then runs
-  `eval --min-top3 140` when a passage was uploaded or deleted, or when a manual run asks for it
+  ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item, at most
+  120 minutes; the job's limit is 150), then runs
+  `eval --min-top3 155` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~150 AI Search queries.
+  runs on pull requests: each run spends ~170 AI Search queries.
+- Indexing time, measured 2026-10-25 on a comparison instance with `codice`'s settings: the 1,734
+  passages with the RMF uploaded in 6 minutes, and 1,733 had indexed 51 minutes after the upload
+  began; one (`rmf-2026/regla-12.3.16.md`) stayed `running` past that. Such an item fails the
+  wait, so the run writes no D1 hashes and the next run uploads the changed passages again.
+
+### Versions
+
+When the SAT publishes a new text, the old one stays searchable for the dates it applied. The
+ingestion (`ingestionPlan` in `scripts/corpus.ts`) compares each passage with its D1 row, and each
+source with its D1 `sources` row: a new hash with a later `valid_from` is a new version of the
+source. For each passage D1 holds in force:
+
+- **Same text** (same key and hash): it stays as it is and keeps the `valid_from` it first applied
+  from, so an `asOf` in either version finds it once.
+- **Changed, and the new text starts later** (a guide in a new version, from the version's date;
+  an amended RMF regla, from its own DOF date): its old text moves to
+  `<source>/<anchor>.<valid_from>.md`, with its `valid_from` and `valid_until` set to the day before
+  the new text starts. The ingestion downloads the old body from the current item (Items REST
+  `download`), refuses it unless its SHA-256 is the hash D1 recorded, and uploads it under the dated
+  key with the item's authority and kind. Then the new text replaces the current item.
+- **Dropped by a new version of its source**: kept the same way, until the day before the version,
+  and its current item is deleted.
+- **Changed with no later start** (the same version re-split by a splitter change): replaced in
+  place, as before.
+- **New**: uploaded with its own `valid_from`.
+
+A replaced `sources` row goes to `source_versions`, valid until the day before the new version. An
+amended regla in a compilation that keeps its publication date ends no source version: it cites the
+current `sources` row. Superseded passages and source versions already recorded stay on later runs;
+a source the corpus no longer has loses them with it. Each day meets one version of a passage:
+with a new text from 2026-03-01, `asOf` 2026-02-28 answers the old text and 2026-03-01 the new.
+
+A stuck dated copy is repaired like any stuck item, with one more step: the ingestion downloads
+its text before it deletes it, and uploads it again right after. A stuck current item still serves
+as the source of a copy, which uploads before the repair deletes it.
+
+A run that stops is safe to repeat: the dated copies upload before anything replaces the current
+items, a dated key AI Search already holds is not copied again, and D1 records the run last, so the
+next run plans the same records. A current item that no longer holds the recorded text with no
+dated copy fails the run instead of keeping the wrong text. The error codes and catalogs keep only
+their current records.
 
 ## Cost
 
@@ -377,6 +463,7 @@ full-text queries. D1 at this size stays inside the Workers Paid allowance.
 | ----------------------------- | ----------------------------------------- | ------------- |
 | Phase 0 ingestion             | ~0.3M tokens once                         | $0 (included) |
 | Phase 1 ingestion             | ~3–5M tokens once, small re-ingests after | $0–$1         |
+| of which the RMF              | 1,214 passages, 2.6 MB: ~0.9M tokens      | $0 (included) |
 | Storage                       | well under 1 GB                           | $0            |
 | Queries, internal use only    | < 1,000                                   | $0            |
 | Queries, public at 10k/month  | 9,000 billable hybrid                     | ~$7           |
@@ -386,13 +473,13 @@ Queries are the only cost that grows; the per-client rate limit bounds it.
 
 ## Testing
 
-- **Unit:** passage splitting, the validity filter, chunk-to-result mapping. Pure functions, Node
-  vitest.
+- **Unit:** passage splitting, the validity filter, chunk-to-result mapping, the ingestion plan
+  (versions included). Pure functions, Node vitest.
 - **Worker routes:** `@cloudflare/vitest-pool-workers`. AI Search does not run locally, so route
   tests check request shaping and response mapping; they are not evidence of retrieval.
 - **Retrieval eval:** a fixed question set, each with the passage it must return in the top 3,
   run against the real instance (start from the rules in `docs/sat-md/README.md`). It decides the
-  tokenizer, match mode and embedding model, and runs after every ingestion change. ~150 questions
+  tokenizer, match mode and embedding model, and runs after every ingestion change. ~170 questions
   per run stays inside the free query allowance. `pnpm --filter @codice/api eval`
   (`scripts/eval.ts`, questions in `scripts/eval-questions.json`) sends the Worker's own request;
   `--match or` overrides the match mode for one run. Results: [Retrieval eval](#retrieval-eval).
@@ -459,7 +546,9 @@ Decisions:
 
 - **Embedding model `@cf/qwen/qwen3-embedding-0.6b`, chunk size 1,024** (kept). bge-m3 scored no
   better than qwen at the same chunk size, and both lose a question at 512.
-- **Eval floor 48 of 50** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
+- **Eval floor 48 of 50** (`codice-corpus.yml`, `EVAL_MIN_TOP3`). The first scheduled-ingestion
+  run from `main` (run 40165931157, 2026-10-25) was green at the same scores: 48 top 3, 43 top 1,
+  MRR@10 0.909.
 
 The two misses left, both real (the passage that outranks the rule does not answer the question):
 
@@ -473,9 +562,34 @@ The two misses left, both real (the passage that outranks the rule does not answ
 At 512 tokens, _"Retención de ISR al 1.25% para el Régimen Simplificado de Confianza"_ also falls
 to rank 4 (qwen) and 8 (bge-m3), behind the `TotalRetencionesISR` rules.
 
-Two stale items of the old split (`nodo-trasladop-importep-15`, `nodo-en-base`) are still in
-`codice`: AI Search answers their deletion with 429 `ai_search_instance_overloaded`. The next
-`ingest` deletes them; neither appears in a top 3 of the runs above.
+### The RMF (2026-10-25)
+
+The corpus with the RMF (1,734 passages: the 520 above and 1,214 reglas), and 22 RMF questions
+added to the 50 (72 in all), `asOf` 2026-10-25. One run, on the comparison instance
+`codice-rmf-eval` (`ingest --instance`, `eval --instance`), created with `codice`'s settings
+(qwen, 1,024-token chunks, `trigram`, `and`, reranking, threshold 0) and deleted after the run;
+`codice` itself was not changed. At the run 1,733 items had indexed; the one left
+(`regla-12.3.16`) is no question's answer.
+
+| Questions     | Top 3  | Top 1  | MRR@10    |
+| ------------- | ------ | ------ | --------- |
+| The 50 before | 47     | 42     | 0.892     |
+| The 22 RMF    | 22     | 19     | 0.924     |
+| **All 72**    | **69** | **61** | **0.902** |
+
+Every RMF question finds its regla in the top 3; three rank second or third, behind a neighbouring
+regla or a guide passage on the same subject (PUE after the issue date, 2.7.1.39; payments in
+parts, 2.7.1.32; the opinión del cumplimiento, 2.1.36 to 2.1.37). The 50 lose one question to the
+RMF: _"Retención de ISR al 1.25% para el Régimen Simplificado de Confianza"_ now falls below the
+top 10, behind reglas 3.13.26, 3.13.14 and 3.13.13 (the exception to that withholding, how it is
+paid, and its CFDI); the question expects the matrix rows `CFDI140224` and `CFDI140225`, the CFDI
+validation. Those reglas are on the subject but do not state the validation, so the expected
+passages stay as they were. The two misses above remain (rank 10 and 6). As for `ObjetoImp`, a
+filter on `kind` or `source` is the lever.
+
+Decision:
+
+- **Eval floor 69 of 72** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
 
 ### 150 questions and the `kind` filter (2026-10-25)
 
@@ -505,9 +619,13 @@ Decisions:
 
 - **`kind` filter** (adopted): `ObjetoImp` went from rank 6 to rank 1, and no other question
   changed.
-- **Eval floor 140 of 150** (`codice-corpus.yml`, `EVAL_MIN_TOP3`): the recorded 142, less 2 so
-  one or two empty answers from AI Search, as in the first "before" run, do not fail the corpus
-  run. A real regression of three questions still does.
+- **Eval floor** (`codice-corpus.yml`, `EVAL_MIN_TOP3`): these runs were on `codice` before the
+  RMF (520 passages), with the 150 questions alone. With the RMF's 22 questions the set is 172,
+  and `codice` gets the RMF at the next corpus ingestion, so no run has measured the 172 on it
+  yet. The floor is **155, provisional**: the 142 above, less the one question the RMF takes from
+  the 50 (see "The RMF"), plus the 22 RMF questions, is 163; less 2 for AI Search's occasional
+  empty answer (as in the first "before" run here) and up to 6 for RMF reglas outranking guide
+  passages for the 100 new questions. Set it from the first corpus run after the RMF ingest.
 
 The eight misses left, none fixed by changing expected passages:
 
@@ -533,7 +651,8 @@ Created 2026-10-24; Phase 0 loaded the same day:
 | D1 database        | `codice` | `CODICE_DATABASE`            |
 | Rate limit         | `1601`   | `CODICE_PUBLIC_RATE_LIMITER` |
 
-No route, no custom domain, no Cloudflare Git build. The AI Search binding is `"remote": true`, so
+No route, no custom domain, `workers.dev` off; the Cloudflare Git build of `main` deploys the
+Worker (see [Monitoring and deploy](#monitoring-and-deploy)). The AI Search binding is `"remote": true`, so
 `wrangler dev` (`pnpm dev:up` in the local stack, or `pnpm --filter @codice/api dev`,
 Doppler `codice` `dev`) queries the real instance through Wrangler's Cloudflare auth, and seeds the
 local D1 with `ingest --local` when it is empty; the tests use a local binding.
@@ -556,61 +675,56 @@ the Worker; it skips the Worker while the script or the secret does not exist.
 
 ### Go-live checklist
 
-Until cutover (`docs/operations/cutover.md`) production builds, secrets sync and the corpus
-workflow run from `trstv/transitive`; this repository builds and tests the same code but deploys
-nothing. The paths in the steps below are Transitive's.
+Since the cutover on 2026-10-25 (`docs/operations/cutover.md`) this repository builds and deploys
+the Worker, syncs its secret (`sync-worker-secrets.yml`) and refreshes the corpus
+(`codice-corpus.yml`). Steps 1 to 6 are done; step 7 waits on `codice.io`, which is not purchased.
+Each remaining step needs explicit approval.
 
-Each step needs explicit approval. Status 2026-10-25: the Sentry project is `codice-api` in org
-`jaantonio`, and `SENTRY_DSN` is in Doppler `codice` `prd` and bound to the Worker (steps 1, 3, 4;
-the alert connection in step 1 is unchecked).
-The Git build of `main` deploys on every merge, but with deploy command `npx wrangler deploy` and no
-build variables (step 5 is not yet matched), so it applies no D1 migrations and uploads no source
-maps: `0002` was applied by hand on 2026-10-25. `codice.io` is not purchased yet.
+Status 2026-10-25: the Cloudflare Git build of `trstv/codice` `main` (root `apps/api`, deploy
+command `pnpm run deploy:production`) deployed version `a6945917`, the active deployment. The
+Sentry project is `codice-api` in org `jaantonio`, and `SENTRY_DSN` is in Doppler `codice` `prd`
+and bound to the Worker; the alert connection in step 1 is unchecked. D1 `0002` was applied by hand
+on 2026-10-25, before the build ran `deploy:production`.
 
 The Worker must exist before anything can bind its secret: the secrets API answers `10007`
 (Worker does not exist), and Wrangler refuses to upload a new Worker whose required `SENTRY_DSN`
 is unset. So the order is fixed:
 
-1. **Sentry.** Project `codice-api` (org `jaantonio`, platform Cloudflare Workers), connected to
-   the org-wide `Production issues → incident.io` alert
-   (`docs/architecture/production-monitoring.md`). Its DSN is `SENTRY_DSN` in Doppler `codice`
-   `prd`; the build needs a source-map upload token (step 5).
-2. **Sync access** (before the sync change reaches `main`). Give the Doppler service account
-   `github-worker-secrets-sync` read access to `codice` `prd`, and add the `codice` webhook
-   (`docs/operations/doppler-secrets.md`, "Worker sync"). Without the access the daily sync fails at
-   `codice`, after every `transitive` Worker has synced.
-3. **Create the Worker.** A placeholder `codice` script from the dashboard (Hello World, no route,
-   `workers.dev` off). It serves nothing; the first Git build replaces it.
-4. **Bind the secret.** Run "Sync Worker secrets" by hand with `worker` `codice` and `apply` on (a
-   `SENTRY_DSN` written before the Worker existed is older than the watermark, so the scheduled run
-   skips it). Check: `cf workers secrets list` for `codice` shows `SENTRY_DSN`.
-5. **Register the Git build** on the existing `codice` Worker, with the settings of `providers`.
-   Registered; still to match: the deploy command and the build variables.
-   - Repository `trstv/transitive`, production branch `main`, root directory `apps/codice`. At
-     cutover it moves to `trstv/codice`, root directory `apps/api` (`docs/operations/cutover.md`).
+1. **Sentry** (done). Project `codice-api` (org `jaantonio`, platform Cloudflare Workers), to be
+   connected to the org-wide `Production issues → incident.io` alert. Its DSN is `SENTRY_DSN` in
+   Doppler `codice` `prd`, next to the build's source-map token `SENTRY_AUTH_TOKEN`.
+2. **Sync access** (done). `sync-worker-secrets.yml` signs in to Doppler with the corpus identity
+   `trstv-codice-main` and reads the Worker secrets token in `codice` `prd`
+   (`docs/operations/doppler-secrets.md`, "Worker secret sync"). Left: point the Doppler webhook on
+   `codice` `prd` at this repository's dispatches.
+3. **Create the Worker** (done). A placeholder `codice` script from the dashboard (Hello World, no
+   route, `workers.dev` off), replaced by the first Git build.
+4. **Bind the secret** (done). Run "Sync Worker secrets" (`sync-worker-secrets.yml`) by hand with
+   `worker` `codice` and `apply` on. Check: `cf workers secrets list` for `codice` shows
+   `SENTRY_DSN`.
+5. **Register the Git build** (done) on the `codice` Worker:
+   - Repository `trstv/codice`, production branch `main`, root directory `apps/api`.
    - Deploy command `pnpm run deploy:production`; non-production branches
      `pnpm exec wrangler versions upload` (previews never apply D1 migrations).
-   - Build variables: `SENTRY_ORG` = `jaantonio` and `SENTRY_AUTH_TOKEN` (from step 1).
-   - Watch paths: `codice` is in `scripts/workers-build-watch-paths.mjs`; run
-     `node scripts/workers-build-watch-paths.mjs apply --yes` with a token that can edit Workers
-     Builds. It derives:
-     includes `apps/codice/*`, `packages/access-policy/*`, `packages/api-contracts/*`,
-     `packages/monitoring/*`, `packages/typescript-config/*` and the root install inputs; excludes
-     `*.md` and test files.
-6. **First `deploy:production`.** The first merge after step 5 builds Códice with migrations and
-   source maps. D1 `0000` to `0002` are already applied. Verify with `cf builds list`,
-   `cf workers versions list` and `cf workers deployments list`, and that the Sentry release for the commit has source maps.
-7. **Attach `codice.io`.** Add the zone to the account if it is not there, then a PR with the
-   custom domain route in `wrangler.jsonc` and `ready: "https://codice.io/ready"` on the `codice`
-   entry of `scripts/secrets/sync-worker-secrets.mjs`. Verify `GET https://codice.io/ready` → 200.
+   - Build variables: `SENTRY_ORG` = `jaantonio` and `SENTRY_AUTH_TOKEN` (Doppler `codice` `prd`).
+   - Watch paths: include `apps/api/*`, `packages/*` and the root install inputs
+     (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`); exclude `*.md` and test files.
+6. **First `deploy:production`** (done). A build of `main` deployed version `a6945917`; the D1
+   migrations step ran with none pending and the source maps uploaded. After each merge, verify
+   with `cf builds list`, `cf workers versions list` and `cf workers deployments list`, and that the
+   Sentry release for the commit has source maps.
+7. **Attach `codice.io`** (not purchased). Buy the domain and add its zone to the account, then a
+   PR with the custom domain route in `apps/api/wrangler.jsonc`. Verify
+   `GET https://codice.io/ready` → 200.
 
 ## Rollout
 
 1. Scaffold, spec, dormant resources (done).
-2. Phase 0: ingestion into AI Search and D1; `/v1` and `/mcp`; retrieval eval passing (done, not
-   deployed).
+2. Phase 0: ingestion into AI Search and D1; `/v1` and `/mcp`; retrieval eval passing (done,
+   deployed 2026-10-25).
 3. The Agent calls Códice through a service binding and deletes its bundled search (done).
-4. Register the Cloudflare Git build and attach `codice.io` (needs explicit approval).
+4. Register the Cloudflare Git build (done 2026-10-25, from this repository) and attach
+   `codice.io` (not purchased; needs explicit approval).
 5. Phases 1 and 2 of the corpus; public launch.
 
 ## Next steps
@@ -618,22 +732,23 @@ is unset. So the order is fixed:
 The work after Phase 0, in order. Tick an item off here when it lands, and update the sections above
 to match.
 
-1. **Credentials** (partly done). Doppler project `codice` holds `CODICE_AI_SEARCH_TOKEN` in `prd`
+1. **Credentials** (done). Doppler project `codice` holds `CODICE_AI_SEARCH_TOKEN` in `prd`
    (Cloudflare token `codice-ai-search`: AI Search Write and Run, for the ingestion) and in `dev`
    (`codice-ai-search-dev`: AI Search Run and Read, for searches and the eval; it cannot change
    the index), and `CODICE_D1_TOKEN` in `prd` (`codice-d1`: D1 Edit, for `wrangler d1 execute`
    outside an operator's session). The Doppler service account `codice-corpus` (read on `dev` and
    `prd`) has the GitHub identity the scheduled ingestion signs in with. `sync-worker-secrets.yml`
-   syncs `SENTRY_DSN` from `codice` `prd` to the Worker (done), for Sentry project `codice-api`.
-   Still to do: the build's source-map token (Go-live checklist, step 5).
-2. **Scheduled ingestion** (workflow in place, not yet run). `codice-corpus.yml` checks the SAT,
-   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 140 of 150 (see
-   [Ingestion](#ingestion)). Its credentials exist and its identity ID is pinned; tick this off
-   after the first green `workflow_dispatch` run from `main`.
+   syncs `SENTRY_DSN` from `codice` `prd` to the Worker, for Sentry project `codice-api`, and the
+   Git build reads its source-map token `SENTRY_AUTH_TOKEN` from `codice` `prd`.
+2. **Scheduled ingestion** (done 2026-10-25: run 40165931157 from `main` was green on the 50
+   questions before the RMF, 48 top 3, 43 top 1, MRR@10 0.909). `codice-corpus.yml` checks the SAT
+   every Monday, opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 155 of
+   172 (provisional) (see [Ingestion](#ingestion)).
 3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
    and `/v1/sources/:id`, and the MCP tools `read_passage`, `lookup_error`, `lookup_catalog` and
    `list_sources`.
-4. **Deploy** (explicit approval): the Go-live checklist under "Monitoring and deploy".
+4. **Deploy** (done 2026-10-25 from this repository's Git build). Left: attach `codice.io` once
+   it is purchased (Go-live checklist, step 7; explicit approval).
 5. **Agent switch-over** (Rollout 3, done): the Agent calls `CodiceKnowledge` through its `CODICE`
    service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
    (`sections.ts`) live here, in `scripts/`.
@@ -646,10 +761,20 @@ to match.
    `c_NumPedimentoAduana` and `c_PatenteAduanal` load into D1 `catalog_entries` (see
    [Large catalogs](#large-catalogs)), so `/v1/catalogs/:name/:key` answers for every catCFDI
    catalog, and a column filter narrows a repeated key (`c_Colonia` by `c_CodigoPostal`).
-8. **Versions.** Keep a superseded source's passages with a real `valid_until` when the SAT
-   publishes a new version, so an `asOf` before the change still answers. Phase 0 keeps one version
-   per source.
-9. **Corpus Phases 1 and 2**, and the open questions below before a public launch.
+8. **Versions** (done in code, not yet exercised by a real SAT change; see [Versions](#versions)).
+   A passage whose text a newer version replaces, or that a new version of its source drops, stays
+   under a dated key with a real `valid_until`, in AI Search and D1, and a replaced source version
+   goes to `source_versions`, so an `asOf` before the change answers the old text with its own
+   provenance. Migrations `0003` to `0005` add the schema; they apply with the next
+   `deploy:production` (or by hand while the Git build does not run migrations, as `0002` was).
+   Only changes from now on are kept: an RMF regla the Primera RMRMF changed before Códice loaded
+   the RMF holds only its new text, from the amendment's DOF date, so an `asOf` before that date
+   finds no version of it.
+9. **Corpus Phases 1 and 2**, and the open questions below before a public launch. Phase 1 so far:
+   the RMF (`rmf-2026`, 2026-10-25; see [Ingestion](#ingestion) and
+   [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.
+   Next, one at a time and in the same pattern (a source in `sources.json`, a splitter in
+   `sections.ts`, ~20 questions, an eval run): the CFF, the LISR and the LIVA.
 
 ## Open questions
 

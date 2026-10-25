@@ -790,5 +790,93 @@
       "anexo-20-guia-de-llenado/nodo-cuentapredial.md",
       "anexo-20-guia-de-llenado/nodo-cuentapredial-numero.md"
     ]
+  },
+  {
+    "q": "¿Cuál es la tasa mensual de recargos por mora en 2026?",
+    "expect": ["rmf-2026/regla-2.1.20.md"]
+  },
+  {
+    "q": "¿Qué días son inhábiles para el SAT en 2026 y cuándo es el periodo de vacaciones de julio?",
+    "expect": ["rmf-2026/regla-2.1.6.md"]
+  },
+  {
+    "q": "Factura global: ¿puedo emitir un CFDI diario, semanal o mensual por las operaciones con el público en general?",
+    "expect": ["rmf-2026/regla-2.7.1.21.md"]
+  },
+  {
+    "q": "¿Qué se entiende por operaciones con el público en general al expedir un CFDI?",
+    "expect": ["rmf-2026/regla-2.7.1.45.md", "rmf-2026/regla-2.7.1.21.md"]
+  },
+  {
+    "q": "¿Qué RFC genérico se usa en un CFDI a un residente en el extranjero que no está inscrito en el RFC?",
+    "expect": ["rmf-2026/regla-2.7.1.23.md", "anexo-20-guia-de-llenado/nodo-receptor-rfc.md"]
+  },
+  {
+    "q": "¿En qué casos se puede cancelar un CFDI sin la aceptación del receptor?",
+    "expect": ["rmf-2026/regla-2.7.1.35.md"]
+  },
+  {
+    "q": "¿Cómo solicita el emisor la cancelación de un CFDI en el Portal del SAT y cuándo debe aceptarla el receptor?",
+    "expect": ["rmf-2026/regla-2.7.1.34.md"]
+  },
+  {
+    "q": "Regla 2.7.1.35",
+    "expect": ["rmf-2026/regla-2.7.1.35.md"]
+  },
+  {
+    "q": "Si el pago se recibe después de emitir la factura, ¿puedo poner PUE como método de pago?",
+    "expect": ["rmf-2026/regla-2.7.1.39.md"]
+  },
+  {
+    "q": "¿Cómo se factura cuando la contraprestación no se paga en una sola exhibición?",
+    "expect": ["rmf-2026/regla-2.7.1.32.md"]
+  },
+  {
+    "q": "¿En cuántas horas se deben confirmar los medios de contacto al habilitar el buzón tributario?",
+    "expect": ["rmf-2026/regla-2.2.7.md"]
+  },
+  {
+    "q": "¿Pueden las personas físicas emitir y cancelar CFDI con su e.firma en lugar del CSD?",
+    "expect": ["rmf-2026/regla-2.2.8.md"]
+  },
+  {
+    "q": "Procedimiento para dejar sin efectos el certificado de sello digital y subsanar las irregularidades",
+    "expect": ["rmf-2026/regla-2.2.4.md", "rmf-2026/regla-2.2.15.md"]
+  },
+  {
+    "q": "Constancia de situación fiscal con cédula de identificación fiscal",
+    "expect": ["rmf-2026/regla-2.4.9.md"]
+  },
+  {
+    "q": "¿Cómo se solicita la constancia de residencia fiscal en México?",
+    "expect": ["rmf-2026/regla-2.1.3.md"]
+  },
+  {
+    "q": "Opinión del cumplimiento de obligaciones fiscales del artículo 32-D del CFF",
+    "expect": ["rmf-2026/regla-2.1.36.md", "rmf-2026/regla-2.1.37.md", "rmf-2026/regla-2.1.24.md"]
+  },
+  {
+    "q": "¿Las empresas de paquetería y mensajería deben emitir CFDI con complemento Carta Porte?",
+    "expect": ["rmf-2026/regla-2.7.7.2.2.md"]
+  },
+  {
+    "q": "¿Qué datos debe tener la representación impresa del CFDI de nómina que se entrega al trabajador?",
+    "expect": ["rmf-2026/regla-2.7.5.2.md"]
+  },
+  {
+    "q": "¿Cuándo se presenta el pago mensual del ISR en el Régimen Simplificado de Confianza?",
+    "expect": ["rmf-2026/regla-3.13.7.md"]
+  },
+  {
+    "q": "Complemento de hidrocarburos y petrolíferos en el CFDI por la venta de gasolina y diésel",
+    "expect": ["rmf-2026/regla-2.7.1.48.md"]
+  },
+  {
+    "q": "Pago del ISR de los jugadores residentes en el extranjero en la Copa Mundial de la FIFA 2026",
+    "expect": ["rmf-2026/regla-9.4.4.md"]
+  },
+  {
+    "q": "Estímulo fiscal a la producción cinematográfica y audiovisual: ¿qué erogaciones integran el costo total del proyecto?",
+    "expect": ["rmf-2026/regla-11.18.1.md"]
   }
 ]

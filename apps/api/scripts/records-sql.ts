@@ -3,7 +3,7 @@
  * statement holds at most 100,000 bytes, and one statement must not change hundreds of thousands of
  * rows (https://developers.cloudflare.com/d1/platform/limits/). Pure: `ingest.ts` runs the files.
  */
-import type { CatalogEntryRow, Corpus, SourceRow } from "./corpus";
+import type { CatalogEntryRow, Corpus, PassageRecord, SourceRow } from "./corpus";
 
 /** Under D1's 100,000-byte statement limit, with room to spare. */
 export const STATEMENT_BYTES_MAX = 90_000;
@@ -98,6 +98,34 @@ function upsertSource(row: SourceRow, sha256 = row.sha256) {
   return `INSERT INTO sources (${SOURCE_COLUMNS.join(", ")}) VALUES (${values.map(sqlValue).join(", ")}) ON CONFLICT (id) DO UPDATE SET ${updates.join(", ")};`;
 }
 
+/** Records a superseded source version; a run that repeats the plan writes the same row. */
+function upsertSourceVersion(row: SourceRow) {
+  const columns = [
+    "source_id",
+    "title",
+    "url",
+    "sha256",
+    "published_at",
+    "retrieved_at",
+    "valid_from",
+    "valid_until",
+  ];
+  const values: Value[] = [
+    row.id,
+    row.title,
+    row.url,
+    row.sha256,
+    row.publishedAt,
+    Date.parse(row.retrievedAt),
+    row.validFrom,
+    row.validUntil,
+  ];
+  const updates = columns
+    .filter((column) => column !== "source_id" && column !== "valid_from")
+    .map((column) => `${column} = excluded.${column}`);
+  return `INSERT INTO source_versions (${columns.join(", ")}) VALUES (${values.map(sqlValue).join(", ")}) ON CONFLICT (source_id, valid_from) DO UPDATE SET ${updates.join(", ")};`;
+}
+
 function nameList(names: readonly string[]) {
   return `(${names.map(sqlValue).join(", ")})`;
 }
@@ -119,19 +147,37 @@ function catalogValues(row: CatalogEntryRow): Value[] {
  * Replaces every record but the large catalogs' with the corpus's, as one file (an import that
  * fails leaves the database as it was). Sources are upserted, not deleted, because the large
  * catalogs' rows reference theirs; a source the corpus no longer has goes once nothing references
- * it.
+ * it, with its superseded versions. `passages` are the plan's records, current and superseded, and
+ * `sourceVersions` the versions this run supersedes; earlier ones stay.
  */
-export function recordsSql(corpus: Corpus, largeCatalogs: readonly string[]) {
+export function recordsSql(
+  corpus: Corpus,
+  largeCatalogs: readonly string[],
+  versions: {
+    readonly passages: readonly PassageRecord[];
+    readonly sourceVersions: readonly SourceRow[];
+  },
+) {
+  const sourceIds = nameList(corpus.sources.map((row) => row.id));
   return [
     "DELETE FROM passages;",
     "DELETE FROM error_codes;",
     `DELETE FROM catalog_entries WHERE catalog NOT IN ${nameList(largeCatalogs)};`,
     ...corpus.sources.map((row) => upsertSource(row)),
-    `DELETE FROM sources WHERE id NOT IN ${nameList(corpus.sources.map((row) => row.id))};`,
+    `DELETE FROM source_versions WHERE source_id NOT IN ${sourceIds};`,
+    `DELETE FROM sources WHERE id NOT IN ${sourceIds};`,
+    ...versions.sourceVersions.map(upsertSourceVersion),
     ...insertStatements(
       "passages",
-      ["key", "source_id", "heading", "sha256"],
-      corpus.passages.map((row) => [row.key, row.sourceId, row.heading, row.sha256]),
+      ["key", "source_id", "heading", "sha256", "valid_from", "valid_until"],
+      versions.passages.map((row) => [
+        row.key,
+        row.sourceId,
+        row.heading,
+        row.sha256,
+        row.validFrom,
+        row.validUntil,
+      ]),
     ),
     ...insertStatements(
       "error_codes",

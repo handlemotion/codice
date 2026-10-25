@@ -15,7 +15,7 @@ export const SEARCH_LIMIT_DEFAULT = 5;
  * eval scores best (SPEC.md, "Retrieval eval"). Each result still carries its reranking score.
  */
 export const RERANKING_THRESHOLD = 0;
-/** The passage kinds (SPEC.md, "Items"); Phase 0 holds `guia` (the filling guides) and `anexo`. */
+/** The passage kinds (SPEC.md, "Items"); the corpus holds `guia` (the filling guides), `anexo` and `regla` (the RMF). */
 export const PASSAGE_KINDS = ["ley", "reglamento", "regla", "anexo", "guia", "criterio"] as const;
 /** AI Search returns at most 50 results. */
 export const SEARCH_LIMIT_MAX = 50;
@@ -66,6 +66,14 @@ export type SearchInput = {
   readonly rerankingThreshold?: number;
 };
 
+/**
+ * The passages in force on `asOf`: those whose validity, `valid_from` to `valid_until`, holds it. A
+ * superseded passage ends the day before its successor starts, so each day meets one version.
+ */
+export function validityFilter(asOf: number) {
+  return { valid_from: { $lte: asOf }, valid_until: { $gte: asOf } };
+}
+
 /** The `search()` request: the question, the validity filter, and the source and kind when given. */
 export function searchRequest(input: SearchInput) {
   return {
@@ -73,8 +81,7 @@ export function searchRequest(input: SearchInput) {
     ai_search_options: {
       retrieval: {
         filters: {
-          valid_from: { $lte: input.asOf },
-          valid_until: { $gte: input.asOf },
+          ...validityFilter(input.asOf),
           ...(input.source ? { folder: `${input.source}/` } : {}),
           ...(input.kind ? { kind: input.kind } : {}),
         },

@@ -41,7 +41,7 @@ of `docs/sat-md`.
 - Write the test that proves the behavior. Prefer the existing suite over a new one.
 - Worker tests (`apps/api/test/*.test.ts`) run in workerd with a local D1 and a local AI Search
   binding: they prove request shaping and records, never retrieval. Retrieval is proved only by
-  the eval (`pnpm --filter @codice/api eval`), which spends ~150 AI Search queries and runs only on
+  the eval (`pnpm --filter @codice/api eval`), which spends ~170 AI Search queries and runs only on
   explicit request.
 - Prove behavior with real HTTP calls to the running Worker (`pnpm dev:up`, then the calls in
   `docs/development/local-development.md`). Evidence is real or it is reported as unverified.

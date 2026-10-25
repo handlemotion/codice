@@ -1,9 +1,16 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
-import { catalogEntries, errorCodes, IN_FORCE_UNTIL, passages, sources } from "./db/schema";
+import {
+  catalogEntries,
+  errorCodes,
+  IN_FORCE_UNTIL,
+  passages,
+  sources,
+  sourceVersions,
+} from "./db/schema";
 import type { CodiceBindings } from "./env";
-import { isoDate } from "./search";
+import { dateNumber, isoDate } from "./search";
 
 /** Exact lookups and provenance from D1 `codice` (SPEC.md, "Records and provenance"). */
 export function recordsDatabase(env: CodiceBindings) {
@@ -59,6 +66,45 @@ export async function sourcesById(
     .from(sources)
     .where(inArray(sources.id, [...new Set(ids)]));
   return new Map(rows.map((row) => [row.id, provenanceOf(row)]));
+}
+
+/**
+ * The sources by id as they read on `date` (`YYYYMMDD`): the version in force, or the superseded
+ * version that applied that day (SPEC.md, "Versions"). A source D1 does not hold is left out; one
+ * with no version that day (a date before its first) answers its current version.
+ */
+export async function sourcesOn(
+  db: Database,
+  ids: readonly string[],
+  date: number,
+): Promise<ReadonlyMap<string, SourceProvenance>> {
+  const current = await sourcesById(db, ids);
+  const earlier = [...current.values()]
+    .filter((source) => dateNumber(source.validFrom) > date)
+    .map((source) => source.id);
+  if (earlier.length === 0) return current;
+  const versions = await db
+    .select()
+    .from(sourceVersions)
+    .where(
+      and(
+        inArray(sourceVersions.sourceId, earlier),
+        lte(sourceVersions.validFrom, date),
+        gte(sourceVersions.validUntil, date),
+      ),
+    );
+  const byId = new Map(current);
+  for (const { sourceId, ...version } of versions) {
+    const source = current.get(sourceId);
+    if (!source) continue;
+    byId.set(sourceId, {
+      ...source,
+      ...version,
+      retrievedAt: version.retrievedAt.toISOString(),
+      ...validity(version.validFrom, version.validUntil),
+    });
+  }
+  return byId;
 }
 
 /**

@@ -41,7 +41,7 @@ const SearchArguments = z.object({
     .enum(PASSAGE_KINDS)
     .optional()
     .describe(
-      "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix.",
+      "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas.",
     ),
   limit: z
     .number()

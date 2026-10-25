@@ -208,6 +208,33 @@ export type ProvenanceInput = {
   readonly format: string;
 };
 
+/** The first line of the note the SAT prints at the foot of every page of a compiled RMF. */
+const COMPILATION_NOTE = "NOTA: Este documento constituye una compilación";
+const COMPILATION_NOTE_LINES = 3;
+const PAGE_NUMBER = /^Página \d+ de \d+$/u;
+
+/**
+ * A compiled RMF as MarkItDown converts it, without its page furniture: the three-line note that
+ * every page repeats is kept once, where it first appears, and the `Página 22 de 857` lines go.
+ * A regla that runs across a page then reads as one text.
+ */
+export function rmfCompilationMarkdown(converted: string) {
+  const lines = converted.split("\n");
+  const kept: string[] = [];
+  let noted = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    if (line.startsWith(COMPILATION_NOTE)) {
+      if (!noted) kept.push(...lines.slice(index, index + COMPILATION_NOTE_LINES));
+      noted = true;
+      index += COMPILATION_NOTE_LINES - 1;
+      continue;
+    }
+    if (!PAGE_NUMBER.test(line.trim())) kept.push(line);
+  }
+  return kept.join("\n");
+}
+
 /** The header every generated SAT document starts with. */
 export function provenanceHeader(input: ProvenanceInput) {
   return [

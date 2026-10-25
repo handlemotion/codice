@@ -4,7 +4,14 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { catalogEntries, errorCodes, IN_FORCE_UNTIL, sources } from "../src/db/schema";
+import {
+  catalogEntries,
+  errorCodes,
+  IN_FORCE_UNTIL,
+  passages,
+  sources,
+  sourceVersions,
+} from "../src/db/schema";
 
 const database = env.CODICE_DATABASE;
 const db = drizzle(database);
@@ -44,6 +51,42 @@ describe("D1 schema", () => {
       db
         .insert(sources)
         .values({ ...SOURCE, id: "inverted", validFrom: 20260101, validUntil: 20251231 }),
+    ).rejects.toThrow();
+  });
+
+  it("keeps a passage in force until 99991231 and refuses one that ends before it starts", async () => {
+    const passage = { sourceId: SOURCE.id, heading: "H", sha256: "1", validFrom: 20220101 };
+    await db.insert(passages).values({ ...passage, key: `${SOURCE.id}/a.md` });
+    const [row] = await db
+      .select()
+      .from(passages)
+      .where(eq(passages.key, `${SOURCE.id}/a.md`));
+
+    expect(row?.validUntil).toBe(IN_FORCE_UNTIL);
+    await expect(
+      db.insert(passages).values({ ...passage, key: `${SOURCE.id}/b.md`, validUntil: 20211231 }),
+    ).rejects.toThrow();
+  });
+
+  it("holds one row per superseded version of a source", async () => {
+    const version = {
+      sourceId: SOURCE.id,
+      title: SOURCE.title,
+      url: SOURCE.url,
+      sha256: "2".repeat(64),
+      publishedAt: null,
+      retrievedAt: SOURCE.retrievedAt,
+      validFrom: 20200101,
+      validUntil: 20211231,
+    };
+    await db.insert(sourceVersions).values(version);
+
+    await expect(db.insert(sourceVersions).values(version)).rejects.toThrow();
+    await expect(
+      db.insert(sourceVersions).values({ ...version, validFrom: 20190101, validUntil: 20181231 }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(sourceVersions).values({ ...version, sourceId: "missing", validFrom: 20190101 }),
     ).rejects.toThrow();
   });
 
