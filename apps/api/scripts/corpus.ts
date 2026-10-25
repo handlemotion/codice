@@ -361,7 +361,28 @@ export type Supersession = {
   readonly record: PassageRecord;
 };
 
+/** An AI Search item as the Items listing returns it. */
+export type RemoteItem = {
+  readonly id: string;
+  readonly key: string;
+  readonly status?: string;
+  /** What AI Search will do with the item next; `null` when it will do nothing. */
+  readonly next_action?: string | null;
+};
+
+/**
+ * An item AI Search will never finish indexing: one that failed (`error`), or one `outdated` with
+ * `next_action: null` (left so after a `workers_ai_timeout_error`, 2026-10-25). Uploading the same
+ * key again does not change it; only deleting it and uploading again does. A listing without
+ * `next_action` marks no `outdated` item stuck: such an item may still be re-indexing.
+ */
+export function stuckItem(item: RemoteItem) {
+  return item.status === "error" || (item.status === "outdated" && item.next_action === null);
+}
+
 export type IngestionPlan = {
+  /** Stuck items to delete before the uploads, with their keys. */
+  readonly repair: readonly { readonly id: string; readonly key: string }[];
   /** Copies of superseded passages to upload first, each from the item that still holds it. */
   readonly supersede: readonly Supersession[];
   readonly upload: readonly Passage[];
@@ -374,8 +395,6 @@ export type IngestionPlan = {
   readonly records: readonly PassageRecord[];
 };
 
-type Item = { readonly id: string; readonly key: string; readonly status?: string };
-
 /**
  * What to change in AI Search and D1 (SPEC.md, "Versions").
  *
@@ -386,9 +405,9 @@ type Item = { readonly id: string; readonly key: string; readonly status?: strin
  * passage whose text is the same keeps the day it first applied. Superseded passages already
  * recorded stay. Any other change (the same version re-split) replaces passages in place.
  *
- * Then, as before: upload a passage that is new, changed since the hash D1 recorded, missing from
- * the instance, or failed to index (a Workers AI timeout, for one); delete every item no record
- * has.
+ * Then: delete every stuck item first (`stuckItem`), copying a superseded passage's text out of
+ * it before; upload a passage that is new, changed since the hash D1 recorded, missing from the
+ * instance, or stuck; delete every other item no record has.
  */
 export function ingestionPlan(input: {
   readonly passages: readonly Passage[];
@@ -398,10 +417,13 @@ export function ingestionPlan(input: {
   /** D1 `passages` by item key, current and superseded. */
   readonly recorded: ReadonlyMap<string, PassageRecord>;
   /** The instance's items. */
-  readonly items: readonly Item[];
+  readonly items: readonly RemoteItem[];
 }): IngestionPlan {
-  const indexed = new Map<string, Item>();
-  for (const item of input.items) if (item.status !== "error") indexed.set(item.key, item);
+  const stuck = input.items.filter(stuckItem);
+  const healthy = input.items.filter((item) => !stuckItem(item));
+  const indexed = new Map(healthy.map((item) => [item.key, item]));
+  /** Every item by key: a stuck one still holds its body. */
+  const stored = new Map(input.items.map((item) => [item.key, item]));
   const recordedSources = new Map(input.recordedSources.map((row) => [row.id, row]));
   const sourceIds = new Set(input.sources.map((row) => row.id));
   const byKey = new Map(input.passages.map((passage) => [passage.key, passage]));
@@ -425,6 +447,9 @@ export function ingestionPlan(input: {
     if (!sourceIds.has(record.sourceId)) continue;
     if (record.validUntil !== IN_FORCE_UNTIL) {
       superseded.push(record);
+      // A stuck copy is copied again from itself before the repair deletes it.
+      const item = stored.get(record.key);
+      if (item && stuckItem(item)) supersede.push({ from: { id: item.id, key: item.key }, record });
       continue;
     }
     const next = byKey.get(record.key);
@@ -447,7 +472,8 @@ export function ingestionPlan(input: {
     // Copied on an earlier run that stopped before D1: the current item may already hold the new
     // text, and the copy is the old one.
     if (indexed.has(old.key)) continue;
-    const from = indexed.get(record.key);
+    // A stuck copy from that run still holds the old text; else the current item does.
+    const from = stored.get(old.key) ?? stored.get(record.key);
     if (!from) throw new Error(`${record.key} is not in AI Search; its old text cannot be kept`);
     supersede.push({ from: { id: from.id, key: from.key }, record: old });
   }
@@ -472,7 +498,8 @@ export function ingestionPlan(input: {
   return {
     supersede,
     upload,
-    remove: input.items.filter((item) => !kept.has(item.key)).map(({ id, key }) => ({ id, key })),
+    repair: stuck.map(({ id, key }) => ({ id, key })),
+    remove: healthy.filter((item) => !kept.has(item.key)).map(({ id, key }) => ({ id, key })),
     unchanged: input.passages.length - upload.length,
     sourceVersions,
     records,

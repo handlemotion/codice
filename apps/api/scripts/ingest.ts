@@ -4,12 +4,14 @@
  * large catalogs (`large-catalogs.ts`) come straight from the catCFDI file `sources.json` pins,
  * converted with LibreOffice (`soffice`), and load only when that file changed.
  *
- *   pnpm --filter @codice/api ingest             upload new and changed passages, delete removed ones, write D1
+ *   pnpm --filter @codice/api ingest             delete and upload again stuck items, upload new and changed
+ *                                                           passages, delete removed ones, write D1
  *   pnpm --filter @codice/api ingest --dry-run   print the plan, change nothing
  *   pnpm --filter @codice/api ingest --local     write D1 records to the local database only (for `wrangler dev`)
  *   pnpm --filter @codice/api ingest --catalogs  reload the large catalogs even when unchanged; with
  *                                                           --local, load them at all (~3 minutes, needs soffice)
- *   pnpm --filter @codice/api ingest --wait      wait until AI Search has indexed every item before writing D1
+ *   pnpm --filter @codice/api ingest --wait      wait until AI Search has indexed every item before writing D1;
+ *                                                           fail, naming them, once only stuck items are left
  *   pnpm --filter @codice/api ingest --instance codice-bge-m3
  *       load a comparison instance (an eval of other settings): upload every passage it lacks;
  *       D1 and the large catalogs stay as they are
@@ -38,10 +40,12 @@ import {
   ingestionPlan,
   passageRecord,
   sha256,
+  stuckItem,
   type Corpus,
   type IngestionPlan,
   type Passage,
   type PassageRecord,
+  type RemoteItem,
   type Supersession,
   type SourceRow,
 } from "./corpus";
@@ -123,17 +127,19 @@ async function api<T>(url: string, init: RequestInit = {}): Promise<ApiEnvelope<
  * repeat some items and skip others. By id, a repeat counts once; a listing short of the total is
  * read again, and an item still missing after that is handled on the next run.
  */
-async function listItems() {
-  let items = new Map<string, { id: string; key: string; status: string }>();
+async function listItems(status?: string) {
+  let items = new Map<string, RemoteItem>();
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     items = new Map();
     let total = 0;
     for (let page = 1; ; page += 1) {
-      const body = await api<{ id: string; key: string; status: string }[]>(
-        `${ITEMS}?source=builtin&per_page=${PAGE_SIZE}&page=${page}`,
+      const body = await api<RemoteItem[]>(
+        `${ITEMS}?source=builtin&per_page=${PAGE_SIZE}&page=${page}${status ? `&status=${status}` : ""}`,
       );
       total = body.result_info?.total_count ?? 0;
-      for (const { id, key, status } of body.result) items.set(id, { id, key, status });
+      for (const { id, key, status, next_action } of body.result) {
+        items.set(id, { id, key, status, next_action });
+      }
       if (body.result.length < PAGE_SIZE) break;
     }
     if (items.size >= total) break;
@@ -161,10 +167,14 @@ async function upload(passage: Pick<Passage, "key" | "body" | "metadata">) {
 }
 
 /**
- * Uploads a superseded passage's old text under its versioned key: the body the current item still
- * holds, checked against the hash D1 recorded, with that item's metadata and the version's end.
+ * A superseded passage's old text to upload under its versioned key: the body its item still holds
+ * (the current one, or a stuck copy), checked against the hash D1 recorded, with that item's
+ * metadata and the version's end.
  */
-async function copySuperseded({ from, record }: Supersession) {
+async function supersededCopy({
+  from,
+  record,
+}: Supersession): Promise<Pick<Passage, "key" | "body" | "metadata">> {
   const { result: item } = await api<{ metadata?: Record<string, unknown> }>(`${ITEMS}/${from.id}`);
   const response = await fetch(`${ITEMS}/${from.id}/download`, {
     headers: { authorization: `Bearer ${token()}` },
@@ -178,7 +188,7 @@ async function copySuperseded({ from, record }: Supersession) {
   if (typeof authority !== "string" || typeof kind !== "string") {
     throw new Error(`${from.key} has no authority or kind in its metadata`);
   }
-  await upload({
+  return {
     key: record.key,
     body,
     metadata: {
@@ -187,7 +197,7 @@ async function copySuperseded({ from, record }: Supersession) {
       valid_from: record.validFrom,
       valid_until: record.validUntil,
     },
-  });
+  };
 }
 
 async function remove(id: string) {
@@ -201,18 +211,27 @@ async function remove(id: string) {
 
 /**
  * Waits until no item is queued, running or outdated (needs re-indexing), so a search sees every
- * passage. An item that failed to index fails the wait; the next run uploads it again.
+ * passage. A stuck item (`stuckItem`) never finishes, so it is not waited for: it fails the wait,
+ * reported by key, and the next run deletes and uploads it again.
  */
 async function waitForIndexing() {
   const deadline = Date.now() + WAIT_LIMIT_MS;
   for (;;) {
-    const counts = await Promise.all(["queued", "running", "outdated"].map(countItems));
-    const pending = counts.reduce((sum, count) => sum + count, 0);
-    const failed = await countItems("error");
-    if (pending === 0 && failed > 0) throw new Error(`AI Search: ${failed} items failed to index`);
+    const [queued, running, outdated, failed] = await Promise.all([
+      countItems("queued"),
+      countItems("running"),
+      listItems("outdated"),
+      listItems("error"),
+    ]);
+    const stuck = [...outdated, ...failed].filter(stuckItem);
+    const pending = queued + running + outdated.length - outdated.filter(stuckItem).length;
+    if (pending === 0 && stuck.length > 0) {
+      const keys = stuck.map((item) => `\n  ${item.key} (${item.status})`).join("");
+      throw new Error(`AI Search: ${stuck.length} items will never finish indexing:${keys}`);
+    }
     if (pending === 0) return console.log("AI Search: every item indexed");
     if (Date.now() > deadline) throw new Error(`AI Search: ${pending} items still indexing`);
-    console.log(`AI Search: ${pending} items indexing`);
+    console.log(`AI Search: ${pending} items indexing, ${stuck.length} stuck`);
     await new Promise((done) => setTimeout(done, POLL_MS));
   }
 }
@@ -386,7 +405,7 @@ async function main() {
     items: await listItems(),
   });
   console.log(
-    `AI Search${comparison ? ` ${values.instance}` : ""}: ${plan.supersede.length} to keep as superseded, ${plan.upload.length} to upload, ${plan.remove.length} to delete, ${plan.unchanged} unchanged`,
+    `AI Search${comparison ? ` ${values.instance}` : ""}: ${plan.supersede.length} to keep as superseded, ${plan.repair.length} stuck to delete and upload again, ${plan.upload.length} to upload, ${plan.remove.length} to delete, ${plan.unchanged} unchanged`,
   );
   for (const version of plan.sourceVersions) {
     console.log(
@@ -394,15 +413,32 @@ async function main() {
     );
   }
   for (const { record } of plan.supersede) console.log(`  keep ${record.key}`);
+  for (const item of plan.repair) console.log(`  repair ${item.key}`);
   for (const item of plan.remove) console.log(`  delete ${item.key}`);
   if (dryRun) {
     if (!comparison) await loadLargeCatalogs(corpus, manifest);
     return;
   }
-  // Superseded copies first, while the current items still hold the old text; then uploads, which
-  // replace it. D1 records a passage's hash only once AI Search holds that version, so a failed run
-  // plans the same changes again next time.
-  await each(plan.supersede, copySuperseded);
+  // The old texts to keep, read while AI Search still holds them: from the current items, which
+  // the uploads replace, and from stuck copies, which the repair deletes.
+  const copies: Pick<Passage, "key" | "body" | "metadata">[] = [];
+  await each(plan.supersede, async (supersession) => {
+    copies.push(await supersededCopy(supersession));
+  });
+  const recopied = new Set(plan.repair.map((item) => item.key));
+  // Copies under a new key first; a stuck item goes before its upload, since uploading the same
+  // key again leaves it stuck; a stuck copy uploads again right after.
+  await each(
+    copies.filter((copy) => !recopied.has(copy.key)),
+    upload,
+  );
+  await each(plan.repair, (item) => remove(item.id));
+  await each(
+    copies.filter((copy) => recopied.has(copy.key)),
+    upload,
+  );
+  // Uploads before deletes: D1 records a passage's hash only once AI Search holds that version,
+  // so a failed run plans the same changes again next time.
   await each(plan.upload, upload);
   await each(plan.remove, (item) => remove(item.id));
   if (comparison) {
