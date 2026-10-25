@@ -1,13 +1,13 @@
 # Códice corpus: keeps docs/sat-md and the Códice index current (apps/api/SPEC.md, "Ingestion").
 #
-# OFF UNTIL CUTOVER. `trstv/transitive` still runs this workflow against production. Both jobs run
-# only when the repository variable CODICE_CORPUS_ENABLED is `true`, and the schedule is commented
-# out; turn both on, and the Transitive copy off, in the same step (docs/operations/cutover.md).
+# Both jobs run only when the repository variable CODICE_CORPUS_ENABLED is `true` (cutover step 5,
+# docs/operations/cutover.md, which also removed Transitive's copy).
 #
 # Two independent jobs, both from `main` only:
 # - sources: asks the SAT whether it published new files (`sat:knowledge --check`). When it did, it
 #   regenerates docs/sat-md and opens a pull request from `codice/sat-md-refresh`. A PR opened with
-#   GITHUB_TOKEN starts no workflows, so the job dispatches the two required checks onto its branch.
+#   GITHUB_TOKEN starts no workflows, so the job dispatches the required check (ci.yml) onto its
+#   branch.
 # - ingest: loads `main`'s docs/sat-md into AI Search and D1 (`ingest`, a no-op for unchanged
 #   passages), then runs the retrieval eval when a passage changed, or on request. The eval spends
 #   ~50 AI Search queries, so it never runs on pull requests, and it fails below the top-3 result
@@ -20,9 +20,8 @@
 name: Códice corpus
 
 on:
-  # Enable at cutover (see the header).
-  # schedule:
-  #   - cron: "23 8 * * 1"
+  schedule:
+    - cron: "23 8 * * 1"
   workflow_dispatch:
     inputs:
       eval:
@@ -166,9 +165,9 @@ jobs:
 
       - name: Doppler OIDC login
         env:
-          # Doppler Service Account Identity on codice-corpus for trstv/codice (not a secret). The
-          # Transitive identity's subject names trstv/transitive; create this repository's identity
-          # and pin its ID here at cutover (docs/operations/doppler-secrets.md).
+          # Doppler Service Account Identity on codice-corpus whose subject is this repository's
+          # `main` (docs/operations/doppler-secrets.md); its ID, not a secret, is a repository
+          # variable.
           DOPPLER_IDENTITY_ID: ${{ vars.CODICE_CORPUS_DOPPLER_IDENTITY_ID }}
         run: |
           set -euo pipefail
