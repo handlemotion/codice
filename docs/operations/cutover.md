@@ -49,10 +49,10 @@ the Worker by name (service binding `CODICE`), so it keeps working through every
    the Doppler identity (`docs/operations/doppler-secrets.md`), pin its ID in `codice-corpus.yml`,
    uncomment the schedule, and delete Transitive's `codice-corpus.yml` in the same window, so only
    one repository ingests and opens refresh PRs.
-6. **Secret sync (optional).** Transitive's `sync-worker-secrets.yml` can keep syncing
-   `SENTRY_DSN` to Worker `codice`. To move it, add a sync workflow here with its own Doppler
-   identity and the Doppler webhook on `codice` `prd`, then drop the `codice` entry from
-   Transitive's `scripts/secrets/sync-worker-secrets.mjs`.
+6. **Secret sync** (done 2026-10-25: `sync-worker-secrets.yml` here, with the corpus identity and a
+   copy of Transitive's Worker secrets token in `codice` `prd`; Transitive's script drops `codice`).
+   Left: point the Doppler webhook on `codice` `prd` at this repository's dispatches
+   (`docs/operations/doppler-secrets.md`, "Worker secret sync").
 7. **Remove Códice from Transitive.** `apps/codice`; the `codice` entries in `tsconfig.json`,
    `.github/workflows/ci.yml` (build filter), `scripts/dev.mjs`, `scripts/dev-up.mjs`,
    `scripts/dev-restart.mjs`, `scripts/worker-dev.mjs`, `scripts/portless-run.mjs`,

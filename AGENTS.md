@@ -10,14 +10,11 @@ where they differ. Explicit user instructions override every repository file.
 
 ## Cutover status
 
-This repository is Códice's source of truth: it builds and deploys the Worker `codice` (cutover
-steps 2–4 of `docs/operations/cutover.md`, 2026-10-25), and `trstv/transitive` `apps/codice` is
-frozen. Transitive still runs the corpus workflow and the `SENTRY_DSN` sync until steps 5 and 6.
-Here:
-
-- Never sync Worker secrets, run `ingest` against production from a workflow, or enable the corpus
-  workflow before the cutover step that says so.
-- Make every Códice change here. Transitive's copy is removed in step 7.
+Códice moved out of `trstv/transitive` on 2026-10-25 (`docs/operations/cutover.md`): this repository
+builds and deploys the Worker `codice`, refreshes the corpus (`codice-corpus.yml`) and syncs the
+Worker's secrets (`sync-worker-secrets.yml`). Transitive keeps only the Agent's client of the
+`CODICE` binding, `@transitive/api-contracts/codice` (which mirrors `@codice/contracts`), and a copy
+of `docs/sat-md`.
 
 ## Layout
 
