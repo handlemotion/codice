@@ -259,7 +259,13 @@ export async function land(o) {
 		if (c.status !== 0) die(1, `git commit failed, nothing landed\n${c.stderr || c.stdout}`);
 		const sha = git(["rev-parse", "HEAD"]).trim();
 		if (sha === before) die(1, "HEAD did not move");
-		const files = assertFiles(sha, set);
+		let files;
+		try { files = assertFiles(sha, set); } catch (e) {
+			// A hook staged files outside the set: take the commit back off the branch, keep the working tree.
+			const undo = spawnSync("git", ["reset", "-q", "--soft", before], { encoding: "utf8" });
+			if (undo.status !== 0) throw e;
+			throw new Exit(e.code, `${e.message.split("\n")[0]}\nthe commit was undone (HEAD is back at ${before.slice(0, 7)}); the changes stay in the working tree`);
+		}
 
 		const reset = spawnSync("git", ["reset", "-q", "--", ...set], { encoding: "utf8" });
 		if (reset.status !== 0) console.error(`WARN could not reset the shared index (an index.lock may be left by a killed git). Report it and wait. ${reset.stderr.trim()}`);
@@ -356,6 +362,10 @@ function selfTest() {
 	w(r, "route.txt", "route v2\n");
 	writeFileSync(join(r, ".git/hooks/pre-commit"), "#!/bin/sh\necho x > stray.txt\ngit add stray.txt\n"); chmodSync(join(r, ".git/hooks/pre-commit"), 0o755);
 	check("stray file from a hook: exit 3", run(r, "s5", "Route", "--", "route.txt").status, 3);
+	// The rejected commit once stayed on the branch.
+	check("stray file from a hook: the commit is undone", count(r), 1);
+	check("stray file from a hook: route change stays in the tree", readFileSync(join(r, "route.txt"), "utf8"), "route v2\n");
+	sh(r, "add", "-A"); sh(r, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "stray by hand");
 	check("--check-commit exits 3 for the stray commit", run(r, "--check-commit", "HEAD", "--", "route.txt").status, 3);
 	check("--check-commit exits 0 when the set covers it", run(r, "--check-commit", "HEAD", "--", "route.txt", "stray.txt").status, 0);
 
