@@ -7,6 +7,7 @@ import { compactSatMarkdown } from "../scripts/sat-documents";
 import {
   guideSections,
   nameVocabulary,
+  rmfReglas,
   SECTION_MAX_CHARS,
   type GuideSection,
 } from "../scripts/sections";
@@ -173,5 +174,168 @@ describe("guideSections over the SAT's guides", () => {
         "Nodo: Retenciones › FolioInt",
       ]),
     );
+  });
+});
+
+/** The compiled RMF as `sat:knowledge` writes it: cover, contents, glossary, reglas, transitorios. */
+const RMF = [
+  "Resolución Miscelánea Fiscal para 2026",
+  "Publicada en el Diario Oficial de la Federación el 28 de",
+  "diciembre de 2025, reformada mediante la Primera Resolución de Modificaciones.",
+  "Contenido",
+  "Glosario",
+  "Título",
+  "1. Disposiciones generales",
+  "2. Código Fiscal de la Federación",
+  "Capítulo 2.1. Disposiciones generales",
+  "Capítulo 2.7. De los Comprobantes Fiscales Digitales por Internet o Factura",
+  "Electrónica",
+  "Sección 2.7.1. Disposiciones generales",
+  "Transitorios",
+  "Glosario",
+  "1. CFF. Código Fiscal de la Federación.",
+  "Título 1. Disposiciones generales",
+  "Lugar y forma para presentar documentación",
+  "1.1. Para los efectos del RISAT, los documentos se presentarán conforme a la regla",
+  "2.1.18. y la ficha de trámite.",
+  "CFF 18, 29-A",
+  "Título 2. Código Fiscal de la Federación",
+  "Capítulo 2.1. Disposiciones generales",
+  "Regla 2.1.1.",
+  "- Reformada en la Primera RMRMF para 2026, publicada en el DOF el 09 de julio de 2026.",
+  "",
+  "Días inhábiles",
+  "2.1.1. Para los efectos del artículo 12 del CFF, son inhábiles el 2 y 3 de abril de 2026.",
+  "CFF 12",
+  "Documentos emitidos en el extranjero para representación de particulares,",
+  "autoridades nacionales y extranjeras",
+  "2.1.2. Para los efectos del artículo 19 del CFF, se estará a lo siguiente:",
+  "2.1.1. Cuando se trate de documentos públicos, se apostillarán.",
+  "CFF 19, LISR 2013 218",
+  "Cancelación de comprobantes de expedición de",
+  "CFDI",
+  "2.1.3. Para los efectos del artículo 29-A del CFF, se cancelará el CFDI.",
+  "CFF 29",
+  "Formalidades para la garantía",
+  "2.1.4. Se deroga.",
+  "Capítulo 2.7. De los Comprobantes Fiscales Digitales por Internet o",
+  "Factura Electrónica",
+  "Sección 2.7.1. Disposiciones generales",
+  "Expedición de comprobantes en operaciones con el público en general",
+  "",
+  "2.7.1.1. Para los efectos del artículo 29 del CFF, se expedirá un CFDI diario.",
+  "CFF 17-A, 20, 26, 32-A, 84-",
+  "L, 84-N, 86, 86-B, 88",
+  "Capítulo 2.8.",
+  "-Adicionado en la Primera RMRMF para 2026, publicada en el DOF el 09 de julio de 2026.",
+  "Capítulo 2.8. De la contabilidad del sector",
+  "primario y sus declaraciones",
+  "Contabilidad simplificada",
+  "2.8.1. Para los efectos del artículo 28 del CFF, se llevará la contabilidad.",
+  "CFF 28",
+  "Transitorios",
+  "Primero. La presente Resolución entrará en vigor el 1 de enero de 2026.",
+  "",
+].join("\n");
+
+describe("rmfReglas", () => {
+  const reglas = rmfReglas(RMF);
+  const regla = (number: string) => reglas.find((candidate) => candidate.number === number)!;
+
+  it("finds each regla once, in order, and none for a repealed one or a wrapped reference", () => {
+    expect(reglas.map((candidate) => candidate.number)).toEqual([
+      "1.1",
+      "2.1.1",
+      "2.1.2",
+      "2.1.3",
+      "2.7.1.1",
+      "2.8.1",
+    ]);
+    expect(regla("1.1").text).toContain("2.1.18. y la ficha de trámite.\nCFF 18, 29-A\n");
+    expect(regla("2.1.2").text).toContain("2.1.1. Cuando se trate de documentos públicos");
+    expect(regla("2.1.3").text).not.toContain("Formalidades para la garantía");
+  });
+
+  it("labels a regla by its headings, spelled as the contents spell them, and its title", () => {
+    expect(regla("1.1").label).toBe(
+      "Título 1. Disposiciones generales › Regla 1.1. Lugar y forma para presentar documentación",
+    );
+    expect(regla("2.1.2").label).toBe(
+      "Título 2. Código Fiscal de la Federación › Capítulo 2.1. Disposiciones generales › Regla 2.1.2. Documentos emitidos en el extranjero para representación de particulares, autoridades nacionales y extranjeras",
+    );
+    expect(regla("2.1.3").label).toMatch(
+      / › Regla 2\.1\.3\. Cancelación de comprobantes de expedición de CFDI$/u,
+    );
+    expect(regla("2.7.1.1").label).toBe(
+      "Título 2. Código Fiscal de la Federación › Capítulo 2.7. De los Comprobantes Fiscales Digitales por Internet o Factura Electrónica › Sección 2.7.1. Disposiciones generales › Regla 2.7.1.1. Expedición de comprobantes en operaciones con el público en general",
+    );
+  });
+
+  it("names a heading the contents leave out, and keeps its note out of the regla before", () => {
+    expect(regla("2.8.1").label).toBe(
+      "Título 2. Código Fiscal de la Federación › Capítulo 2.8. De la contabilidad del sector primario y sus declaraciones › Regla 2.8.1. Contabilidad simplificada",
+    );
+    expect(regla("2.7.1.1").text).toMatch(/L, 84-N, 86, 86-B, 88\n$/u);
+  });
+
+  it("starts an amended regla at the SAT's note and dates it to that amendment", () => {
+    expect(regla("2.1.1").text).toMatch(/^Regla 2\.1\.1\.\n- Reformada en la Primera RMRMF/u);
+    expect(regla("2.1.1").label).toMatch(/ › Regla 2\.1\.1\. Días inhábiles$/u);
+    expect(regla("2.1.1").publishedAt).toBe("2026-07-09");
+    expect(regla("2.1.2").publishedAt).toBe("2025-12-28");
+    expect(regla("2.8.1").publishedAt).toBe("2025-12-28");
+  });
+
+  it("quotes each regla verbatim, from its title to its references", () => {
+    for (const candidate of reglas) expect(RMF).toContain(candidate.text);
+    expect(regla("2.1.3").text).toBe(
+      "Cancelación de comprobantes de expedición de\nCFDI\n2.1.3. Para los efectos del artículo 29-A del CFF, se cancelará el CFDI.\nCFF 29\n",
+    );
+    expect(regla("2.8.1").text).toMatch(/CFF 28\n$/u);
+  });
+});
+
+describe("rmfReglas over the SAT's compiled RMF", () => {
+  const markdown = read("resolucion-miscelanea-fiscal-2026.md");
+  const reglas = rmfReglas(markdown);
+
+  it("numbers the reglas of each heading 1, 2, 3, … but for those the RMF repeals", () => {
+    const repealed = new Set(
+      [...markdown.matchAll(/^(\d+(?:\.\d+)+)\. Se deroga\./gmu)].map((match) => match[1]!),
+    );
+    const numbers = new Set(reglas.map((candidate) => candidate.number));
+    expect(reglas.length).toBeGreaterThan(1000);
+    for (const candidate of reglas) {
+      const parent = candidate.number.slice(0, candidate.number.lastIndexOf("."));
+      const index = Number(candidate.number.slice(candidate.number.lastIndexOf(".") + 1));
+      for (let earlier = 1; earlier < index; earlier += 1) {
+        const number = `${parent}.${earlier}`;
+        expect(numbers.has(number) || repealed.has(number), number).toBe(true);
+      }
+    }
+  });
+
+  it("dates every regla the SAT notes as amended to its amendment, and titles every regla", () => {
+    const noted = [...markdown.matchAll(/^Regla (\d+(?:\.\d+)+)\.\n- (?:Reformada|Adicionada)/gmu)];
+    expect(noted.length).toBeGreaterThan(0);
+    for (const [, number] of noted) {
+      expect(reglas.find((candidate) => candidate.number === number)?.publishedAt, number).not.toBe(
+        "2025-12-28",
+      );
+    }
+    for (const candidate of reglas) {
+      expect(candidate.label, candidate.number).toMatch(
+        /› Regla [\d.]+\. (?:[A-ZÁÉÍÓÚÑ¿“]|[A-Z]{2,} )/u,
+      );
+    }
+  });
+
+  it("keeps a CFDI regla whole under its headings", () => {
+    const regla = reglas.find((candidate) => candidate.number === "2.7.1.21")!;
+    expect(regla.label).toBe(
+      "Título 2. Código Fiscal de la Federación › Capítulo 2.7. De los Comprobantes Fiscales Digitales por Internet o Factura Electrónica › Sección 2.7.1. Disposiciones generales › Regla 2.7.1.21. Expedición de comprobantes en operaciones con el público en general",
+    );
+    expect(regla.text).toMatch(/^Expedición de comprobantes en operaciones con el público/u);
+    expect(regla.text).toMatch(/\nCFF 29, 29-A, .*RMF 2\.6\.1\.2\., 2\.7\.1\.23\..*\n$/u);
   });
 });

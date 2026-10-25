@@ -1,6 +1,6 @@
 # Códice: specification
 
-Status: Phase 0, not deployed. The Worker serves the whole [HTTP API](#http-api-v1) and
+Status: Phase 0, not deployed; Phase 1 begun with the RMF. The Worker serves the whole [HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind the public rate limit; the ingestion has loaded
 `docs/sat-md` into the AI Search instance and D1 (see [Infrastructure](#infrastructure)).
 
@@ -69,11 +69,11 @@ records, not prose: they go to D1, not to search.
 
 ## Corpus
 
-| Phase | Sources                                                                                                                                                                   |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1. |
-| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments; Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements.               |
-| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                             |
+| Phase | Sources                                                                                                                                                                          |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.        |
+| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements. |
+| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                    |
 
 The AI Search website crawler only crawls domains we own, so SAT and DOF pages are fetched by our
 ingestion and uploaded as items (`.html` items are converted to Markdown by AI Search).
@@ -106,9 +106,10 @@ the Phase 0 passages (520 since the parser change).
   Phase 0 sources: `anexo-20-guia-de-llenado` and `complemento-pagos-guia-de-llenado` (one item a
   section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
   `apendice-8-3` for the third part of an appendix), and
-  `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). A passage a newer version of
-  its source replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
-  (`anexo-20-guia-de-llenado/nodo-receptor-usocfdi.20220101.md`; see [Versions](#versions)).
+  `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). Phase 1: `rmf-2026`, one
+  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)). A passage
+  whose text a newer one replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
+  (`rmf-2026/regla-2.7.1.21.20251228.md`; see [Versions](#versions)).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
 - **Custom metadata** (4 of the 5 allowed; one left for later):
 
@@ -121,9 +122,12 @@ the Phase 0 passages (520 since the parser change).
 
 Dates are `YYYYMMDD` numbers, not datetimes, so an in-force passage has a real upper bound and a
 range filter never meets a missing value. The Items API takes metadata values as strings and stores
-these two as numbers, as the instance's schema types them. A passage's `valid_from` is the
-publication date of the first source version that held its text; `valid_until` is `99991231` while
-in force, and the day before the next version once superseded ([Versions](#versions)).
+these two as numbers, as the instance's schema types them. A guide or matrix passage's
+`valid_from` is its source's publication date; a regla of the RMF has its own: the DOF date of the
+version the SAT's compilation holds (`20251228` for the RMF as published, `20260709` for a regla the
+Primera RMRMF changed or added). An unchanged passage keeps the `valid_from` of the first version
+that held its text. `valid_until` is `99991231` while in force, and the day before the text that
+replaced it starts once superseded ([Versions](#versions)).
 
 ### Query
 
@@ -343,6 +347,20 @@ fetch source → sha256 → unchanged? stop
   appendix is one passage a question; any other section is cut at blank lines into parts of at
   most 3,000 characters (about one 1,024-token chunk). The passages are verbatim slices that cover
   each guide in order.
+- The RMF (Phase 1): `sat:knowledge` takes the latest compiled RMF the SAT's RMF page links
+  (`Compilado_…`, the RMF with every amendment published until then) and converts it with
+  MarkItDown, leaving out the page footers; the amendments themselves quote only the paragraphs
+  they change, so they cannot give a regla's whole text. The splitter (`rmfReglas`) cuts one passage
+  a regla, from its title (or the SAT's note above it, `- Reformada en la Primera RMRMF para 2026,
+publicada en el DOF el 09 de julio de 2026.`) through its references line, labelled by its
+  Título, Capítulo, Sección and Subsección as the document's contents spell them. A regla's
+  `valid_from` is the last DOF date in its note, else the RMF's own (28 December 2025); a repealed
+  regla (`2.12.4. Se deroga.`) has no passage, nor do the glossary and the transitorios. Of the
+  1,214 reglas, 36 carry a Primera RMRMF date. The compilation lags the DOF: the Segunda RMRMF (DOF
+  1 October 2026: reglas 9.4.4 and 11.7.3) is not in it, so those two passages hold the July text
+  until the SAT publishes the next compilation and the corpus workflow picks it up. It also omits
+  the note on 2.7.3.5, which the Primera RMRMF changed, so that regla keeps the RMF's date. One
+  title is known to be wrong: 2.12.2's label starts with the previous regla's wrapped references.
 - The large catalogs skip `docs/sat-md`: the ingestion downloads the catCFDI file
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
@@ -377,40 +395,49 @@ fetch source → sha256 → unchanged? stop
   published new files it regenerates `docs/sat-md` and opens a pull request from
   `codice/sat-md-refresh` (one at a time; it waits while that PR is open), then dispatches the
   required checks onto it, since a PR opened with `GITHUB_TOKEN` starts no workflows. Job `ingest`
-  ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item), then runs
-  `eval --min-top3 48` when a passage was uploaded or deleted, or when a manual run asks for it
+  ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item, at most
+  120 minutes; the job's limit is 150), then runs
+  `eval --min-top3 69` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~50 AI Search queries.
+  runs on pull requests: each run spends ~70 AI Search queries.
+- Indexing time, measured 2026-10-25 on a comparison instance with `codice`'s settings: the 1,734
+  passages with the RMF uploaded in 6 minutes, and 1,733 had indexed 51 minutes after the upload
+  began; one (`rmf-2026/regla-12.3.16.md`) stayed `running` past that. Such an item fails the
+  wait, so the run writes no D1 hashes and the next run uploads the changed passages again.
 
 ### Versions
 
-When the SAT publishes a new version of a source, its old passages stay searchable for the dates
-they applied. The ingestion (`ingestionPlan` in `scripts/corpus.ts`) compares each source with its
-D1 `sources` row: a new hash with a later `valid_from` is a new version. Then, for each passage D1
-holds in force for that source:
+When the SAT publishes a new text, the old one stays searchable for the dates it applied. The
+ingestion (`ingestionPlan` in `scripts/corpus.ts`) compares each passage with its D1 row, and each
+source with its D1 `sources` row: a new hash with a later `valid_from` is a new version of the
+source. For each passage D1 holds in force:
 
 - **Same text** (same key and hash): it stays as it is and keeps the `valid_from` it first applied
   from, so an `asOf` in either version finds it once.
-- **Changed or dropped**: its old text moves to `<source>/<anchor>.<valid_from>.md`, with its
-  `valid_from` and `valid_until` set to the day before the new version's `valid_from`. The
-  ingestion downloads the old body from the current item (Items REST `download`), refuses it unless
-  its SHA-256 is the hash D1 recorded, and uploads it under the dated key with the item's authority
-  and kind. Then the new text replaces the current item (a changed passage), or the current item
-  is deleted (a dropped one).
-- **New**: uploaded with the new version's `valid_from`.
+- **Changed, and the new text starts later** (a guide in a new version, from the version's date;
+  an amended RMF regla, from its own DOF date): its old text moves to
+  `<source>/<anchor>.<valid_from>.md`, with its `valid_from` and `valid_until` set to the day before
+  the new text starts. The ingestion downloads the old body from the current item (Items REST
+  `download`), refuses it unless its SHA-256 is the hash D1 recorded, and uploads it under the dated
+  key with the item's authority and kind. Then the new text replaces the current item.
+- **Dropped by a new version of its source**: kept the same way, until the day before the version,
+  and its current item is deleted.
+- **Changed with no later start** (the same version re-split by a splitter change): replaced in
+  place, as before.
+- **New**: uploaded with its own `valid_from`.
 
-The replaced `sources` row goes to `source_versions` with the same `valid_until`. Superseded
-passages and source versions already recorded stay on later runs; a source the corpus no longer
-has loses them with it. Each day meets one version of a passage: `asOf` 2026-02-28 answers the old
-text and 2026-03-01 the new, and each cites its own source version.
+A replaced `sources` row goes to `source_versions`, valid until the day before the new version. An
+amended regla in a compilation that keeps its publication date ends no source version: it cites the
+current `sources` row. Superseded passages and source versions already recorded stay on later runs;
+a source the corpus no longer has loses them with it. Each day meets one version of a passage:
+with a new text from 2026-03-01, `asOf` 2026-02-28 answers the old text and 2026-03-01 the new.
 
 A run that stops is safe to repeat: the dated copies upload before anything replaces the current
 items, a dated key AI Search already holds is not copied again, and D1 records the run last, so the
 next run plans the same records. A current item that no longer holds the recorded text with no
-dated copy fails the run instead of keeping the wrong text. Any change that is not a new version
-(the same file re-split by a splitter change, a hash change with the same `valid_from`) replaces
-passages in place, as before; the error codes and catalogs keep only their current records.
+dated copy fails the run instead of keeping the wrong text. The error codes and catalogs keep only
+their current records.
 
 ## Cost
 
@@ -423,6 +450,7 @@ full-text queries. D1 at this size stays inside the Workers Paid allowance.
 | ----------------------------- | ----------------------------------------- | ------------- |
 | Phase 0 ingestion             | ~0.3M tokens once                         | $0 (included) |
 | Phase 1 ingestion             | ~3–5M tokens once, small re-ingests after | $0–$1         |
+| of which the RMF              | 1,214 passages, 2.6 MB: ~0.9M tokens      | $0 (included) |
 | Storage                       | well under 1 GB                           | $0            |
 | Queries, internal use only    | < 1,000                                   | $0            |
 | Queries, public at 10k/month  | 9,000 billable hybrid                     | ~$7           |
@@ -438,7 +466,7 @@ Queries are the only cost that grows; the per-client rate limit bounds it.
   tests check request shaping and response mapping; they are not evidence of retrieval.
 - **Retrieval eval:** a fixed question set, each with the passage it must return in the top 3,
   run against the real instance (start from the rules in `docs/sat-md/README.md`). It decides the
-  tokenizer, match mode and embedding model, and runs after every ingestion change. ~50 questions
+  tokenizer, match mode and embedding model, and runs after every ingestion change. ~70 questions
   per run stays inside the free query allowance. `pnpm --filter @codice/api eval`
   (`scripts/eval.ts`, questions in `scripts/eval-questions.json`) sends the Worker's own request;
   `--match or` overrides the match mode for one run. Results: [Retrieval eval](#retrieval-eval).
@@ -522,6 +550,35 @@ to rank 4 (qwen) and 8 (bge-m3), behind the `TotalRetencionesISR` rules.
 Two stale items of the old split (`nodo-trasladop-importep-15`, `nodo-en-base`) are still in
 `codice`: AI Search answers their deletion with 429 `ai_search_instance_overloaded`. The next
 `ingest` deletes them; neither appears in a top 3 of the runs above.
+
+### The RMF (2026-10-25)
+
+The corpus with the RMF (1,734 passages: the 520 above and 1,214 reglas), and 22 RMF questions
+added to the 50 (72 in all), `asOf` 2026-10-25. One run, on the comparison instance
+`codice-rmf-eval` (`ingest --instance`, `eval --instance`), created with `codice`'s settings
+(qwen, 1,024-token chunks, `trigram`, `and`, reranking, threshold 0) and deleted after the run;
+`codice` itself was not changed. At the run 1,733 items had indexed; the one left
+(`regla-12.3.16`) is no question's answer.
+
+| Questions     | Top 3  | Top 1  | MRR@10    |
+| ------------- | ------ | ------ | --------- |
+| The 50 before | 47     | 42     | 0.892     |
+| The 22 RMF    | 22     | 19     | 0.924     |
+| **All 72**    | **69** | **61** | **0.902** |
+
+Every RMF question finds its regla in the top 3; three rank second or third, behind a neighbouring
+regla or a guide passage on the same subject (PUE after the issue date, 2.7.1.39; payments in
+parts, 2.7.1.32; the opinión del cumplimiento, 2.1.36 to 2.1.37). The 50 lose one question to the
+RMF: _"Retención de ISR al 1.25% para el Régimen Simplificado de Confianza"_ now falls below the
+top 10, behind reglas 3.13.26, 3.13.14 and 3.13.13 (the exception to that withholding, how it is
+paid, and its CFDI); the question expects the matrix rows `CFDI140224` and `CFDI140225`, the CFDI
+validation. Those reglas are on the subject but do not state the validation, so the expected
+passages stay as they were. The two misses above remain (rank 10 and 6). As for `ObjetoImp`, a
+filter on `kind` or `source` is the lever.
+
+Decision:
+
+- **Eval floor 69 of 72** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
 
 ## Infrastructure
 
@@ -627,7 +684,7 @@ to match.
    syncs `SENTRY_DSN` from `codice` `prd` to the Worker (done), for Sentry project `codice-api`.
    Still to do: the build's source-map token (Go-live checklist, step 5).
 2. **Scheduled ingestion** (workflow in place, not yet run). `codice-corpus.yml` checks the SAT,
-   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 48 of 50 (see
+   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 69 of 72 (see
    [Ingestion](#ingestion)). Its credentials exist and its identity ID is pinned; tick this off
    after the first green `workflow_dispatch` run from `main`.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
@@ -646,12 +703,19 @@ to match.
    [Large catalogs](#large-catalogs)), so `/v1/catalogs/:name/:key` answers for every catCFDI
    catalog, and a column filter narrows a repeated key (`c_Colonia` by `c_CodigoPostal`).
 8. **Versions** (done in code, not yet exercised by a real SAT change; see [Versions](#versions)).
-   A new source version keeps the passages it changes or drops under dated keys with a real
-   `valid_until`, in AI Search and D1, and records the old source version in `source_versions`, so
-   an `asOf` before the change answers the old text with its own provenance. Migrations `0003` to
-   `0005` add the schema; they apply with the next `deploy:production` (or by hand while the Git
-   build does not run migrations, as `0002` was).
-9. **Corpus Phases 1 and 2**, and the open questions below before a public launch.
+   A passage whose text a newer version replaces, or that a new version of its source drops, stays
+   under a dated key with a real `valid_until`, in AI Search and D1, and a replaced source version
+   goes to `source_versions`, so an `asOf` before the change answers the old text with its own
+   provenance. Migrations `0003` to `0005` add the schema; they apply with the next
+   `deploy:production` (or by hand while the Git build does not run migrations, as `0002` was).
+   Only changes from now on are kept: an RMF regla the Primera RMRMF changed before Códice loaded
+   the RMF holds only its new text, from the amendment's DOF date, so an `asOf` before that date
+   finds no version of it.
+9. **Corpus Phases 1 and 2**, and the open questions below before a public launch. Phase 1 so far:
+   the RMF (`rmf-2026`, 2026-10-25; see [Ingestion](#ingestion) and
+   [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.
+   Next, one at a time and in the same pattern (a source in `sources.json`, a splitter in
+   `sections.ts`, ~20 questions, an eval run): the CFF, the LISR and the LIVA.
 
 ## Open questions
 

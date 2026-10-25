@@ -27,16 +27,17 @@ describe("buildCorpus", () => {
     expect(new Set(keys).size).toBe(keys.length);
     for (const key of keys) {
       expect(key.length).toBeLessThanOrEqual(ITEM_KEY_MAX);
-      expect(key).toMatch(/^[a-z0-9-]+\/[a-z0-9-]+\.md$/u);
+      expect(key).toMatch(/^[a-z0-9-]+\/[a-z0-9][a-z0-9.-]*\.md$/u);
     }
   });
 
-  it("splits both guides and the matrix into passages with SAT metadata", () => {
+  it("splits both guides, the matrix and the RMF into passages with SAT metadata", () => {
     const sources = new Set(corpus.passages.map((passage) => passage.sourceId));
     expect([...sources]).toEqual([
       "anexo-20-guia-de-llenado",
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
+      "rmf-2026",
     ]);
     for (const passage of corpus.passages) {
       expect(passage.metadata.authority).toBe("SAT");
@@ -75,6 +76,31 @@ describe("buildCorpus", () => {
     );
   });
 
+  it("quotes a regla of the RMF under its heading path, valid from its DOF date", () => {
+    const original = corpus.passages.find(
+      (candidate) => candidate.key === "rmf-2026/regla-2.7.1.21.md",
+    );
+    expect(original?.body).toMatch(
+      /^# Resolución Miscelánea Fiscal para 2026 \(compilación del SAT\) › Título 2\. .* › Sección 2\.7\.1\. Disposiciones generales › Regla 2\.7\.1\.21\. Expedición de comprobantes en operaciones con el público en general\n\nExpedición de comprobantes/u,
+    );
+    expect(original?.metadata).toEqual({
+      authority: "SAT",
+      kind: "regla",
+      valid_from: 20_251_228,
+      valid_until: 99_991_231,
+    });
+    const amended = corpus.passages.find(
+      (candidate) => candidate.key === "rmf-2026/regla-2.1.6.md",
+    );
+    expect(amended?.body).toContain(
+      "- Reformada en la Primera RMRMF para 2026, publicada en el DOF el 09 de julio de 2026.",
+    );
+    expect(amended?.metadata.valid_from).toBe(20_260_709);
+    expect(corpus.passages.some((candidate) => candidate.key === "rmf-2026/regla-2.12.4.md")).toBe(
+      false,
+    );
+  });
+
   it("labels a guide passage by its node, and has every passage the eval expects", () => {
     const passage = corpus.passages.find(
       (candidate) => candidate.key === "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md",
@@ -105,6 +131,7 @@ describe("buildCorpus", () => {
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
       "catalogos-cfdi-40",
+      "rmf-2026",
     ]);
   });
 
@@ -364,6 +391,44 @@ describe("ingestionPlan", () => {
     expect(plan.upload).toEqual([]);
     expect(plan.records).toEqual([record("a/changed.md", "2-new", V2), old]);
     expect(plan.remove).toEqual([{ id: "i8", key: "b/x.20250101.md" }]);
+  });
+
+  it("supersedes an amended regla the day before its own new text starts", () => {
+    const AMENDED = 20260709;
+    const plan = ingestionPlan({
+      passages: [passage("a/regla-2.7.1.21.md", "new", AMENDED), passage("a/same.md", "1", V1)],
+      // The compilation changed, but it is still the RMF published on V1.
+      sources: [source("s2", V1)],
+      recordedSources: [source("s1", V1)],
+      recorded: recorded(record("a/regla-2.7.1.21.md", "old", V1), record("a/same.md", "1", V1)),
+      items: [
+        { id: "i1", key: "a/regla-2.7.1.21.md" },
+        { id: "i2", key: "a/same.md" },
+      ],
+    });
+    expect(plan.supersede).toEqual([
+      {
+        from: { id: "i1", key: "a/regla-2.7.1.21.md" },
+        record: record("a/regla-2.7.1.21.20250101.md", "old", V1, 20260708),
+      },
+    ]);
+    expect(plan.upload.map((entry) => [entry.key, entry.metadata.valid_from])).toEqual([
+      ["a/regla-2.7.1.21.md", AMENDED],
+    ]);
+    // No new version of the source, so no source version ends.
+    expect(plan.sourceVersions).toEqual([]);
+  });
+
+  it("replaces a changed passage in place when its new text starts no later", () => {
+    const plan = ingestionPlan({
+      passages: [passage("a/x.md", "new", V1)],
+      sources: [source("s2", V1)],
+      recordedSources: [source("s1", V1)],
+      recorded: recorded(record("a/x.md", "old", V1)),
+      items: [{ id: "i1", key: "a/x.md" }],
+    });
+    expect(plan.supersede).toEqual([]);
+    expect(plan.records).toEqual([record("a/x.md", "new", V1)]);
   });
 
   it("supersedes again from the day a passage first applied", () => {
