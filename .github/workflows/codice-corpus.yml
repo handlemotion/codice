@@ -39,7 +39,7 @@ permissions:
 
 env:
   # Top 3 of 50 recorded in apps/api/SPEC.md, "Retrieval eval". Raise it with the next record.
-  EVAL_MIN_TOP3: 47
+  EVAL_MIN_TOP3: 48
   REFRESH_BRANCH: codice/sat-md-refresh
 
 jobs:

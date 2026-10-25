@@ -97,14 +97,15 @@ Instance `codice`, namespace `default`, built-in storage. Settings as created:
 
 The tokenizer, match mode and reranking threshold were decided by the retrieval eval (see
 [Retrieval eval](#retrieval-eval)). A tokenizer change re-indexes the instance: about 30 minutes for
-the 501 Phase 0 passages.
+the Phase 0 passages (520 since the parser change).
 
 ### Items
 
 - **Key:** `<source>/<anchor>.md`, at most 128 characters, e.g. `rmf-2026/regla-2.7.1.21.md`.
   AI Search's built-in `folder` attribute is then the source id, so it needs no custom field.
   Phase 0 sources: `anexo-20-guia-de-llenado` and `complemento-pagos-guia-de-llenado` (one item a
-  section, anchored by its heading path, such as `nodo-receptor-usocfdi`), and
+  section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
+  `apendice-8-3` for the third part of an appendix), and
   `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
 - **Custom metadata** (4 of the 5 allowed; one left for later):
@@ -305,14 +306,26 @@ fetch source → sha256 → unchanged? stop
   generates `docs/sat-md` from the SAT's published files (`--check` exits 1 when the SAT published
   something new, `--force` regenerates all; it needs LibreOffice, and MarkItDown with Poppler for
   the PDF guides). `pnpm --filter @codice/api ingest` (`scripts/ingest.ts`) reads it,
-  splits the guides with `documentSections` (`scripts/sat-documents.ts`), uploads only passages
+  splits the guides with Códice's splitter (`scripts/sections.ts`, below), uploads only passages
   that are new, changed, missing or failed to index, deletes items no passage has any more, then
   replaces the D1 records. The Items listing repeats and skips items while they index, so the plan
   counts each item id once and a skipped item is handled on the next run. `--dry-run` prints the
   plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
   before D1, until AI Search has indexed every item (none queued, running or outdated; one that
-  failed to index fails the run). A change to the parser changes passage keys, and with them the
-  Agent's citations: prove the corpus with `test/corpus.unit.test.ts` first.
+  failed to index fails the run). `--instance <name>` loads a comparison instance for an eval of
+  other settings: every passage it lacks, no D1 and no catalogs. A change to the splitter changes
+  passage keys, and with them the Agent's citations: prove the corpus with
+  `test/corpus.unit.test.ts` and `test/sections.unit.test.ts` first.
+- The splitter (`sections.ts`) finds each guide's parts and appendices from the guide's own table
+  of contents (`Contenido`), in order, so a later line that only quotes a title starts nothing; a
+  part the contents leave out (the Pagos guide's Part II) starts at its own `II. Guía de llenado…`
+  line. In a part, a passage starts at each node (`Nodo: Receptor`) and attribute and runs to the
+  next, so a rule keeps its examples and catalog table; a name the PDF wrapped onto the next lines
+  (`InformacionGlo` / `bal`) is rejoined when the whole name appears elsewhere in the SAT's text,
+  and a repeated attribute name in a node (an example table's header) starts nothing. A questions
+  appendix is one passage a question; any other section is cut at blank lines into parts of at
+  most 3,000 characters (about one 1,024-token chunk). The passages are verbatim slices that cover
+  each guide in order.
 - The large catalogs skip `docs/sat-md`: the ingestion downloads the catCFDI file
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
@@ -348,7 +361,7 @@ fetch source → sha256 → unchanged? stop
   `codice/sat-md-refresh` (one at a time; it waits while that PR is open), then dispatches the
   required checks onto it, since a PR opened with `GITHUB_TOKEN` starts no workflows. Job `ingest`
   ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item), then runs
-  `eval --min-top3 47` when a passage was uploaded or deleted, or when a manual run asks for it
+  `eval --min-top3 48` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
   runs on pull requests: each run spends ~50 AI Search queries.
@@ -410,15 +423,59 @@ Decisions:
   The default reranker scores Spanish passages low: a correct first result scored 0.34, so the
   default 0.4 returned no results at all for 4 questions. At 0, a search always returns `limit`
   results; each carries its `rerankingScore` for the caller to weigh.
-- Embedding model: not compared yet (`@cf/baai/bge-m3` is the candidate).
 
-The three misses at the chosen settings: _"¿Qué UsoCFDI lleva el comprobante con complemento para
+The three misses at these settings: _"¿Qué UsoCFDI lleva el comprobante con complemento para
 recepción de pagos?"_ (rank 6) and _"¿Cuándo es obligatorio el tipo de cambio en un CFDI en
-dólares?"_ (rank 7), both outranked by long example sections the PDF parser labels poorly
-(`nodo-trasladop-importep-*`, `nodo-addenda-*`), and _"¿Qué significa el atributo ObjetoImp del
-concepto?"_ (rank 6), outranked by the matrix rows for `ObjetoImp`. The section labels come from
-the Agent's parser (`Nodo: En`, `Nodo: Formato`), which reads PDF line starts; better labels are
-the next lever when the parser moves here.
+dólares?"_ (rank 7), both outranked by long example sections the old PDF parser labelled
+poorly (`nodo-trasladop-importep-*`, `nodo-addenda-*`), and _"¿Qué significa el atributo ObjetoImp
+del concepto?"_ (rank 6), outranked by the matrix rows for `ObjetoImp`.
+
+### Códice's splitter and the embedding model (2026-10-25)
+
+The guides re-split by `scripts/sections.ts` (520 passages, from 501): real node names, examples
+kept with their rule, one passage per appendix question. Same 50 questions, `trigram`, `and`,
+threshold 0. The expected keys the splitter renamed were mapped to the passage that starts with the
+same SAT line (`nodo-formato-tipocambio` → `nodo-comprobante-tipocambio`, and four more). One
+question gained an expected passage: the UsoCFDI question now also accepts
+`complemento-pagos-guia-de-llenado/apendice-6-pregunta-6.md`, the SAT's own answer to it ("en el
+campo UsoCFDI se debe registrar la clave “CP01” Pagos"), which ranks first now that it is a
+passage of its own.
+
+| Passages                     | Embedding model                 | Chunk size | Top 3  | Top 1  | MRR@10    |
+| ---------------------------- | ------------------------------- | ---------- | ------ | ------ | --------- |
+| Agent parser (before)        | `@cf/qwen/qwen3-embedding-0.6b` | 1,024      | 47     | 41     | 0.883     |
+| Códice splitter              | `@cf/qwen/qwen3-embedding-0.6b` | 1,024      | 47     | 42     | 0.892     |
+| Códice splitter, UsoCFDI fix | `@cf/qwen/qwen3-embedding-0.6b` | **1,024**  | **48** | **43** | **0.909** |
+| Códice splitter, UsoCFDI fix | `@cf/qwen/qwen3-embedding-0.6b` | 512        | 47     | 42     | 0.897     |
+| Códice splitter, UsoCFDI fix | `@cf/baai/bge-m3`               | 512        | 47     | 42     | 0.892     |
+
+The "before" row was re-run the same day on the old index and matched the table above exactly.
+The 512-token rows ran on comparison instances (`ingest --instance`, `eval --instance`) built with
+`codice`'s settings, since deleted: on AI Search `@cf/baai/bge-m3` takes at most 512 input
+tokens, so it cannot use 1,024-token chunks, and the qwen row at 512 separates the model from the
+chunk size.
+
+Decisions:
+
+- **Embedding model `@cf/qwen/qwen3-embedding-0.6b`, chunk size 1,024** (kept). bge-m3 scored no
+  better than qwen at the same chunk size, and both lose a question at 512.
+- **Eval floor 48 of 50** (`codice-corpus.yml`, `EVAL_MIN_TOP3`).
+
+The two misses left, both real (the passage that outranks the rule does not answer the question):
+
+- _"¿Cuándo es obligatorio el tipo de cambio en un CFDI en dólares?"_ (rank 9): question 22 of the
+  Anexo 20 questions (the FIX rate for the financial system) shares "tipo de cambio" and "dólares";
+  the rule, `CFDI40115` or `Nodo: Comprobante › TipoCambio`, says it without "dólares".
+- _"¿Qué significa el atributo ObjetoImp del concepto?"_ (rank 6): the matrix rows `CFDI40170` to
+  `CFDI40172` name `ObjetoImp` in their heading and outrank the guide's definition. A filter on
+  `kind` (`guia` for definitions) is the lever, not the passages.
+
+At 512 tokens, _"Retención de ISR al 1.25% para el Régimen Simplificado de Confianza"_ also falls
+to rank 4 (qwen) and 8 (bge-m3), behind the `TotalRetencionesISR` rules.
+
+Two stale items of the old split (`nodo-trasladop-importep-15`, `nodo-en-base`) are still in
+`codice`: AI Search answers their deletion with 429 `ai_search_instance_overloaded`. The next
+`ingest` deletes them; neither appears in a top 3 of the runs above.
 
 ## Infrastructure
 
@@ -524,7 +581,7 @@ to match.
    syncs `SENTRY_DSN` from `codice` `prd` to the Worker (done), for Sentry project `codice-api`.
    Still to do: the build's source-map token (Go-live checklist, step 5).
 2. **Scheduled ingestion** (workflow in place, not yet run). `codice-corpus.yml` checks the SAT,
-   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 47 of 50 (see
+   opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 48 of 50 (see
    [Ingestion](#ingestion)). Its credentials exist and its identity ID is pinned; tick this off
    after the first green `workflow_dispatch` run from `main`.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
@@ -532,12 +589,11 @@ to match.
    `list_sources`.
 4. **Deploy** (explicit approval): the Go-live checklist under "Monitoring and deploy".
 5. **Agent switch-over** (Rollout 3, done): the Agent calls `CodiceKnowledge` through its `CODICE`
-   service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the section parser
-   (`documentSections`) live here, in `scripts/`.
-6. **Better passages.** The PDF section labels (`Nodo: En`, `Nodo: Formato`, the long
-   `nodo-addenda-*` and `nodo-trasladop-importep-*` parts) cause the eval's 3 misses. Fix the parser
-   once it lives here, compare the embedding model `@cf/baai/bge-m3`, grow the question set, and
-   re-run the eval after each change.
+   service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
+   (`sections.ts`) live here, in `scripts/`.
+6. **Better passages** (done 2026-10-25: Códice's splitter, 48 of 50; bge-m3 compared and not
+   adopted; see [Retrieval eval](#retrieval-eval)). Next: grow the question set, and try a `kind`
+   filter for definition questions (the `ObjetoImp` miss).
 7. **Large catalogs** (done; loaded remotely and the NOCASE index `0002` applied, 2026-10-25). `c_ClaveProdServ`,
    `c_ClaveUnidad`, `c_CodigoPostal`, `c_Colonia`, `c_Localidad`, `c_Municipio`,
    `c_NumPedimentoAduana` and `c_PatenteAduanal` load into D1 `catalog_entries` (see

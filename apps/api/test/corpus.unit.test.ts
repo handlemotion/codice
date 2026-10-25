@@ -70,6 +70,22 @@ describe("buildCorpus", () => {
     );
   });
 
+  it("labels a guide passage by its node, and has every passage the eval expects", () => {
+    const passage = corpus.passages.find(
+      (candidate) => candidate.key === "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md",
+    );
+    expect(passage?.heading).toMatch(
+      / › I\. Guía de llenado .* › Nodo: Comprobante › TipoCambio$/u,
+    );
+    const questions = JSON.parse(
+      readFileSync(join(import.meta.dirname, "../scripts/eval-questions.json"), "utf8"),
+    ) as { expect: string[] }[];
+    const keys = new Set(corpus.passages.map((candidate) => candidate.key));
+    expect(
+      questions.flatMap((question) => question.expect).filter((key) => !keys.has(key)),
+    ).toEqual([]);
+  });
+
   it("records every matrix code and catalog entry for D1", () => {
     expect(corpus.errorCodes.find((row) => row.code === "CFDI40149")).toMatchObject({
       node: "cfdi:Receptor",

@@ -1,6 +1,6 @@
 /**
  * A SAT workbook's sheets as CSV rows, through LibreOffice (`soffice`). Shared by `sat-knowledge.ts`
- * and Códice's ingestion (`apps/api/scripts/ingest.ts`), which loads the large catalogs.
+ * and the ingestion (`ingest.ts`), which loads the large catalogs.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync } from "node:fs";

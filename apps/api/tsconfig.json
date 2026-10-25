@@ -15,8 +15,9 @@
     ".tsbuild",
     "node_modules",
     "test/corpus.unit.test.ts",
+    "test/large-catalogs.unit.test.ts",
     "test/sat-knowledge.unit.test.ts",
-    "test/large-catalogs.unit.test.ts"
+    "test/sections.unit.test.ts"
   ],
   "references": [
     {

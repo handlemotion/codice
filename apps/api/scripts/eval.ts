@@ -8,6 +8,7 @@
  *   pnpm --filter @codice/api eval --rerank-threshold 0.1   override the reranking threshold
  *   pnpm --filter @codice/api eval --out run.json  also write every rank to a file
  *   pnpm --filter @codice/api eval --min-top3 47   exit 1 when fewer questions pass
+ *   pnpm --filter @codice/api eval --instance codice-bge-m3   a comparison instance
  *
  * Runs under Doppler `codice` `dev`, whose `CODICE_AI_SEARCH_TOKEN` has AI Search Run and Read only;
  * without it, `CLOUDFLARE_API_TOKEN`. About 50 queries a run.
@@ -21,7 +22,6 @@ import { buildCorpus } from "./corpus";
 
 const APP = resolve(import.meta.dirname, "..");
 const ACCOUNT_ID = "2504eb0d24f17f6efbf89c1296a08389";
-const INSTANCE_URL = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/codice`;
 /** Results fetched per question: enough to see how far a miss fell. */
 const DEPTH = 10;
 const TOP = 3;
@@ -32,8 +32,10 @@ const { values } = parseArgs({
     "rerank-threshold": { type: "string" },
     out: { type: "string" },
     "min-top3": { type: "string" },
+    instance: { type: "string", default: "codice" },
   },
 });
+const INSTANCE_URL = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/${values.instance}`;
 if (values.match !== undefined && values.match !== "and" && values.match !== "or") {
   throw new Error("--match is `and` or `or`");
 }
@@ -82,10 +84,15 @@ async function main() {
     throw new Error(`Expected passages not in the corpus: ${unknown.join(", ")}`);
 
   const instance = await api<{
+    embedding_model?: string;
+    chunk_size?: number;
     indexing_options?: { keyword_tokenizer?: string };
     retrieval_options?: { keyword_match_mode?: string };
   }>("");
   const config = {
+    instance: values.instance,
+    embeddingModel: instance.embedding_model,
+    chunkSize: instance.chunk_size,
     keywordTokenizer: instance.indexing_options?.keyword_tokenizer ?? "porter",
     keywordMatchMode: match ?? instance.retrieval_options?.keyword_match_mode ?? "and",
     rerankingThreshold: rerankingThreshold ?? RERANKING_THRESHOLD,

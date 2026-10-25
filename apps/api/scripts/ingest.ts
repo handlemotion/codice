@@ -10,6 +10,9 @@
  *   pnpm --filter @codice/api ingest --catalogs  reload the large catalogs even when unchanged; with
  *                                                           --local, load them at all (~3 minutes, needs soffice)
  *   pnpm --filter @codice/api ingest --wait      wait until AI Search has indexed every item before writing D1
+ *   pnpm --filter @codice/api ingest --instance codice-bge-m3
+ *       load a comparison instance (an eval of other settings): upload every passage it lacks;
+ *       D1 and the large catalogs stay as they are
  *
  * The AI Search calls use `CODICE_AI_SEARCH_TOKEN` (AI Search:Edit and AI Search:Run), else
  * `CLOUDFLARE_API_TOKEN`; D1 goes through `wrangler d1 execute` with `CODICE_D1_TOKEN` (D1:Edit),
@@ -20,6 +23,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { parseArgs } from "node:util";
 
 import { workbookSheets } from "./sat-workbook";
 import type { SatSourceManifest } from "./sat-documents";
@@ -41,15 +45,25 @@ const SAT_MD = resolve(APP, "../../docs/sat-md");
 const ACCOUNT_ID = "2504eb0d24f17f6efbf89c1296a08389";
 const INSTANCE = "codice";
 const DATABASE = "codice";
-const ITEMS = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/${INSTANCE}/items`;
 const PAGE_SIZE = 50;
 const CONCURRENCY = 6;
 
-const args = new Set(process.argv.slice(2));
-const dryRun = args.has("--dry-run");
-const local = args.has("--local");
-const forceCatalogs = args.has("--catalogs");
-const wait = args.has("--wait");
+const { values } = parseArgs({
+  options: {
+    "dry-run": { type: "boolean", default: false },
+    local: { type: "boolean", default: false },
+    catalogs: { type: "boolean", default: false },
+    wait: { type: "boolean", default: false },
+    instance: { type: "string", default: INSTANCE },
+  },
+});
+const dryRun = values["dry-run"];
+const local = values.local;
+const forceCatalogs = values.catalogs;
+const wait = values.wait;
+/** D1 records what the instance `codice` holds; a comparison instance has no records. */
+const comparison = values.instance !== INSTANCE;
+const ITEMS = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/${values.instance}/items`;
 /** Indexing ~500 passages took about 30 minutes (SPEC.md, "The AI Search instance"). */
 const WAIT_LIMIT_MS = 45 * 60 * 1000;
 const POLL_MS = 30 * 1000;
@@ -301,21 +315,28 @@ async function main() {
   }
   const plan = ingestionPlan({
     passages: corpus.passages,
-    recorded: recordedHashes(),
+    // A comparison instance takes the passages as they are now: it uploads only what it lacks.
+    recorded: comparison
+      ? new Map(corpus.passages.map((passage) => [passage.key, passage.sha256]))
+      : recordedHashes(),
     items: await listItems(),
   });
   console.log(
-    `AI Search: ${plan.upload.length} to upload, ${plan.remove.length} to delete, ${plan.unchanged} unchanged`,
+    `AI Search${comparison ? ` ${values.instance}` : ""}: ${plan.upload.length} to upload, ${plan.remove.length} to delete, ${plan.unchanged} unchanged`,
   );
   for (const item of plan.remove) console.log(`  delete ${item.key}`);
   if (dryRun) {
-    await loadLargeCatalogs(corpus, manifest);
+    if (!comparison) await loadLargeCatalogs(corpus, manifest);
     return;
   }
   // Uploads first: D1 records a passage's hash only once AI Search holds that version, so a failed
   // run uploads it again next time.
   await each(plan.upload, upload);
   await each(plan.remove, (item) => remove(item.id));
+  if (comparison) {
+    if (wait) await waitForIndexing();
+    return;
+  }
   await loadLargeCatalogs(corpus, manifest);
   // Before D1: a run that times out waiting leaves the old hashes, so the next run plans the same
   // changes again and its eval still runs.
