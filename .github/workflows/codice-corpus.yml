@@ -7,7 +7,7 @@
 #   branch.
 # - ingest: loads `main`'s docs/sat-md into AI Search and D1 (`ingest`, a no-op for unchanged
 #   passages), then runs the retrieval eval when a passage changed, or on request. The eval spends
-#   ~50 AI Search queries, so it never runs on pull requests, and it fails below the top-3 result
+#   ~70 AI Search queries, so it never runs on pull requests, and it fails below the top-3 result
 #   recorded in SPEC.md, "Retrieval eval". `--wait` holds the eval until AI Search has indexed
 #   every item, so it measures the new passages.
 #
@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       eval:
-        description: Run the retrieval eval even if no passage changed (~50 AI Search queries)
+        description: Run the retrieval eval even if no passage changed (~70 AI Search queries)
         default: false
         type: boolean
 
@@ -34,8 +34,8 @@ permissions:
   contents: read
 
 env:
-  # Top 3 of 50 recorded in apps/api/SPEC.md, "Retrieval eval". Raise it with the next record.
-  EVAL_MIN_TOP3: 48
+  # Top 3 of 72 recorded in apps/api/SPEC.md, "Retrieval eval". Raise it with the next record.
+  EVAL_MIN_TOP3: 69
   REFRESH_BRANCH: codice/sat-md-refresh
 
 jobs:
@@ -134,7 +134,8 @@ jobs:
     name: Ingest and eval
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # `ingest --wait` waits up to 120 minutes for AI Search to index (scripts/ingest.ts).
+    timeout-minutes: 150
     permissions:
       contents: read
       id-token: write

@@ -22,16 +22,17 @@ describe("buildCorpus", () => {
     expect(new Set(keys).size).toBe(keys.length);
     for (const key of keys) {
       expect(key.length).toBeLessThanOrEqual(ITEM_KEY_MAX);
-      expect(key).toMatch(/^[a-z0-9-]+\/[a-z0-9-]+\.md$/u);
+      expect(key).toMatch(/^[a-z0-9-]+\/[a-z0-9][a-z0-9.-]*\.md$/u);
     }
   });
 
-  it("splits both guides and the matrix into passages with SAT metadata", () => {
+  it("splits both guides, the matrix and the RMF into passages with SAT metadata", () => {
     const sources = new Set(corpus.passages.map((passage) => passage.sourceId));
     expect([...sources]).toEqual([
       "anexo-20-guia-de-llenado",
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
+      "rmf-2026",
     ]);
     for (const passage of corpus.passages) {
       expect(passage.metadata.authority).toBe("SAT");
@@ -70,6 +71,31 @@ describe("buildCorpus", () => {
     );
   });
 
+  it("quotes a regla of the RMF under its heading path, valid from its DOF date", () => {
+    const original = corpus.passages.find(
+      (candidate) => candidate.key === "rmf-2026/regla-2.7.1.21.md",
+    );
+    expect(original?.body).toMatch(
+      /^# Resolución Miscelánea Fiscal para 2026 \(compilación del SAT\) › Título 2\. .* › Sección 2\.7\.1\. Disposiciones generales › Regla 2\.7\.1\.21\. Expedición de comprobantes en operaciones con el público en general\n\nExpedición de comprobantes/u,
+    );
+    expect(original?.metadata).toEqual({
+      authority: "SAT",
+      kind: "regla",
+      valid_from: 20_251_228,
+      valid_until: 99_991_231,
+    });
+    const amended = corpus.passages.find(
+      (candidate) => candidate.key === "rmf-2026/regla-2.1.6.md",
+    );
+    expect(amended?.body).toContain(
+      "- Reformada en la Primera RMRMF para 2026, publicada en el DOF el 09 de julio de 2026.",
+    );
+    expect(amended?.metadata.valid_from).toBe(20_260_709);
+    expect(corpus.passages.some((candidate) => candidate.key === "rmf-2026/regla-2.12.4.md")).toBe(
+      false,
+    );
+  });
+
   it("labels a guide passage by its node, and has every passage the eval expects", () => {
     const passage = corpus.passages.find(
       (candidate) => candidate.key === "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md",
@@ -100,6 +126,7 @@ describe("buildCorpus", () => {
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
       "catalogos-cfdi-40",
+      "rmf-2026",
     ]);
   });
 

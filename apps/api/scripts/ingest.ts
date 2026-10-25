@@ -64,8 +64,11 @@ const wait = values.wait;
 /** D1 records what the instance `codice` holds; a comparison instance has no records. */
 const comparison = values.instance !== INSTANCE;
 const ITEMS = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/${values.instance}/items`;
-/** Indexing ~500 passages took about 30 minutes (SPEC.md, "The AI Search instance"). */
-const WAIT_LIMIT_MS = 45 * 60 * 1000;
+/**
+ * Indexing ~500 passages took about 30 minutes, and the 1,734 passages with the RMF about 50
+ * (SPEC.md, "Ingestion").
+ */
+const WAIT_LIMIT_MS = 120 * 60 * 1000;
 const POLL_MS = 30 * 1000;
 /** AI Search's `item_not_found`. */
 const ITEM_NOT_FOUND = 7041;

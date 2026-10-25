@@ -11,7 +11,7 @@ the behavior changes.
   MCP tools at `/mcp`, and the `CodiceKnowledge` entrypoint the Agent binds as `CODICE` (SPEC.md,
   "Internal entrypoint"; change it and `@codice/contracts` together, and keep Transitive's
   mirror `@transitive/api-contracts/codice` in step). The ingestion loads `docs/sat-md` into AI
-  Search and D1. Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
+  Search and D1, including the RMF (Phase 1's first source, one passage a regla). Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
   build of this repository's `main` deploys the Worker `codice` (root `apps/api`, deploy command
   `pnpm run deploy:production`; SPEC.md, "Go-live checklist"), and `codice-corpus.yml` and
   `sync-worker-secrets.yml` run from here. No route or custom domain yet, and `codice.io` is not
@@ -41,7 +41,7 @@ the behavior changes.
 
 Commands: `pnpm --filter @codice/api test`, `check-types`, `build`, `cf-typegen`,
 `db:generate`, `db:migrate:local`, `sat:knowledge` (`--check`, `--force`; needs LibreOffice,
-MarkItDown and Poppler), `dev` and `eval` (Doppler `codice` `dev`; `eval` spends ~50 AI Search
+MarkItDown and Poppler), `dev` and `eval` (Doppler `codice` `dev`; `eval` spends ~70 AI Search
 queries; `--instance` for a comparison instance), and `ingest` (`--dry-run`, `--local`,
 `--catalogs` for the large catalogs, `--instance`; writes production, so run it under
 `doppler run -p codice -c prd --`).

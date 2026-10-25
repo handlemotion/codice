@@ -12,6 +12,7 @@ import {
   parseErrorMatrix,
   renderCatalogs,
   renderErrorMatrix,
+  rmfCompilationMarkdown,
   sheetDate,
   xsdCatalogCodes,
 } from "../scripts/sat-knowledge-render";
@@ -112,12 +113,14 @@ function syntheticLibrary() {
       "# Pagos\n\nNodo: Pago\nMonedaP Se debe registrar la moneda.",
     "matriz-de-errores-cfdi-4.0.md": renderErrorMatrix(matrix),
     "catalogos-cfdi-4.0.md": renderCatalogs(catalogs),
+    "resolucion-miscelanea-fiscal-2026.md": "# RMF\n\n2.1.1. Para los efectos del CFF.",
   };
   const sources = {
     anexo20: SOURCE,
     pagos: SOURCE,
     matrix: matrix.source,
     catalogs: SOURCE,
+    rmf: SOURCE,
   } satisfies SatSourceManifest;
   return buildSatLibrary({
     markdown: (file) => files[file],
@@ -248,5 +251,34 @@ c_Aduana,Patente,Ejercicio,Cantidad,Fecha inicio de vigencia,Fecha fin de vigenc
     for (const code of matrix.codes) {
       expect(lines).toContain(compactSatMarkdown(markdownTableRow(errorCodeRow(code))));
     }
+  });
+
+  it("keep a compiled RMF's page note once and drop its page numbers", () => {
+    const note = [
+      "NOTA: Este documento constituye una compilación de las resoluciones publicadas en el Diario Oficial de la Federación, con la finalidad",
+      "de dar a conocer el texto actualizado de la Resolución Miscelánea Fiscal, de conformidad con el artículo 5 de la Ley Federal de los Derechos",
+      "del Contribuyente. Para sustentar legalmente actos o resoluciones se deberá utilizar la publicación del Diario Oficial de la Federación.",
+    ];
+    const converted = [
+      "Resolución Miscelánea Fiscal para 2026",
+      ...note,
+      "Página 1 de 857",
+      "",
+      "Días inhábiles",
+      "2.1.6. Para los efectos del artículo 12 del CFF, se estará a lo",
+      ...note,
+      "Página 22 de 857",
+      "",
+      "siguiente:",
+    ].join("\n");
+    expect(rmfCompilationMarkdown(converted).split("\n")).toEqual([
+      "Resolución Miscelánea Fiscal para 2026",
+      ...note,
+      "",
+      "Días inhábiles",
+      "2.1.6. Para los efectos del artículo 12 del CFF, se estará a lo",
+      "",
+      "siguiente:",
+    ]);
   });
 });

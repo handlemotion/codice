@@ -26,5 +26,12 @@
     "publishedAt": "2026-10-15",
     "retrievedAt": "2026-10-24",
     "outputs": ["catalogos-cfdi-4.0.json", "catalogos-cfdi-4.0.md"]
+  },
+  "rmf": {
+    "url": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/compiladas/Compilado_Primera_Modificacion_a_la-Resolucion_Miscelanea_Fiscal_para_2026.pdf",
+    "sha256": "edd1ae82fe16ba96e79a591d26a29cc3b91e104713d63e2395a7212546da9718",
+    "publishedAt": "2026-07-16",
+    "retrievedAt": "2026-10-25",
+    "outputs": ["resolucion-miscelanea-fiscal-2026.md"]
   }
 }
