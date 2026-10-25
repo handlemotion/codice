@@ -44,10 +44,11 @@ the Worker by name (service binding `CODICE`), so it keeps working through every
    `main`, the next merge names it by commit). Merge a PR here and check `cf builds list`,
    `cf workers versions list` and `cf workers deployments list` for `codice`, that the D1
    migrations step ran, and that the Sentry release for the commit has source maps.
-5. **Corpus workflow.** Create the Doppler identity (`docs/operations/doppler-secrets.md`), set the
-   repository variables `CODICE_CORPUS_DOPPLER_IDENTITY_ID` and `CODICE_CORPUS_ENABLED=true`,
-   uncomment the schedule in `codice-corpus.yml`, and delete Transitive's `codice-corpus.yml` in
-   the same window, so only one repository ingests and opens refresh PRs.
+5. **Corpus workflow** (done 2026-10-25: identity `trstv-codice-main` pinned in
+   `codice-corpus.yml`, schedule on, Transitive's copy deleted in `trstv/transitive#2769`). Create
+   the Doppler identity (`docs/operations/doppler-secrets.md`), pin its ID in `codice-corpus.yml`,
+   uncomment the schedule, and delete Transitive's `codice-corpus.yml` in the same window, so only
+   one repository ingests and opens refresh PRs.
 6. **Secret sync (optional).** Transitive's `sync-worker-secrets.yml` can keep syncing
    `SENTRY_DSN` to Worker `codice`. To move it, add a sync workflow here with its own Doppler
    identity and the Doppler webhook on `codice` `prd`, then drop the `codice` entry from

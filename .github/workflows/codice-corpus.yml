@@ -1,8 +1,5 @@
 # Códice corpus: keeps docs/sat-md and the Códice index current (apps/api/SPEC.md, "Ingestion").
 #
-# Both jobs run only when the repository variable CODICE_CORPUS_ENABLED is `true` (cutover step 5,
-# docs/operations/cutover.md, which also removed Transitive's copy).
-#
 # Two independent jobs, both from `main` only:
 # - sources: asks the SAT whether it published new files (`sat:knowledge --check`). When it did, it
 #   regenerates docs/sat-md and opens a pull request from `codice/sat-md-refresh`. A PR opened with
@@ -44,7 +41,7 @@ env:
 jobs:
   sources:
     name: SAT sources
-    if: github.ref == 'refs/heads/main' && vars.CODICE_CORPUS_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -135,7 +132,7 @@ jobs:
 
   ingest:
     name: Ingest and eval
-    if: github.ref == 'refs/heads/main' && vars.CODICE_CORPUS_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -165,10 +162,9 @@ jobs:
 
       - name: Doppler OIDC login
         env:
-          # Doppler Service Account Identity on codice-corpus whose subject is this repository's
-          # `main` (docs/operations/doppler-secrets.md); its ID, not a secret, is a repository
-          # variable.
-          DOPPLER_IDENTITY_ID: ${{ vars.CODICE_CORPUS_DOPPLER_IDENTITY_ID }}
+          # Doppler Service Account Identity `trstv-codice-main` on codice-corpus, whose subject
+          # is this repository's `main` (docs/operations/doppler-secrets.md). An ID, not a secret.
+          DOPPLER_IDENTITY_ID: c7a92969-cf18-43a5-8115-58eb994ebe76
         run: |
           set -euo pipefail
           OIDC_TOKEN=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
