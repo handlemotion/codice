@@ -643,7 +643,11 @@ The eight misses left, none fixed by changing expected passages:
 
 ## Infrastructure
 
-Created 2026-10-24; Phase 0 loaded the same day:
+Created 2026-10-24 on the Jaantonio account; Phase 0 loaded the same day. Moved on 2026-10-27 to
+the Handle account (`473fbe436e39d8f3d33b6bb09afd3dd7`) as the Worker `codice-api`: the D1 database
+was copied with `wrangler d1 export` and re-imported (same rows), the AI Search instance re-created
+with the settings above and filled by `ingest`. The Jaantonio Worker `codice` and its resources stay
+until Transitive's Agent stops binding it.
 
 | Resource           | Name     | Binding                      |
 | ------------------ | -------- | ---------------------------- |
@@ -651,8 +655,9 @@ Created 2026-10-24; Phase 0 loaded the same day:
 | D1 database        | `codice` | `CODICE_DATABASE`            |
 | Rate limit         | `1601`   | `CODICE_PUBLIC_RATE_LIMITER` |
 
-No route, no custom domain, `workers.dev` off; the Cloudflare Git build of `main` deploys the
-Worker (see [Monitoring and deploy](#monitoring-and-deploy)). The AI Search binding is `"remote": true`, so
+No route, no custom domain, `workers.dev` off; the public host is the edge Worker `codice-edge`
+(`apps/edge`), which forwards `/v1`, `/mcp`, `/health` and `/ready` here over a service binding. The
+Cloudflare Git build of `main` deploys the Worker (see [Monitoring and deploy](#monitoring-and-deploy)). The AI Search binding is `"remote": true`, so
 `wrangler dev` (`pnpm dev:up` in the local stack, or `pnpm --filter @codice/api dev`,
 Doppler `codice` `dev`) queries the real instance through Wrangler's Cloudflare auth, and seeds the
 local D1 with `ingest --local` when it is empty; the tests use a local binding.
@@ -693,8 +698,8 @@ is unset. So the order is fixed:
 1. **Sentry** (done). Project `codice-api` (org `jaantonio`, platform Cloudflare Workers), to be
    connected to the org-wide `Production issues → incident.io` alert. Its DSN is `SENTRY_DSN` in
    Doppler `codice` `prd`, next to the build's source-map token `SENTRY_AUTH_TOKEN`.
-2. **Sync access** (done). `sync-worker-secrets.yml` signs in to Doppler with the corpus identity
-   `trstv-codice-main` and reads the Worker secrets token in `codice` `prd`
+2. **Sync access** (done). `sync-worker-secrets.yml` signs in to Doppler with its own identity
+   `handlemotion-codice-main-secrets` (service account `codice-worker-secrets`) and reads the Worker secrets token in `codice` `prd`
    (`docs/operations/doppler-secrets.md`, "Worker secret sync"). Left: point the Doppler webhook on
    `codice` `prd` at this repository's dispatches.
 3. **Create the Worker** (done). A placeholder `codice` script from the dashboard (Hello World, no

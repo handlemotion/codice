@@ -12,7 +12,7 @@ the behavior changes.
   "Internal entrypoint"; change it and `@codice/contracts` together, and keep Transitive's
   mirror `@transitive/api-contracts/codice` in step). The ingestion loads `docs/sat-md` into AI
   Search and D1, including the RMF (Phase 1's first source, one passage a regla). Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
-  build of this repository's `main` deploys the Worker `codice` (root `apps/api`, deploy command
+  build of this repository's `main` deploys the Worker `codice-api` on the Handle account (root `apps/api`, deploy command
   `pnpm run deploy:production`; SPEC.md, "Go-live checklist"), and `codice-corpus.yml` and
   `sync-worker-secrets.yml` run from here. No route or custom domain yet, and `codice.io` is not
   purchased; attaching it needs explicit approval.

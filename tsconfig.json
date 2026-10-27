@@ -5,6 +5,15 @@
       "path": "./apps/api"
     },
     {
+      "path": "./apps/app"
+    },
+    {
+      "path": "./apps/edge"
+    },
+    {
+      "path": "./apps/site"
+    },
+    {
       "path": "./packages/contracts"
     },
     {

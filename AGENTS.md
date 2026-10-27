@@ -1,7 +1,8 @@
 # Códice agent rules
 
-TypeScript monorepo: pnpm + Turborepo workspaces, one Cloudflare Worker (Hono) with D1 through
-Drizzle and Cloudflare AI Search. Códice is a searchable index of Mexican tax (SAT) and customs
+TypeScript monorepo: pnpm + Turborepo workspaces, four Cloudflare Workers on the Handle account: the
+API (Hono, D1 through Drizzle, Cloudflare AI Search), an edge router, a marketing site and a
+dashboard. Códice is a searchable index of Mexican tax (SAT) and customs
 rules, served over HTTP and MCP. Jaantonio is the company; Transitive is its other product and
 Códice's first client.
 
@@ -11,16 +12,24 @@ where they differ. Explicit user instructions override every repository file.
 ## Cutover status
 
 Códice moved out of `trstv/transitive` on 2026-10-25 (`docs/operations/cutover.md`): this repository
-builds and deploys the Worker `codice`, refreshes the corpus (`codice-corpus.yml`) and syncs the
+builds and deploys the Workers, refreshes the corpus (`codice-corpus.yml`) and syncs the
 Worker's secrets (`sync-worker-secrets.yml`). Transitive keeps only the Agent's client of the
 `CODICE` binding, `@transitive/api-contracts/codice` (which mirrors `@codice/contracts`), and a copy
 of `docs/sat-md`.
+
+On 2026-10-27 Códice moved from the Jaantonio Cloudflare account to Handle
+(`473fbe436e39d8f3d33b6bb09afd3dd7`) and the API Worker became `codice-api`. The old Worker `codice`
+on Jaantonio still serves Transitive's Agent through its `CODICE` service binding until Transitive
+moves to an HTTP client (service bindings do not cross accounts); it no longer receives deploys.
 
 ## Layout
 
 | Path                         | Package                     | Role                                                                                          |
 | ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `apps/api`                   | `@codice/api`               | The Worker `codice`: `/v1` HTTP API, `/mcp`, the `CodiceKnowledge` entrypoint. See `SPEC.md`. |
+| `apps/api`                   | `@codice/api`               | Worker `codice-api`: `/v1` HTTP API, `/mcp`, the `CodiceKnowledge` entrypoint. See `SPEC.md`. |
+| `apps/edge`                  | `@codice/edge`              | Worker `codice-edge`: owns the public host, routes to the API, site or dashboard.             |
+| `apps/site`                  | `@codice/site`              | Worker `codice-site`: the marketing site (TanStack Start).                                    |
+| `apps/app`                   | `@codice/app`               | Worker `codice-app`: the dashboard, API keys and usage (TanStack Start).                      |
 | `packages/contracts`         | `@codice/contracts`         | The `CodiceKnowledge` service contract and the problem and success envelopes.                 |
 | `packages/monitoring`        | `@codice/monitoring`        | Sentry trace sampling and span URL scrubbing.                                                 |
 | `packages/typescript-config` | `@codice/typescript-config` | Shared `tsconfig` base.                                                                       |
@@ -31,7 +40,8 @@ of `docs/sat-md`.
 - Install `pnpm install` · Format `pnpm format` · Lint `pnpm lint` · Types `pnpm check-types`
 - `pnpm check` runs the format check and lint; `pnpm fix` applies the fixable ones.
 - `pnpm test` runs the tooling tests and the affected package tests; `pnpm test:all` runs all.
-- `pnpm build` dry-runs the Worker bundle (`wrangler deploy --dry-run`).
+- `pnpm build` builds every Worker (`wrangler deploy --dry-run` for the API and edge, `vite build`
+  for the site and dashboard).
 - App commands: the `Commands` line in `apps/api/AGENTS.md`.
 - The pre-commit hook runs `lint-staged` (`oxfmt` and `oxlint --fix`), so staged files can change
   during `git commit`. Re-read a file after committing before you edit it again.
@@ -69,14 +79,16 @@ Regenerate these with their tool; never hand-edit them:
 - Pull requests target `main` and need the `Checks` job of `ci.yml` green.
 - Create branches, commit, push, and open or update pull requests on your own once local checks
   pass. Before each push run `pnpm check`, `pnpm check-types` and `pnpm test`.
-- A merge to `main` is the production delivery event: the Cloudflare Git build runs
-  `deploy:production` (D1 migrations, version upload with source maps, deploy). Merge only when the
-  user asks for that PR. Never run `wrangler deploy` or upload a local build.
+- A merge to `main` is the production delivery event: each Worker's Cloudflare Git build (Handle
+  account, root `apps/<app>`) runs its `deploy:production` (for the API: D1 migrations, version
+  upload with source maps, deploy). Merge only when the user asks for that PR. Never run
+  `wrangler deploy` or upload a local build.
 
 ## Secrets (Doppler)
 
 - Doppler project `codice` holds every secret: `dev` (read-only AI Search token, local dev and
-  `eval`) and `prd` (`SENTRY_DSN` for the Worker, the ingestion tokens). Details:
+  `eval`) and `prd` (`SENTRY_DSN` for `codice-api`, the ingestion tokens, the sync token). Its
+  Cloudflare tokens are Códice's own, on the Handle account, never shared with another project. Details:
   `docs/operations/doppler-secrets.md`.
 - Local commands run under `doppler run -p codice -c dev -- <command>`; `pnpm dev` and `eval`
   already do.

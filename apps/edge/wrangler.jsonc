@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codice-edge",
+  "account_id": "473fbe436e39d8f3d33b6bb09afd3dd7",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  // Will own `codice.io` as a custom domain once its zone is in the Handle account; until then the
+  // Worker has no route. AGENTS.md, "Domains".
+  "workers_dev": false,
+  "preview_urls": false,
+  "placement": { "mode": "smart" },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "vars": {
+    // Anything but the exact string "true" sends every non-API request to the app.
+    "SITE_ENABLED": "true",
+  },
+  "services": [
+    { "binding": "API", "service": "codice-api" },
+    { "binding": "APP", "service": "codice-app" },
+    { "binding": "SITE", "service": "codice-site" },
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.05 },
+  },
+}

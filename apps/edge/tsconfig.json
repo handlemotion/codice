@@ -1,0 +1,15 @@
+{
+  "extends": "@codice/typescript-config/base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext"],
+    "types": ["./worker-configuration.d.ts", "node"],
+    "outDir": ".tsbuild",
+    "tsBuildInfoFile": ".tsbuild/tsconfig.tsbuildinfo"
+  },
+  "include": ["worker-configuration.d.ts", "src/**/*.ts"],
+  "exclude": [".tsbuild", "node_modules"]
+}

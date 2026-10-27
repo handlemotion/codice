@@ -50,7 +50,7 @@ every local search is a real, billed query to the instance `codice`.
   load them with `ingest --local --catalogs` (about 3 minutes, needs LibreOffice `soffice`).
 - **Cloudflare auth**: Wrangler opens a remote preview session for the binding
   (`/accounts/<id>/workers/subdomain/edge-preview`), so it needs `wrangler login` or a
-  `CLOUDFLARE_API_TOKEN` with at least Account › Workers Scripts: Edit on the Jaantonio account.
+  `CLOUDFLARE_API_TOKEN` with at least Account › Workers Scripts: Edit on the Handle account.
   The Doppler `dev` token `CODICE_AI_SEARCH_TOKEN` (AI Search Run and Read) cannot open that
   session; it is for `eval` only.
 - **`SENTRY_DSN`**: `secrets.required` does not block `wrangler dev`, and Sentry stays off without

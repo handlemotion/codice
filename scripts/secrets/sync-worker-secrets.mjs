@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Sync Doppler `codice` `prd` to the Cloudflare Worker `codice`'s secrets.
+// Sync Doppler `codice` `prd` to the secrets of every Códice Worker (`apps/*/wrangler.jsonc`).
 //
 //   node scripts/secrets/sync-worker-secrets.mjs                     # plan only
 //   node scripts/secrets/sync-worker-secrets.mjs --apply             # upsert
@@ -11,17 +11,38 @@
 // under `doppler run -p codice -c prd --`. Secret values are read only to apply, held in memory,
 // and never printed; a dry run reads names only.
 //
-// Only the names the Worker declares (`secrets.required` in apps/api/wrangler.jsonc) are synced:
-// `prd` also holds the ingestion's and this sync's tokens, which must not reach the Worker.
+// Each Worker gets only the names it declares (`secrets.required` in its wrangler.jsonc): `prd`
+// also holds the ingestion's and this sync's tokens, which must not reach a Worker. A Worker that
+// declares none is skipped.
 
 import { execFileSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
-const ACCOUNT_ID = "2504eb0d24f17f6efbf89c1296a08389";
+import { parse } from "jsonc-parser";
+
+const ACCOUNT_ID = "473fbe436e39d8f3d33b6bb09afd3dd7";
 const CF = "https://api.cloudflare.com/client/v4";
-const SCRIPT = "codice";
 const PROJECT = "codice";
 const CONFIG = "prd";
-export const KEYS = ["SENTRY_DSN"];
+const APPS = resolve(import.meta.dirname, "../../apps");
+
+/** `{ script, keys }` for each app's wrangler.jsonc that declares required secrets. */
+export function workers(appsDir = APPS) {
+  const out = [];
+  for (const app of readdirSync(appsDir).sort()) {
+    let text;
+    try {
+      text = readFileSync(join(appsDir, app, "wrangler.jsonc"), "utf8");
+    } catch {
+      continue;
+    }
+    const config = parse(text);
+    const keys = config.secrets?.required ?? [];
+    if (keys.length > 0) out.push({ script: config.name, keys: [...keys].sort() });
+  }
+  return out;
+}
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
@@ -43,11 +64,12 @@ function dopplerJson(cliArgs) {
 }
 
 // Names only unless `withValues`, so a dry run never reads a production value.
-function dopplerSecrets(withValues) {
+// Only the declared names are kept, so no other `prd` value stays in memory.
+function dopplerSecrets(withValues, wanted) {
   const raw = dopplerJson(["secrets", ...(withValues ? [] : ["--only-names"])]);
   const out = {};
   for (const [key, entry] of Object.entries(raw)) {
-    if (KEYS.includes(key)) out[key] = entry.computed ?? entry;
+    if (wanted.has(key)) out[key] = entry.computed ?? entry;
   }
   return out;
 }
@@ -86,25 +108,21 @@ async function waitForNames(base, expected) {
   throw new Error(`names after sync differ from expected: got ${after.join(" ")}`);
 }
 
-async function main() {
-  const base = `/accounts/${ACCOUNT_ID}/workers/scripts/${SCRIPT}`;
-  const source = `Doppler ${PROJECT}/${CONFIG}`;
-  console.log(`${apply ? "APPLY" : "DRY RUN"} · ${SCRIPT}`);
-  if (since && !dopplerChangedAfter(since)) {
-    console.log(`${SCRIPT}: no ${source} activity since ${since.toISOString()}, skipped`);
-    return;
-  }
-  const desired = dopplerSecrets(apply);
+async function syncWorker({ script, keys: declared }, source) {
+  const base = `/accounts/${ACCOUNT_ID}/workers/scripts/${script}`;
+  const desired = Object.fromEntries(
+    declared.filter((k) => k in source).map((k) => [k, source[k]]),
+  );
   const keys = Object.keys(desired).sort();
   if (keys.length === 0) {
-    console.log(`${SCRIPT}: ${source} has no ${KEYS.join(" ")}, skipped`);
+    console.log(`${script}: Doppler ${PROJECT}/${CONFIG} has no ${declared.join(" ")}, skipped`);
     return;
   }
   const current = (await cf("GET", `${base}/secrets`)).map((s) => s.name).sort();
   const added = keys.filter((k) => !current.includes(k));
   const stale = current.filter((k) => !keys.includes(k));
   console.log(
-    `${SCRIPT}: upsert ${keys.length} (${added.length} new${added.length ? `: ${added.join(" ")}` : ""}), stale ${stale.length}${stale.length ? `: ${stale.join(" ")}` : ""}${prune ? "" : stale.length ? " (kept; pass --prune)" : ""}`,
+    `${script}: upsert ${keys.length} (${added.length} new${added.length ? `: ${added.join(" ")}` : ""}), stale ${stale.length}${stale.length ? `: ${stale.join(" ")}` : ""}${prune ? "" : stale.length ? " (kept; pass --prune)" : ""}`,
   );
   if (!apply) return;
 
@@ -117,10 +135,22 @@ async function main() {
 
   const expected = prune ? keys : [...new Set([...keys, ...stale])].sort();
   const after = await waitForNames(base, expected);
-  console.log(`${SCRIPT}: applied, ${after.length} secrets bound`);
+  console.log(`${script}: applied, ${after.length} secrets bound`);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+async function main() {
+  const targets = workers();
+  console.log(`${apply ? "APPLY" : "DRY RUN"} · ${targets.map((w) => w.script).join(" ")}`);
+  if (since && !dopplerChangedAfter(since)) {
+    console.log(`no Doppler ${PROJECT}/${CONFIG} activity since ${since.toISOString()}, skipped`);
+    return;
+  }
+  const source = dopplerSecrets(apply, new Set(targets.flatMap((w) => w.keys)));
+  for (const target of targets) await syncWorker(target, source);
+}
+
+if (import.meta.main)
+  main().catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
