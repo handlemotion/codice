@@ -2,7 +2,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "codice-app",
   "account_id": "473fbe436e39d8f3d33b6bb09afd3dd7",
-  "main": "@tanstack/react-start/server-entry",
+  // The TanStack Start entry plus the `CodiceAccounts` entrypoint `codice-api` binds as `ACCOUNTS`.
+  "main": "src/server.ts",
   "compatibility_date": "2026-08-15",
   "compatibility_flags": ["nodejs_compat"],
   // Reached through the `APP` service binding of `codice-edge`; `dashboard.codice.io` is added as a
@@ -10,6 +11,34 @@
   "workers_dev": false,
   "preview_urls": false,
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "vars": {
+    // The public origin Better Auth signs callbacks and cookies for (the edge's host).
+    "BETTER_AUTH_URL": "https://codice.io",
+    // The sender of sign-in codes; its domain must be onboarded to Cloudflare Email Sending.
+    "AUTH_EMAIL_FROM": "acceso@codice.io",
+  },
+  // Google and GitHub sign-in turn on once their OAuth apps exist: add `GOOGLE_CLIENT_ID`,
+  // `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` here and in Doppler `prd`.
+  "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+  // Users, sessions, teams and members (Better Auth). Schema: src/db/schema.ts.
+  "d1_databases": [
+    {
+      "binding": "ACCOUNTS_DATABASE",
+      "database_name": "codice-accounts",
+      "database_id": "ec8e6846-5029-4ede-a238-c74a8d08686e",
+      "migrations_dir": "migrations",
+    },
+  ],
+  // API keys (hashed), read on every `/v1` and `/mcp` call through `CodiceAccounts.verifyApiKey`.
+  "kv_namespaces": [
+    {
+      "binding": "API_KEYS",
+      // `codice-api-keys` on the Handle account.
+      "id": "6e6c5c63c59247a2ac3c0aa4bf945f4b",
+    },
+  ],
+  // Cloudflare Email Sending, for sign-in codes.
+  "send_email": [{ "name": "EMAIL" }],
   "observability": {
     "enabled": true,
     "logs": { "head_sampling_rate": 1 },

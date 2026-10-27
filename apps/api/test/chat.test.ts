@@ -13,11 +13,19 @@ import { app } from "../src/index";
  */
 const bindings = env as unknown as CodiceBindings;
 
+let keys = 0;
+
 function postChat(body: string, overrides: Partial<CodiceBindings> = {}, client = "203.0.113.1") {
+  keys += 1;
   return app.fetch(
     new Request("https://codice.test/v1/chat", {
       method: "POST",
-      headers: { "content-type": "application/json", "cf-connecting-ip": client },
+      headers: {
+        "content-type": "application/json",
+        "cf-connecting-ip": client,
+        // Its own key each time, so only the chat's per-client limit can trip.
+        authorization: `Bearer cdc_test_chat${keys}`,
+      },
       body,
     }),
     { ...bindings, ANTHROPIC_API_KEY: "test-key", ...overrides },
@@ -167,7 +175,7 @@ describe("POST /v1/chat", () => {
   it("is POST only", async () => {
     const response = await app.fetch(
       new Request("https://codice.test/v1/chat", {
-        headers: { "cf-connecting-ip": "203.0.113.30" },
+        headers: { "cf-connecting-ip": "203.0.113.30", authorization: "Bearer cdc_test_chatget" },
       }),
       bindings,
       createExecutionContext(),

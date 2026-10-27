@@ -65,14 +65,22 @@ every local search is a real, billed query to the instance `codice`.
 - **`SENTRY_DSN`**: `secrets.required` does not block `wrangler dev`, and Sentry stays off without
   `SENTRY_RELEASE`, so no placeholder is needed.
 
-Check it with real calls:
+- **API keys**: `/v1` and `/mcp` need a key, verified by the dashboard's `CodiceAccounts` over
+  the `ACCOUNTS` service binding, which Wrangler connects to a local dashboard through its dev
+  registry. Run the dashboard beside it (`pnpm --filter @codice/app dev`, with `apps/app/.env` as
+  in `apps/app/AGENTS.md`), apply its migrations once
+  (`pnpm --filter @codice/app db:migrate:local`), sign in at `http://localhost:5173/login` with
+  any email (the code is printed in the dashboard's output) and create a key at `/keys`. Without
+  the dashboard, every keyed call fails with a `500`.
+
+Check it with real calls (`KEY` is that key):
 
 ```sh
 curl https://codice.localhost/ready
-curl 'https://codice.localhost/v1/search?q=CFDI40149'
-curl https://codice.localhost/v1/errors/CFDI40149
-curl https://codice.localhost/v1/catalogs/c_UsoCFDI/S01
-curl https://codice.localhost/mcp \
+curl -H "authorization: Bearer $KEY" 'https://codice.localhost/v1/search?q=CFDI40149'
+curl -H "authorization: Bearer $KEY" https://codice.localhost/v1/errors/CFDI40149
+curl -H "x-api-key: $KEY" https://codice.localhost/v1/catalogs/c_UsoCFDI/S01
+curl https://codice.localhost/mcp -H "authorization: Bearer $KEY" \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search","arguments":{"q":"CFDI40149"}}}'
 ```

@@ -23,7 +23,7 @@
     {
       "name": "CODICE_PUBLIC_RATE_LIMITER",
       "namespace_id": "1601",
-      // Low so a test reaches the limit in a few requests; each test uses its own client address.
+      // Low so a test reaches the limit in a few requests; each test uses its own key.
       "simple": { "limit": 3, "period": 60 },
     },
     {

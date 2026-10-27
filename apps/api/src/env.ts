@@ -1,8 +1,11 @@
+import type { CodiceAccountsService } from "@codice/contracts";
+
 // The generated CloudflareBindings types `secrets` as required strings and every binding as
 // present. A local run has no SENTRY_DSN, and `/ready` must answer when a binding is missing, so the
 // bindings the app checks are re-declared here as optional; Omit drops the generated entry so the
 // redeclaration is not narrowed back.
 interface CodiceBindingOverrides {
+  ACCOUNTS?: Pick<CodiceAccountsService, "verifyApiKey">;
   CODICE_DATABASE?: D1Database;
   CODICE_SEARCH?: AiSearchInstance;
   CODICE_PUBLIC_RATE_LIMITER?: RateLimit;
@@ -18,6 +21,8 @@ export type CodiceBindings = Omit<CloudflareBindings, keyof CodiceBindingOverrid
 
 export type CodiceVariables = {
   requestId: string;
+  /** The verified caller of a `/v1` or `/mcp` route. */
+  apiKey: { keyId: string; organizationId: string };
 };
 
 export type CodiceEnv = { Bindings: CodiceBindings; Variables: CodiceVariables };

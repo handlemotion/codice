@@ -27,8 +27,10 @@ the behavior changes.
 - D1 schema is Drizzle in `src/db/schema.ts`; change it, then `db:generate`. Never hand-write
   `migrations/`, and never run `db:migrate:remote` yourself: it runs in `deploy:production`.
 - Every response carries `x-request-id`. `/v1` bodies use `apiJson` (`src/http.ts`), errors use
-  `problem` (throw `CodiceProblem` from a handler). `/v1/*` and `/mcp/*` pass the per-client
-  `CODICE_PUBLIC_RATE_LIMITER`.
+  `problem` (throw `CodiceProblem` from a handler). `/v1/*` and `/mcp/*` require a team's API key,
+  verified by `codice-app` over the `ACCOUNTS` binding, then pass `CODICE_PUBLIC_RATE_LIMITER`
+  keyed by the key id (SPEC.md, "Auth", "Rate limiting"). Tests stub `ACCOUNTS` with
+  `test/accounts-stub.js`: any `cdc_test_<id>` key is valid.
 - `wrangler dev` reaches the real AI Search instance (`"remote": true`): a local search is a real,
   billed query. Tests use a local binding and never prove retrieval.
 - Local run: `pnpm dev:up` starts Códice on `https://codice.localhost`, applies the local

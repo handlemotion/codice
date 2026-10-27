@@ -24,6 +24,8 @@ describe("workers", () => {
   it("reads this repository's Workers", () => {
     expect(workers()).toEqual([
       { script: "codice-api", keys: ["ANTHROPIC_API_KEY", "SENTRY_DSN"] },
+      { script: "codice-app", keys: ["BETTER_AUTH_SECRET"] },
+      { script: "codice-site", keys: ["CODICE_SITE_API_KEY"] },
     ]);
   });
 });
