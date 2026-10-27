@@ -7,7 +7,7 @@ Agent binds as `CODICE`.
 
 Window: 2026-10-18 08:10 UTC to 2026-10-25 08:10 UTC (7 days). Sources:
 
-- Sentry, org `jaantonio`, project `codice-api`, spans dataset.
+- Sentry, org `handlemotion` (`jaantonio` before 2026-10-27), project `codice-api`, spans dataset.
 - Cloudflare Workers observability (`cf observability telemetry query`) for script `codice`.
 - Cloudflare GraphQL Analytics: `workersInvocationsAdaptive` (script `codice`) and
   `d1AnalyticsAdaptiveGroups` (database `c4df9b36-…`). These are not sampled per event, so they

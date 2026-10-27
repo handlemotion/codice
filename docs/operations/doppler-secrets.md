@@ -41,6 +41,10 @@ The repository moved from `trstv/codice` to `handlemotion/codice` (same reposito
 `1432699064`), which changed the OIDC subject; both identities were re-created for it on
 2026-10-27.
 
+Cloudflare refuses a secret edit (`10215`) while the Worker's newest version is not the deployed
+one, so a Worker with secrets must not get preview builds: `codice-api` has them off. If the sync
+fails with `10215` anyway, retry the latest `main` build, then run the sync again.
+
 It runs daily, on demand (plan by default), on a push to `main` that changes an
 `apps/*/wrangler.jsonc` (so a merge that declares a new secret syncs it), and on
 `repository_dispatch` `doppler-config-changed`.
