@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { DemoChat } from "../components/demo-chat";
+
 export const Route = createFileRoute("/")({ component: Home });
 
 const EXAMPLE = `curl https://codice.io/v1/search?q=uso+del+cfdi
@@ -34,6 +36,7 @@ function Home() {
           </a>
         </div>
       </header>
+      <DemoChat />
       <pre className="overflow-x-auto rounded-lg bg-stone-900 p-5 text-sm leading-relaxed text-stone-100">
         <code>{EXAMPLE}</code>
       </pre>

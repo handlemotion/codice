@@ -6,8 +6,10 @@ interface CodiceBindingOverrides {
   CODICE_DATABASE?: D1Database;
   CODICE_SEARCH?: AiSearchInstance;
   CODICE_PUBLIC_RATE_LIMITER?: RateLimit;
+  CODICE_CHAT_RATE_LIMITER?: RateLimit;
   CF_VERSION_METADATA?: WorkerVersionMetadata;
   SENTRY_DSN?: string;
+  ANTHROPIC_API_KEY?: string;
   SENTRY_RELEASE?: string;
 }
 

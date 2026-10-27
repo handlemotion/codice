@@ -18,7 +18,7 @@ export const MCP_SERVER_VERSION = "0.1.0";
 const INSTRUCTIONS =
   "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, and the CFDI40xxx validation matrix. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
 
-const SearchArguments = z.object({
+export const SearchArguments = z.object({
   q: z
     .string()
     .min(1)
@@ -52,7 +52,7 @@ const SearchArguments = z.object({
     .describe(`How many passages to return; ${SEARCH_LIMIT_DEFAULT} by default.`),
 });
 
-const ReadPassageArguments = z.object({
+export const ReadPassageArguments = z.object({
   id: z
     .string()
     .min(1)
@@ -62,7 +62,7 @@ const ReadPassageArguments = z.object({
     ),
 });
 
-const LookupErrorArguments = z.object({
+export const LookupErrorArguments = z.object({
   code: z
     .string()
     .min(1)
@@ -70,7 +70,7 @@ const LookupErrorArguments = z.object({
     .describe("A CFDI 4.0 validation code from the SAT's error matrix, such as `CFDI40149`."),
 });
 
-const LookupCatalogArguments = z.object({
+export const LookupCatalogArguments = z.object({
   name: z
     .string()
     .min(1)

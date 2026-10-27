@@ -22,6 +22,8 @@ describe("workers", () => {
   });
 
   it("reads this repository's Workers", () => {
-    expect(workers()).toEqual([{ script: "codice-api", keys: ["SENTRY_DSN"] }]);
+    expect(workers()).toEqual([
+      { script: "codice-api", keys: ["ANTHROPIC_API_KEY", "SENTRY_DSN"] },
+    ]);
   });
 });

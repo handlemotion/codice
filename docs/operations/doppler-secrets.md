@@ -13,12 +13,13 @@ and purpose is what limits a leak to Códice and lets it be revoked on its own.
 | `prd`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search`        | AI Search Write (Edit), Run | `ingest`                                |
 | `prd`  | `CODICE_D1_TOKEN`                 | `codice-d1`               | D1 Edit                     | `ingest` (`wrangler d1 execute`)        |
 | `prd`  | `SENTRY_DSN`                      | –                         | –                           | Worker `codice-api`                     |
+| `prd`  | `ANTHROPIC_API_KEY`               | –                         | –                           | Worker `codice-api` (`POST /v1/chat`)   |
 | `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | `codice-worker-secrets`   | Workers Scripts Edit        | `sync-worker-secrets.yml`               |
 
 ## Worker secret sync
 
 Each Worker declares its secrets in its `wrangler.jsonc` (`secrets.required`); today only
-`codice-api` does (`SENTRY_DSN`). `.github/workflows/sync-worker-secrets.yml` runs
+`codice-api` does (`ANTHROPIC_API_KEY`, `SENTRY_DSN`). `.github/workflows/sync-worker-secrets.yml` runs
 `scripts/secrets/sync-worker-secrets.mjs`, which reads every `apps/*/wrangler.jsonc` and pushes to
 each Worker only the names it declares, so the ingestion tokens and the sync's own token never reach
 a Worker. A new Worker secret is a `secrets.required` entry plus the Doppler `prd` value; the
