@@ -25,6 +25,12 @@ each Worker only the names it declares, so the ingestion tokens and the sync's o
 a Worker. A new Worker secret is a `secrets.required` entry plus the Doppler `prd` value; the
 script needs no change.
 
+Cloudflare refuses a plain secret edit (`10215`) while the Worker's latest version is not the
+deployed one, which a preview build (`wrangler versions upload` on a branch) leaves behind. The
+sync then stages the secrets on a new version from the latest one, as `wrangler versions secret
+bulk` does, without deploying it. Uploads inherit from the most recently uploaded version, so the
+next production deploy of `main` carries them to traffic.
+
 The sync signs in with its own Doppler service account, `codice-worker-secrets` (Viewer on `codice`
 `prd` only), separate from the corpus one, so each workflow can be revoked alone. Its GitHub
 identity `handlemotion-codice-main-secrets` (ID pinned in the workflow's `DOPPLER_IDENTITY_ID`) has

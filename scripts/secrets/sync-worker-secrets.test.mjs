@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { workers } from "./sync-worker-secrets.mjs";
+import { versionEnvPatch, workers } from "./sync-worker-secrets.mjs";
 
 describe("workers", () => {
   it("lists each app that declares required secrets, with its Worker name", () => {
@@ -25,5 +25,16 @@ describe("workers", () => {
     expect(workers()).toEqual([
       { script: "codice-api", keys: ["ANTHROPIC_API_KEY", "SENTRY_DSN"] },
     ]);
+  });
+});
+
+describe("versionEnvPatch", () => {
+  it("turns a secrets-bulk patch into a versions env patch, keeping removals", () => {
+    expect(
+      versionEnvPatch({
+        A: { name: "A", text: "one", type: "secret_text" },
+        B: null,
+      }),
+    ).toEqual({ A: { type: "secret_text", text: "one" }, B: null });
   });
 });
