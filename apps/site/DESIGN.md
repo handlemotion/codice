@@ -105,7 +105,7 @@ marks turning while Códice answers), and the favicon.
 - `min-h-[85vh]`, content centered and nudged up (`pb-[14vh]`) so the chat sits above the middle.
 - The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
   over the wave field. No brand mark, no nav bar, no section label, no dividers.
-- A top bar fixed to the top of the window, 76px (60px on phones), with no ground of its own: the
+- A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
   page's links (Producto, Documentación, API), 48px apart and with no fill, start on the text
   column's edge (48%), the same line as the section text below; the compact pair of buttons sits on the right (Entrar
   outlined, Obtener clave electric). The links hide on phones. Until `/docs` exists,
@@ -113,10 +113,11 @@ marks turning while Códice answers), and the favicon.
 
 ### The "Funciona con" strip
 
-Right under the hero, one row across the full width, exactly the top bar's height and sticky to
-the top. As it slides up under the bar, its content fades with how far it overlaps (fully gone
-once stuck), so what remains is its fill and bottom border: from then on they are the bar's
-ground (`Strip` in `index.tsx`).
+Right under the hero, one row across the full width, 76px (60px on phones): taller than the top
+bar. It sticks 24px (16px) above the window's top edge, so once stuck its bottom border lands
+exactly on the bar's bottom edge. As it slides up under the bar, its content fades over that
+whole travel (fully gone once stuck), so what remains is its fill and bottom border: from then
+on they are the bar's ground (`Strip` in `index.tsx`).
 
 Content: "Funciona con" in `muted` on the left, and on the right the icons of assistants an
 accountant already knows that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
@@ -147,11 +148,11 @@ drawn as CSS masks filled with `fg`, one color in either theme.
 
 ### Buttons
 
-| Kind      | Classes (shape)                                                        | Where                  |
-| --------- | ---------------------------------------------------------------------- | ---------------------- |
-| Primary   | `bg-electric text-white font-bold rounded-[2px] px-3 py-1.5`           | Qué es                 |
-| Secondary | `border border-line rounded-[2px] px-3 py-1.5`                         | Qué es                 |
-| Compact   | same, 28px tall (`h-7`), `px-2.5 text-[13px]`; secondary adds `bg-ink` | Floating, first screen |
+| Kind      | Classes (shape)                                                      | Where                  |
+| --------- | -------------------------------------------------------------------- | ---------------------- |
+| Primary   | `bg-electric text-white font-bold rounded-[2px] px-3 py-1.5`         | Qué es                 |
+| Secondary | `border border-line rounded-[2px] px-3 py-1.5`                       | Qué es                 |
+| Compact   | same, 28px tall (`h-7`), `px-2 text-[13px]`; secondary adds `bg-ink` | Floating, first screen |
 
 Hover: primary inverts to `bg-fg text-ink`; secondary's border goes to `fg`. Sharp, small, flat.
 Primary always comes first in reading order of its group, except the floating pair, which reads
@@ -196,6 +197,7 @@ turning `fg` on hover.
 - Everything that moves steps at 12fps: the marks. The answer streams at the model's pace.
 - No entrance fades, no dimmed sections, no scroll-triggered reveals. They were tried and removed.
 - In-page links scroll smoothly; reduced motion turns that off and rests every mark.
+- No overscroll bounce past the top or bottom of the page (`overscroll-behavior: none`).
 
 ## Copy
 

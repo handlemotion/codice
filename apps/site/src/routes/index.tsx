@@ -36,7 +36,7 @@ const CELL = "p-4 sm:p-6";
 
 function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section className={`${SHEET} scroll-mt-[76px] border-t border-line`} id={id}>
+    <section className={`${SHEET} scroll-mt-[52px] border-t border-line`} id={id}>
       <h2 className={`${CELL} border-line font-bold max-sm:pb-0 sm:border-r`}>{title}</h2>
       <div className={`${CELL} flex max-w-[34rem] flex-col gap-5`}>{children}</div>
     </section>
@@ -78,8 +78,10 @@ const FOOTER_LINKS = [
   ["Entrar", "/login"],
 ] as const;
 
-// The top bar's height, which the logo strip matches so it can become the bar's ground.
-const BAR = "h-[60px] sm:h-[76px]";
+// The top bar is shorter than the logo strip. The strip sticks above the window's top edge by the
+// difference, so its bottom border lands on the bar's bottom edge and becomes the bar's ground.
+const BAR = "h-[44px] sm:h-[52px]";
+const STRIP = "h-[60px] -top-4 sm:h-[76px] sm:-top-6";
 
 /**
  * The assistants Códice works with: the label, then their icons pushed to the right. The strip
@@ -94,9 +96,11 @@ function Strip() {
     let frame = 0;
     const update = () => {
       frame = 0;
-      // 1 while the strip is a bar-height or more below the top, 0 once it is stuck there.
+      // 1 until the strip reaches the bar, 0 once it is stuck (above the window's top edge by
+      // the difference in height): the fade runs over the whole travel under the bar.
       const { top, height } = strip.getBoundingClientRect();
-      const visible = Math.min(Math.max(top / height, 0), 1);
+      const stuck = parseFloat(getComputedStyle(strip).top) || 0;
+      const visible = Math.min(Math.max((top - stuck) / height, 0), 1);
       if (content.current) {
         content.current.style.opacity = String(visible);
         content.current.style.visibility = visible === 0 ? "hidden" : "visible";
@@ -118,7 +122,7 @@ function Strip() {
   return (
     <section
       aria-label="Funciona con"
-      className={`${BAR} sticky top-0 z-20 border-b border-line bg-ink px-4 sm:px-6`}
+      className={`${STRIP} sticky z-20 border-b border-line bg-ink px-4 sm:px-6`}
     >
       <div className="flex h-full items-center justify-between gap-8" ref={content}>
         <span className="text-muted">Funciona con</span>
@@ -151,7 +155,7 @@ function Home() {
     <div className="min-h-dvh text-[14px] leading-[1.7]">
       {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
           marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
-          border become its ground (see `Strip`). Both are BAR tall, so the handoff is seamless. */}
+          border become its ground (see `Strip`). */}
       <div
         className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-30 grid items-center sm:grid-cols-[48fr_52fr]`}
       >
@@ -168,13 +172,13 @@ function Home() {
         </nav>
         <div className="pointer-events-auto absolute right-4 flex gap-2 sm:right-6">
           <a
-            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2.5 text-[13px] hover:border-fg"
+            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2 text-[13px] hover:border-fg"
             href="/login"
           >
             Entrar
           </a>
           <a
-            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2.5 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
+            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
             href="/keys"
           >
             Obtener clave

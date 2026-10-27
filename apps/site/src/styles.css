@@ -51,6 +51,12 @@
   color-scheme: dark;
 }
 
+/* No rubber-band bounce past the top or bottom of the page. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
 /* Dark is the default whatever the system prefers; T switches to light (`data-theme`, theme.ts). */
 :root[data-theme="light"] {
   color-scheme: light;
