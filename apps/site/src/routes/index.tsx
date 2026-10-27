@@ -94,7 +94,7 @@ function Home() {
         <div className={`${SHEET} pointer-events-none absolute inset-x-0 top-0 max-sm:hidden`}>
           <nav
             aria-label="Principal"
-            className={`${CELL} pointer-events-auto flex gap-6 sm:col-start-2`}
+            className={`${CELL} pointer-events-auto flex gap-16 sm:col-start-2`}
           >
             {NAV_LINKS.map(([label, href]) => (
               <a
