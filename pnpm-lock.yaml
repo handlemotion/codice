@@ -330,6 +330,12 @@ importers:
 
   apps/site:
     dependencies:
+      '@central-icons-react/square-outlined-radius-0-stroke-1.5':
+        specifier: 1.2.22
+        version: 1.2.22(react@19.2.8)
+      '@codice/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@tanstack/react-router':
         specifier: 1.170.31
         version: 1.170.31(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -613,6 +619,11 @@ packages:
   '@babel/types@8.0.4':
     resolution: {integrity: sha512-eY+Yn3dCqTGmyiq2QRU66lA5FL8lqqqvecHt0fF3uHONIa7ToYsaCiWV8lOKqAs0Rb2SjixiKFROngnulPtt2g==}
     engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@central-icons-react/square-outlined-radius-0-stroke-1.5@1.2.22':
+    resolution: {integrity: sha512-g8gUyFNuwLlQ2+4BYISjkPKbZAJy869vTukuzLqD/bgCuQtNyTog1cENTNN9bBvUQz5VxWoOInrfJ8l6dyGcLQ==}
+    peerDependencies:
+      react: '>=16.6.0 <20'
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -4303,6 +4314,10 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 8.0.0
       '@babel/helper-validator-identifier': 8.0.4
+
+  '@central-icons-react/square-outlined-radius-0-stroke-1.5@1.2.22(react@19.2.8)':
+    dependencies:
+      react: 19.2.8
 
   '@cfworker/json-schema@4.1.1': {}
 

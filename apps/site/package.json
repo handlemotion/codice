@@ -12,6 +12,8 @@
     "check-types": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@central-icons-react/square-outlined-radius-0-stroke-1.5": "1.2.22",
+    "@codice/contracts": "workspace:*",
     "@tanstack/react-router": "1.170.31",
     "@tanstack/react-start": "1.168.48",
     "react": "19.2.8",

@@ -1,3 +1,70 @@
 @import "tailwindcss";
 
 @source "./**/*.{ts,tsx}";
+
+/* PP Supply Mono (Pangram Pangram), self-hosted: one family, Regular and Bold. */
+@font-face {
+  font-family: "Supply Mono";
+  src: url("/_site/fonts/PPSupplyMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Supply Mono";
+  src: url("/_site/fonts/PPSupplyMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Supply Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "Supply Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* A ground, two inks and a hairline: near-black at night, paper grey by day (the system
+     decides, or T). The shapes carry the brand, not color. */
+  --color-ink: #0a0a0b;
+  --color-line: #2a2a2e;
+  --color-fg: #ededef;
+  --color-muted: #7c7c84;
+  /* The one accent, the same in both themes: the primary button, the visitor's chat bubble,
+     selected text and the light favicon tile. */
+  --color-electric: #2346ff;
+}
+
+:root {
+  color-scheme: dark light;
+}
+
+/* Light follows the system unless the visitor pressed T (`data-theme` on <html>, see theme.ts). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-ink: #e8e8e8;
+    --color-line: #c9c9c9;
+    --color-fg: #0a0a0b;
+    --color-muted: #5f5f66;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-ink: #e8e8e8;
+  --color-line: #c9c9c9;
+  --color-fg: #0a0a0b;
+  --color-muted: #5f5f66;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+::selection {
+  background: var(--color-electric);
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
