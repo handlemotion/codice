@@ -158,14 +158,10 @@ function Home() {
         {/* The page's links start on the text column's edge (48%), like the sections below. */}
         <nav
           aria-label="Principal"
-          className="pointer-events-auto flex gap-16 px-4 max-sm:hidden sm:col-start-2 sm:px-6"
+          className="pointer-events-auto flex gap-12 px-4 max-sm:hidden sm:col-start-2 sm:px-6"
         >
           {NAV_LINKS.map(([label, href]) => (
-            <a
-              className="inline-flex h-7 items-center bg-ink hover:underline"
-              href={href}
-              key={label}
-            >
+            <a className="inline-flex h-7 items-center hover:underline" href={href} key={label}>
               {label}
             </a>
           ))}
@@ -291,7 +287,12 @@ function Home() {
           aria-label="Códice"
           className={`${CELL} flex flex-wrap justify-between gap-x-6 gap-y-2 border-t border-line text-muted`}
         >
-          <a className="hover:text-fg" href="https://handlemotion.com">
+          <a
+            className="hover:text-fg"
+            href="https://handlemotion.com"
+            rel="noreferrer"
+            target="_blank"
+          >
             © 2026 Handlemotion
           </a>
           {FOOTER_LINKS.map(([label, href]) => (

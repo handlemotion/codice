@@ -106,10 +106,26 @@ marks turning while Códice answers), and the favicon.
 - The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
   over the wave field. No brand mark, no nav bar, no section label, no dividers.
 - A top bar fixed to the top of the window, 76px (60px on phones), with no ground of its own: the
-  page's links (Producto, Documentación, API) start on the text column's edge (48%), the same
-  line as the section text below; the compact pair of buttons sits on the right (Entrar
+  page's links (Producto, Documentación, API), 48px apart and with no fill, start on the text
+  column's edge (48%), the same line as the section text below; the compact pair of buttons sits on the right (Entrar
   outlined, Obtener clave electric). The links hide on phones. Until `/docs` exists,
   Documentación and API point at the developer section.
+
+### The "Funciona con" strip
+
+Right under the hero, one row across the full width, exactly the top bar's height and sticky to
+the top. As it slides up under the bar, its content fades with how far it overlaps (fully gone
+once stuck), so what remains is its fill and bottom border: from then on they are the bar's
+ground (`Strip` in `index.tsx`).
+
+Content: "Funciona con" in `muted` on the left, and on the right the icons of assistants an
+accountant already knows that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
+Copilot), 20px, 32px apart. Only list an assistant that really connects. The SVGs come from
+svgl.app (`public/_site/logos/`), cropped to their drawn area so they render at one size, and are
+drawn as CSS masks filled with `fg`, one color in either theme.
+
+### Below: the ruled sheet
+
 - Each section is a two-column grid at `sm` and up: `48fr` margin column for the section's name,
   `52fr` text column (max 34rem). The text starts just right of center, like a note in a codex's
   outer margin (from the Figma reference, node 2:2).
@@ -125,7 +141,7 @@ marks turning while Códice answers), and the favicon.
 - A band of three square cells, divided by hairlines, each holding a mark that fills it (radius
   10, 1px stroke), one step apart.
 - One row under it, spread across the full width (`justify-between`): "© 2026 Handlemotion"
-  (links to handlemotion.com) and the page's links. No disclaimer, no keyboard hints.
+  (opens handlemotion.com in a new tab) and the page's links. No disclaimer, no keyboard hints.
 
 ## Components
 
