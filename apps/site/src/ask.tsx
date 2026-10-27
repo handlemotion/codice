@@ -54,7 +54,9 @@ function completion(query: string, rotation: number): string | null {
 
 function Key({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded-[2px] border border-line px-1.5 text-[11px] text-muted">{children}</kbd>
+    <kbd className="rounded-[2px] border border-line px-1.5 py-1 text-[11px] text-muted">
+      {children}
+    </kbd>
   );
 }
 
@@ -136,11 +138,10 @@ export function Ask() {
 
   return (
     <div className="flex flex-col gap-6">
-      <ol aria-live="polite" className="flex flex-col gap-6">
-        <li className="flex items-center gap-3 self-center bg-ink">
-          <Mark animate={false} className="size-3.5 shrink-0" strokeWidth={1.5} />
-          <p>Pregúntame por cualquier regla del SAT.</p>
-        </li>
+      <h1 className="self-start bg-ink text-[20px] leading-snug text-balance">
+        Códice es el primer índice de documentación legal mexicana.
+      </h1>
+      <ol aria-live="polite" className="flex flex-col gap-6 empty:hidden">
         {question && (
           <li className="max-w-[80%] self-end rounded-[4px] bg-electric px-3 py-2 text-white">
             {question}

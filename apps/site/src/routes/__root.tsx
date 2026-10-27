@@ -41,9 +41,9 @@ export const Route = createRootRoute({
       { rel: "canonical", href: `${ORIGIN}/` },
       { rel: "icon", type: "image/svg+xml", href: "/_site/favicon.svg" },
       { rel: "apple-touch-icon", href: "/_site/apple-touch-icon.png" },
-      ...["Regular", "Bold"].map((style) => ({
+      ...["PPRadioGrotesk-Regular", "PPRadioGrotesk-Bold"].map((file) => ({
         rel: "preload",
-        href: `/_site/fonts/PPSupplyMono-${style}.woff2`,
+        href: `/_site/fonts/${file}.woff2`,
         as: "font",
         type: "font/woff2",
         crossOrigin: "anonymous" as const,

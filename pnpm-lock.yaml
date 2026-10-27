@@ -363,9 +363,6 @@ importers:
 
   apps/site:
     dependencies:
-      '@central-icons-react/square-outlined-radius-0-stroke-1.5':
-        specifier: 1.2.22
-        version: 1.2.22(react@19.2.8)
       '@tanstack/ai':
         specifier: 0.64.1
         version: 0.64.1(@opentelemetry/api@1.9.1)(zod@4.6.5)
@@ -757,11 +754,6 @@ packages:
 
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
-
-  '@central-icons-react/square-outlined-radius-0-stroke-1.5@1.2.22':
-    resolution: {integrity: sha512-g8gUyFNuwLlQ2+4BYISjkPKbZAJy869vTukuzLqD/bgCuQtNyTog1cENTNN9bBvUQz5VxWoOInrfJ8l6dyGcLQ==}
-    peerDependencies:
-      react: '>=16.6.0 <20'
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -5402,10 +5394,6 @@ snapshots:
   '@better-fetch/fetch@1.3.3': {}
 
   '@braintree/sanitize-url@7.1.2': {}
-
-  '@central-icons-react/square-outlined-radius-0-stroke-1.5@1.2.22(react@19.2.8)':
-    dependencies:
-      react: 19.2.8
 
   '@cfworker/json-schema@4.1.1': {}
 

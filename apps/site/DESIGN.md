@@ -18,7 +18,7 @@ explanatory text.
 1. **Minimal first.** When a change adds a surface, a color, a size or a sentence, it must remove
    something or earn its place. Most requests that "lose the minimalism" added structure.
 2. **Show, don't explain.** No UI instructions in body copy ("press / to…"). Affordances live in
-   the component: ghost suggestions, key caps, an arrow.
+   the component: ghost suggestions and key caps.
 3. **One of each.** One typeface, one accent color, one primary action per place, one chat
    exchange.
 4. **Lines, not surfaces.** Separation comes from hairlines and space, never from a raised grey
@@ -47,11 +47,13 @@ All in `src/styles.css`. Reference tokens in classes (`bg-ink`, `text-fg`, `bord
 
 ### Type
 
-- **One family:** PP Supply Mono (Pangram Pangram), self-hosted in `public/_site/fonts/`, Regular
-  400 and Bold 700 only. Both files are preloaded in `__root.tsx`. Licensed by Handlemotion.
-- **Sizes:** 13px for everything, line height 1.7. 12px for code islands, compact buttons and
-  key caps; 11px for key cap glyphs. Nothing larger: hierarchy comes from weight (bold headings,
-  bold primary buttons) and position, not size.
+- **Text:** PP Radio Grotesk (Pangram Pangram), Regular 400 and Bold 700, self-hosted in
+  `public/_site/fonts/` and preloaded in `__root.tsx` (being tried; it replaced PP Supply Mono).
+  **Code:** PP Supply Mono, for code islands only. Both licensed by Handlemotion.
+- **Sizes:** 14px body, line height 1.7. 20px for the one hero title. 12px for code islands and
+  compact buttons; 11px for key caps. Hierarchy comes from weight and position, not size.
+- Radio Grotesk sits high in its line box: buttons and key caps use
+  `text-box: trim-both cap alphabetic` (`styles.css`) so labels center in their padding.
 - No uppercase, no letter-spacing changes, no italics.
 
 ### Radius and borders
@@ -86,7 +88,12 @@ non-scaling-stroke`, so a huge mark still draws a hairline.
   circle, a square and a triangle at once).
 - Reduced motion: marks rest; nothing morphs.
 
-Where it appears: the hero background (one mark, 125vh, `text-line`, overflowing the screen), the
+`<MarkField />` fills a box with whole rows of square cells (about 180px), centered so no mark is
+cropped. Each mark's radius is 0.42 of its cell, so neighbouring triangles keep a gap. Every
+diagonal runs 120ms behind the one above-left of it, so the morph rolls from the top-left corner
+to the bottom-right like a wave. One SVG and one clock for the whole field.
+
+Where it appears: the hero background (the field, in `text-line`), the
 footer band (three cells, one step apart), the chat (a still mark beside the greeting; three small
 marks turning while Códice answers), and the favicon.
 
@@ -95,11 +102,9 @@ marks turning while Códice answers), and the favicon.
 ### First screen: the chat, alone
 
 - `min-h-[95vh]`, content centered and nudged up (`pb-[18vh]`) so the chat sits above the middle.
-- Only the chat (max 34rem wide) in the center, over the huge background mark. No brand mark, no
-  nav bar, no headline, no section label, no dividers.
+- The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
+  over the wave field. No brand mark, no nav bar, no section label, no dividers.
 - A small compact pair of buttons floats top-right (Entrar outlined, Obtener clave electric).
-- A small down arrow (Central Icons `IconArrowDown`, 16px, `muted`) at the bottom center scrolls to
-  the first section.
 
 ### Below: the ruled sheet
 
@@ -136,8 +141,7 @@ Entrar → Obtener clave so the blue one sits in the corner.
 
 ### Chat (`src/ask.tsx`)
 
-- **A chat, not a section:** no heading or explanation around it. Códice greets with one line,
-  centered, beside a still mark: "Pregúntame por cualquier regla del SAT."
+- **A chat, not a section:** only the hero title above it, no explanation around it.
 - **The visitor's question** is a right-aligned bubble: `bg-electric`, white text, 4px radius.
 - **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
   `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
@@ -207,5 +211,4 @@ them. Its real findings (contrast, centering) still apply.
 ## Dependencies
 
 - Fonts: `public/_site/fonts/PPSupplyMono-{Regular,Bold}.woff2`.
-- Icons: `@central-icons-react/square-outlined-radius-0-stroke-1.5` (square corners, 1.5 stroke,
-  matching the sharp style). Use it for any new icon; keep icons rare.
+- Icons: none. The marks are the only graphics.

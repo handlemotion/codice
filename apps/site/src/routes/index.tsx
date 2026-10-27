@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { IconArrowDown } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
-
 import { Ask } from "../ask";
-import { Mark } from "../brand/mark";
+import { Mark, MarkField } from "../brand/mark";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -68,28 +66,23 @@ const LINK = "underline decoration-line underline-offset-4 hover:decoration-fg";
 // The dashboard lives on the same host; `/login` and `/keys` are its routes (apps/edge).
 function Home() {
   return (
-    <div className="min-h-dvh text-[13px] leading-[1.7]">
+    <div className="min-h-dvh text-[14px] leading-[1.7]">
       {/* The first and tallest part, unruled: what Códice is on the left, with its two actions;
           the whole right side is for asking it, the box sitting at the foot of the column. */}
       {/* The first screen is only the chat, centered and nudged above the middle, over the three
-          mark drawn huge and running off the edges. An arrow leads to the first section. */}
+          field of marks rolling corner to corner like a wave. */}
       <header className="relative flex min-h-[95vh] flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-[18vh]">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center text-line"
-        >
-          <Mark className="size-[125vh] shrink-0" radius={11} strokeWidth={1} />
-        </div>
+        <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
         {/* The two actions float in the corner, over the mark. */}
         <div className={`${CELL} absolute top-0 right-0 flex gap-2`}>
           <a
-            className="rounded-[2px] border border-line bg-ink px-2 py-0.5 text-[12px] hover:border-fg"
+            className="rounded-[2px] border border-line bg-ink px-2 py-1.5 text-[12px] hover:border-fg"
             href="/login"
           >
             Entrar
           </a>
           <a
-            className="rounded-[2px] bg-electric px-2 py-0.5 text-[12px] font-bold text-white hover:bg-fg hover:text-ink"
+            className="rounded-[2px] bg-electric px-2 py-1.5 text-[12px] font-bold text-white hover:bg-fg hover:text-ink"
             href="/keys"
           >
             Obtener clave
@@ -98,18 +91,10 @@ function Home() {
         <div className="relative w-full max-w-[34rem] scroll-mt-24" id="preguntar">
           <Ask />
         </div>
-        <a
-          aria-label="Ir a qué es Códice"
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 p-2 text-muted hover:text-fg"
-          href="#que-es"
-        >
-          <IconArrowDown size={16} />
-        </a>
       </header>
 
       <main className="relative">
         <Section id="que-es" title="Qué es">
-          <h1 className="font-bold">Códice es el primer índice de documentación legal mexicana.</h1>
           <p>
             Cuando un cliente te pregunta si todavía puede cancelar una factura, qué uso de CFDI le
             corresponde o por qué el SAT rechazó un comprobante, la respuesta casi siempre está
@@ -128,13 +113,13 @@ function Home() {
           <p>No sustituye tu criterio. Te da la fuente para sostenerlo.</p>
           <div className="flex gap-2 pt-2">
             <a
-              className="rounded-[2px] bg-electric px-3 py-1.5 font-bold text-white hover:bg-fg hover:text-ink"
+              className="rounded-[2px] bg-electric px-3 py-2.5 font-bold text-white hover:bg-fg hover:text-ink"
               href="/keys"
             >
               Obtener clave
             </a>
             <a
-              className="rounded-[2px] border border-line px-3 py-1.5 hover:border-fg"
+              className="rounded-[2px] border border-line px-3 py-2.5 hover:border-fg"
               href="/login"
             >
               Entrar

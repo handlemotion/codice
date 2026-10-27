@@ -2,7 +2,22 @@
 
 @source "./**/*.{ts,tsx}";
 
-/* PP Supply Mono (Pangram Pangram), self-hosted: one family, Regular and Bold. */
+/* Experiment: PP Radio Grotesk (Pangram Pangram) for text, Regular and Bold, with PP Supply Mono
+   kept for code. To go back, point --font-sans at "Supply Mono" again. */
+@font-face {
+  font-family: "Radio Grotesk";
+  src: url("/_site/fonts/PPRadioGrotesk-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Radio Grotesk";
+  src: url("/_site/fonts/PPRadioGrotesk-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Supply Mono";
   src: url("/_site/fonts/PPSupplyMono-Regular.woff2") format("woff2");
@@ -18,7 +33,7 @@
 }
 
 @theme {
-  --font-sans: "Supply Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: "Radio Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Supply Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* A ground, two inks and a hairline: near-black at night, paper grey by day (the system
@@ -67,4 +82,12 @@
   html {
     scroll-behavior: smooth;
   }
+}
+
+/* Radio Grotesk sits high in its line box; trim buttons and key caps to cap height and baseline
+   so their labels center in the padding. */
+a[class*="rounded-[2px]"],
+button,
+kbd {
+  text-box: trim-both cap alphabetic;
 }

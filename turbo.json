@@ -34,7 +34,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["DOPPLER_TOKEN", "CLOUDFLARE_API_TOKEN"]
+      "passThroughEnv": ["DOPPLER_TOKEN", "CLOUDFLARE_API_TOKEN", "ANTHROPIC_API_KEY"]
     },
     "db:generate": {
       "cache": false
