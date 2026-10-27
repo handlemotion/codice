@@ -36,7 +36,7 @@ const CELL = "p-4 sm:p-6";
 
 function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section className={`${SHEET} scroll-mt-[52px] border-t border-line`} id={id}>
+    <section className={`${SHEET} scroll-mt-[52px] border-t border-line first:border-t-0`} id={id}>
       <h2 className={`${CELL} border-line font-bold max-sm:pb-0 sm:border-r`}>{title}</h2>
       <div className={`${CELL} flex max-w-[34rem] flex-col gap-5`}>{children}</div>
     </section>
@@ -67,6 +67,7 @@ const NAV_LINKS = [
   ["Producto", "#que-es"],
   ["Documentación", "#desarrolladores"],
   ["API", "#desarrolladores"],
+  ["Precios", "#precios"],
 ] as const;
 
 const FOOTER_LINKS = [
@@ -128,17 +129,24 @@ function Strip() {
         <span className="text-muted">Funciona con</span>
         <ul className="flex items-center gap-8">
           {ASSISTANTS.map(([name, file]) => (
-            <li key={file}>
+            <li className="group relative" key={file}>
               <span
                 aria-label={name}
-                className="block size-5 bg-fg"
+                className="block size-5 bg-fg outline-offset-4"
                 role="img"
                 style={{
                   mask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
                   WebkitMask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
                 }}
-                title={name}
+                tabIndex={0}
               />
+              {/* The name, on hover or keyboard focus, above the icon and flush with its right edge. */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute right-0 bottom-full mb-1.5 rounded-[2px] bg-fg px-1 py-0.5 text-[11px] whitespace-nowrap text-ink opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+              >
+                {name}
+              </span>
             </li>
           ))}
         </ul>
@@ -162,15 +170,19 @@ function Home() {
         {/* The page's links start on the text column's edge (48%), like the sections below. */}
         <nav
           aria-label="Principal"
-          className="pointer-events-auto flex gap-12 px-4 max-sm:hidden sm:col-start-2 sm:px-6"
+          className="pointer-events-auto hidden gap-12 px-6 sm:col-start-2 xl:flex"
         >
           {NAV_LINKS.map(([label, href]) => (
-            <a className="inline-flex h-7 items-center hover:underline" href={href} key={label}>
+            <a
+              className="inline-flex h-7 items-center text-white mix-blend-difference hover:underline"
+              href={href}
+              key={label}
+            >
               {label}
             </a>
           ))}
         </nav>
-        <div className="pointer-events-auto absolute right-4 flex gap-2 sm:right-6">
+        <div className="pointer-events-auto absolute right-4 flex gap-2">
           <a
             className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2 text-[13px] hover:border-fg"
             href="/login"
@@ -242,6 +254,11 @@ function Home() {
             Después vendrán el Código Fiscal, las leyes del ISR y del IVA, y las reglas de comercio
             exterior.
           </p>
+        </Section>
+
+        {/* Placeholder until the plans are set: no prices are invented here. */}
+        <Section id="precios" title="Precios">
+          <p>Los planes y precios se publicarán pronto.</p>
         </Section>
 
         <Section id="desarrolladores" title="Para desarrolladores">
