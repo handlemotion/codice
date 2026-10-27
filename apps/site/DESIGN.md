@@ -105,7 +105,10 @@ marks turning while Códice answers), and the favicon.
 - `min-h-[85vh]`, content centered and nudged up (`pb-[14vh]`) so the chat sits above the middle.
 - The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
   over the wave field. No brand mark, no nav bar, no section label, no dividers.
-- A small compact pair of buttons floats top-right (Entrar outlined, Obtener clave electric).
+- A top bar, no background: the page's links (Producto, Documentación, API) start on the text
+  column's edge (48%), the same line as the section text below; the compact pair of buttons sits
+  top-right (Entrar outlined, Obtener clave electric). The links hide on phones. Until `/docs`
+  exists, Documentación and API point at the developer section.
 
 ### The "Funciona con" strip
 

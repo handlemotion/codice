@@ -61,6 +61,14 @@ const ASSISTANTS = [
   ["Microsoft Copilot", "copilot"],
 ] as const;
 
+// Until the docs have their own page (`/docs`, routed by apps/edge), they point at this page's
+// developer section.
+const NAV_LINKS = [
+  ["Producto", "#que-es"],
+  ["Documentación", "#desarrolladores"],
+  ["API", "#desarrolladores"],
+] as const;
+
 const FOOTER_LINKS = [
   ["Preguntar", "#preguntar"],
   ["Qué es", "#que-es"],
@@ -82,6 +90,23 @@ function Home() {
           field of marks rolling corner to corner like a wave. */}
       <header className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-[14vh]">
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
+        {/* The page's links start on the text column's edge (48%), like the sections below. */}
+        <div className={`${SHEET} pointer-events-none absolute inset-x-0 top-0 max-sm:hidden`}>
+          <nav
+            aria-label="Principal"
+            className={`${CELL} pointer-events-auto flex gap-6 sm:col-start-2`}
+          >
+            {NAV_LINKS.map(([label, href]) => (
+              <a
+                className="inline-flex h-7 items-center bg-ink hover:underline"
+                href={href}
+                key={label}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        </div>
         {/* The two actions float in the corner, over the mark. */}
         <div className={`${CELL} absolute top-0 right-0 flex gap-2`}>
           <a
