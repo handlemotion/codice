@@ -7,7 +7,7 @@ import type { ApiKeyVerification } from "@codice/contracts";
  * API keys live only in the `API_KEYS` KV namespace (Better Auth's api-key plugin with
  * `storage: "secondary-storage"`): the plugin writes them there, hashed, and `verifyApiKey` reads
  * them on every `codice-api` call without touching D1. The record layout is the plugin's
- * (`api-key:<sha256 base64url>`); `test/accounts.test.ts` creates a key through the plugin and
+ * (`api-key:<sha256 base64url>`); `test/auth.test.ts` creates a key through the plugin and
  * verifies it here, so an upgrade that changes it fails the tests.
  */
 
