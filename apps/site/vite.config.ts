@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/v1": {
-        target: process.env.CODICE_API_ORIGIN ?? "https://codice.local.transitive.app",
+        target: process.env.CODICE_API_ORIGIN ?? "https://codice.localhost",
         changeOrigin: true,
       },
     },

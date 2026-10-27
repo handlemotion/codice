@@ -35,7 +35,9 @@ The repository moved from `trstv/codice` to `handlemotion/codice` (same reposito
 `1432699064`), which changed the OIDC subject; both identities were re-created for it on
 2026-10-27.
 
-It runs daily, on demand (plan by default), and on `repository_dispatch` `doppler-config-changed`.
+It runs daily, on demand (plan by default), on a push to `main` that changes an
+`apps/*/wrangler.jsonc` (so a merge that declares a new secret syncs it), and on
+`repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository
 (`POST https://api.github.com/repos/handlemotion/codice/dispatches`, body
 `{"event_type":"doppler-config-changed"}`, a GitHub token with Contents write); until it does, the
