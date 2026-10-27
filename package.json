@@ -10,7 +10,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:up": "node scripts/dev-up.mjs",
     "dev:restart": "node scripts/dev-restart.mjs",
-    "dev:proxy:start": "PORTLESS_LAN=0 PORTLESS_TLD=transitive.app portless proxy start --https --tld transitive.app",
+    "dev:proxy:start": "PORTLESS_LAN=0 PORTLESS_TLD=localhost,transitive.app portless proxy start --https --tld localhost --tld transitive.app",
     "dev:proxy:stop": "sudo ./node_modules/.bin/portless proxy stop",
     "check-types": "tsc -b --pretty false",
     "test": "pnpm test:tooling && turbo run test --affected --concurrency=2",

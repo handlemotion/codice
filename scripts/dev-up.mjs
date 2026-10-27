@@ -8,7 +8,7 @@
  *
  * When this checkout already has an active `pnpm dev` run it is reused, never duplicated.
  * Otherwise `pnpm dev` starts detached (it keeps running after this command exits) and logs to
- * `.local/dev-stack.log`. Ready means `https://codice.local.transitive.app/ready` answers 200.
+ * `.local/dev-stack.log`. Ready means `https://codice.localhost/ready` answers 200.
  * Pending local D1 migrations are then applied (a started runtime also applies its own, and seeds
  * the local records, before it starts). Stop the stack with `kill -TERM -<pid>` using the pid this
  * command prints.

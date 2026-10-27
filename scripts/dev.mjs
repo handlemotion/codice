@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `pnpm dev`: starts the portless HTTPS proxy, then Códice (`@codice/api` `dev`) on
- * `https://codice.local.transitive.app`, and holds this checkout's dev lock so a second run never
+ * `https://codice.localhost`, and holds this checkout's dev lock so a second run never
  * starts beside it. Stop it with Ctrl-C.
  */
 import { execFileSync, spawn } from "node:child_process";
