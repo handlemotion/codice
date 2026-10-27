@@ -92,7 +92,9 @@ async function cf(method, route, body, contentType = "application/json") {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) {
     const errors = (json.errors ?? []).map((e) => `${e.code} ${e.message}`).join("; ");
-    throw new Error(`Cloudflare ${method} ${route} failed: ${res.status} ${errors}`);
+    const error = new Error(`Cloudflare ${method} ${route} failed: ${res.status} ${errors}`);
+    error.codes = (json.errors ?? []).map((e) => e.code);
+    throw error;
   }
   return json.result;
 }
@@ -106,6 +108,22 @@ async function waitForNames(base, expected) {
     await sleep(2000);
   }
   throw new Error(`names after sync differ from expected: got ${after.join(" ")}`);
+}
+
+/** Cloudflare refuses a secret edit while the latest version is not the deployed one. */
+const LATEST_VERSION_NOT_DEPLOYED = 10215;
+
+/**
+ * The `secrets-bulk` patch as a versions patch (the API behind `wrangler versions secret bulk`):
+ * the same names, null still removes one.
+ */
+export function versionEnvPatch(patch) {
+  return Object.fromEntries(
+    Object.entries(patch).map(([name, entry]) => [
+      name,
+      entry === null ? null : { type: "secret_text", text: entry.text },
+    ]),
+  );
 }
 
 async function syncWorker({ script, keys: declared }, source) {
@@ -126,12 +144,33 @@ async function syncWorker({ script, keys: declared }, source) {
   );
   if (!apply) return;
 
-  // One merge-patch = one new Worker version (auto-deployed when the latest version is live).
+  // One merge-patch = one new Worker version, auto-deployed when the latest version is live.
   // Same wire format as `wrangler secret bulk`: null removes a secret.
   const patch = {};
   for (const name of keys) patch[name] = { name, text: desired[name], type: "secret_text" };
   if (prune) for (const name of stale) patch[name] = null;
-  await cf("PATCH", `${base}/secrets-bulk`, { secrets: patch }, "application/merge-patch+json");
+  try {
+    await cf("PATCH", `${base}/secrets-bulk`, { secrets: patch }, "application/merge-patch+json");
+  } catch (error) {
+    if (!error.codes?.includes(LATEST_VERSION_NOT_DEPLOYED)) throw error;
+    // A preview build (`wrangler versions upload` on a branch) left a newer, undeployed version.
+    // Stage the secrets on a new version from it instead: never deployed by this script, it is
+    // what the next production `versions upload` inherits (`secrets.required`), so the secrets
+    // reach traffic with the next deploy of `main`.
+    const version = await cf(
+      "PATCH",
+      `/accounts/${ACCOUNT_ID}/workers/workers/${script}/versions/latest`,
+      {
+        env: versionEnvPatch(patch),
+        annotations: { "workers/message": "Sync Worker secrets from Doppler" },
+      },
+      "application/merge-patch+json",
+    );
+    console.log(
+      `${script}: the latest version is not deployed; staged on version ${version?.id ?? "(unknown)"}, which the next production deploy inherits`,
+    );
+    return;
+  }
 
   const expected = prune ? keys : [...new Set([...keys, ...stale])].sort();
   const after = await waitForNames(base, expected);
