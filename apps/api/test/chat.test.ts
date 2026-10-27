@@ -1,14 +1,15 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CHAT_MAX_BODY_BYTES, CHAT_MAX_MESSAGES } from "../src/chat";
+import { CHAT_MAX_BODY_BYTES, CHAT_MAX_MESSAGES, CHAT_MODEL } from "../src/chat";
 import type { CodiceBindings } from "../src/env";
 import { app } from "../src/index";
 
 /**
- * `POST /v1/chat` refusals: every case here is answered before the model is called, so no test
- * spends tokens. The streamed answer itself is proved with real HTTP calls (SPEC.md, "Chat").
+ * `POST /v1/chat`: the refusals are answered before the model is called, and the one answering
+ * case stubs the Anthropic API, so no test spends tokens. What the model answers is proved only
+ * with real HTTP calls (SPEC.md, "Chat").
  */
 const bindings = env as unknown as CodiceBindings;
 
@@ -46,6 +47,42 @@ function run(messages: unknown[]) {
 
 const question = (content: string, index = 0) => ({ id: `m${index}`, role: "user", content });
 
+/** A Messages API stream that answers `text` in one turn, without tools. */
+function anthropicAnswer(text: string) {
+  const events = [
+    {
+      type: "message_start",
+      message: {
+        id: "msg_test",
+        type: "message",
+        role: "assistant",
+        model: CHAT_MODEL,
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+    },
+    { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+    { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
+    { type: "content_block_stop", index: 0 },
+    {
+      type: "message_delta",
+      delta: { stop_reason: "end_turn", stop_sequence: null },
+      usage: { output_tokens: 1 },
+    },
+    { type: "message_stop" },
+  ];
+  return new Response(
+    events.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(""),
+    { headers: { "content-type": "text/event-stream" } },
+  );
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("POST /v1/chat", () => {
   it("answers 503 when the model key is not configured", async () => {
     const response = await postChat(
@@ -59,6 +96,49 @@ describe("POST /v1/chat", () => {
     expect(response.status).toBe(503);
     expect(response.headers.get("content-type")).toBe("application/problem+json");
     expect(await response.json()).toMatchObject({ status: 503, code: "chat_unavailable" });
+  });
+
+  it("asks the model with Códice's prompt and tools, and streams its answer", async () => {
+    const answer = "El uso S01 es «Sin efectos fiscales».";
+    const requests: Request[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      requests.push(new Request(input, init));
+      return anthropicAnswer(answer);
+    });
+
+    const response = await postChat(run([question("¿Qué es el uso S01?")]), {}, "203.0.113.2");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(await response.text()).toContain(JSON.stringify(answer).slice(1, -1));
+    expect(requests).toHaveLength(1);
+    expect(new URL(requests[0]!.url).pathname).toBe("/v1/messages");
+    expect(requests[0]!.headers.get("x-api-key")).toBe("test-key");
+    const body = (await requests[0]!.json()) as {
+      model: string;
+      max_tokens: number;
+      system: { text: string }[];
+      tools: { name: string }[];
+      output_config: unknown;
+      cache_control: unknown;
+    };
+    expect(body).toMatchObject({
+      model: "claude-sonnet-5-5",
+      max_tokens: 2048,
+      output_config: { effort: "medium" },
+      cache_control: { type: "ephemeral" },
+    });
+    expect(body.tools.map((tool) => tool.name).sort()).toEqual([
+      "list_sources",
+      "lookup_catalog",
+      "lookup_error",
+      "read_passage",
+      "search",
+    ]);
+    const system = body.system.map((block) => block.text).join("");
+    expect(system).toContain("nunca de memoria");
+    expect(system).toContain("No des asesoría fiscal");
+    expect(system).toContain("Fuera de tema");
   });
 
   it.each([

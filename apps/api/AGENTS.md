@@ -19,9 +19,10 @@ the behavior changes.
 - Search is AI Search's: never add chunking, embedding or ranking code here. Change the instance's
   settings only with a retrieval eval run (`pnpm --filter @codice/api eval`) recorded
   in SPEC.md.
-- `POST /v1/chat` (SPEC.md, "Chat") is the site's demo assistant: Claude Haiku 5.5 through TanStack
-  AI with read-only tools over the same handlers. Keep it stateless and cheap; a model or limit
-  change updates SPEC.md. Tests stop before the model; prove an answer with a real call
+- `POST /v1/chat` (SPEC.md, "Chat") is the site's assistant: Claude Sonnet 5.5 through TanStack
+  AI with read-only tools over the same handlers, answering briefly from the tools, citing them and
+  declining off-topic questions and tax advice. Keep it stateless; a model, prompt or limit change
+  updates SPEC.md. Tests stub the Anthropic API; prove an answer with a real call
   (`ANTHROPIC_API_KEY` in the Worker's env).
 - D1 schema is Drizzle in `src/db/schema.ts`; change it, then `db:generate`. Never hand-write
   `migrations/`, and never run `db:migrate:remote` yourself: it runs in `deploy:production`.
