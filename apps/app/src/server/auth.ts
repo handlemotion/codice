@@ -17,10 +17,26 @@ export interface AuthBindings {
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   AUTH_EMAIL_FROM: string;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-  GITHUB_CLIENT_ID: string;
-  GITHUB_CLIENT_SECRET: string;
+  // Optional: a provider signs in only once both of its secrets are set (AGENTS.md, "Secrets").
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+}
+
+export type SocialProvider = "google" | "github";
+
+/** The social sign-ins whose OAuth app is configured, each with its client id and secret. */
+export function socialProviders(env: AuthBindings) {
+  const configured: Partial<Record<SocialProvider, { clientId: string; clientSecret: string }>> =
+    {};
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+    configured.google = { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
+  }
+  if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
+    configured.github = { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET };
+  }
+  return configured;
 }
 
 /** The edge treats this cookie as a session (`apps/edge/src/route.ts`, `SESSION_COOKIE`). */
@@ -38,10 +54,7 @@ export function createAuth(env: AuthBindings) {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: "sqlite", schema }),
-    socialProviders: {
-      google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET },
-      github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET },
-    },
+    socialProviders: socialProviders(env),
     account: { accountLinking: { enabled: true, trustedProviders: ["google", "github"] } },
     advanced: {
       // `__Secure-` + this name is `SESSION_COOKIE`.

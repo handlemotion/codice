@@ -3,7 +3,7 @@ import { getRequestHeaders } from "@tanstack/react-start/server";
 import { env } from "cloudflare:workers";
 
 import { forgetLastUse, lastUsed } from "./api-key-store";
-import { createAuth } from "./auth";
+import { createAuth, socialProviders, type SocialProvider } from "./auth";
 
 /**
  * The dashboard's server functions. Each one acts as the signed-in user through Better Auth's
@@ -41,6 +41,11 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       teams,
     };
   },
+);
+
+/** The social sign-ins the login page offers: those whose OAuth app is configured. */
+export const getSignInProviders = createServerFn({ method: "GET" }).handler(
+  async (): Promise<SocialProvider[]> => Object.keys(socialProviders(env)) as SocialProvider[],
 );
 
 export const setActiveTeam = createServerFn({ method: "POST" })

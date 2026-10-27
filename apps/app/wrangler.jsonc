@@ -17,22 +17,15 @@
     // The sender of sign-in codes; its domain must be onboarded to Cloudflare Email Sending.
     "AUTH_EMAIL_FROM": "acceso@codice.io",
   },
-  "secrets": {
-    "required": [
-      "BETTER_AUTH_SECRET",
-      "GITHUB_CLIENT_ID",
-      "GITHUB_CLIENT_SECRET",
-      "GOOGLE_CLIENT_ID",
-      "GOOGLE_CLIENT_SECRET",
-    ],
-  },
+  // Google and GitHub sign-in turn on once their OAuth apps exist: add `GOOGLE_CLIENT_ID`,
+  // `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` here and in Doppler `prd`.
+  "secrets": { "required": ["BETTER_AUTH_SECRET"] },
   // Users, sessions, teams and members (Better Auth). Schema: src/db/schema.ts.
   "d1_databases": [
     {
       "binding": "ACCOUNTS_DATABASE",
       "database_name": "codice-accounts",
-      // Placeholder: create `codice-accounts` on the Handle account and put its id here.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "ec8e6846-5029-4ede-a238-c74a8d08686e",
       "migrations_dir": "migrations",
     },
   ],

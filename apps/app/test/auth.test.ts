@@ -3,7 +3,7 @@ import { applyD1Migrations } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { verifyApiKey } from "../src/server/api-key-store";
-import { createAuth, SESSION_COOKIE, type AuthBindings } from "../src/server/auth";
+import { createAuth, SESSION_COOKIE, socialProviders, type AuthBindings } from "../src/server/auth";
 
 /**
  * Better Auth's wiring against a local D1 and KV: sign-in by email code, the personal team, and a
@@ -91,6 +91,22 @@ describe("sign-in by email code", () => {
     });
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe("social sign-in", () => {
+  it("turns a provider on only when both of its secrets are set", () => {
+    const { GOOGLE_CLIENT_SECRET: _, ...googleWithoutSecret } = bindings;
+
+    expect(Object.keys(socialProviders(bindings))).toEqual(["google", "github"]);
+    expect(Object.keys(socialProviders(googleWithoutSecret))).toEqual(["github"]);
+    expect(
+      socialProviders({
+        ...bindings,
+        GOOGLE_CLIENT_ID: undefined,
+        GITHUB_CLIENT_ID: "",
+      }),
+    ).toEqual({});
   });
 });
 

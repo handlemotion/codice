@@ -2,19 +2,27 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
 import { authClient } from "../auth-client";
-import { getDashboard } from "../server/functions";
+import type { SocialProvider } from "../server/auth";
+import { getDashboard, getSignInProviders } from "../server/functions";
 
 export const Route = createFileRoute("/login")({
   beforeLoad: async () => {
     if (await getDashboard()) throw redirect({ to: "/" });
   },
+  loader: async () => ({ providers: await getSignInProviders() }),
   component: Login,
 });
+
+const PROVIDER_LABELS: Record<SocialProvider, string> = {
+  google: "Continue with Google",
+  github: "Continue with GitHub",
+};
 
 const button =
   "rounded-md border border-stone-300 bg-white px-4 py-2 text-sm hover:bg-stone-100 disabled:opacity-50";
 
 function Login() {
+  const { providers } = Route.useLoaderData();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -44,7 +52,7 @@ function Login() {
     }
   }
 
-  function social(provider: "google" | "github") {
+  function social(provider: SocialProvider) {
     void run(() => authClient.signIn.social({ provider, callbackURL: "/" }));
   }
 
@@ -85,13 +93,18 @@ function Login() {
           </p>
         ) : null}
       </form>
-      <p className="text-center text-xs text-stone-500">or</p>
-      <button className={button} disabled={busy} onClick={() => social("google")} type="button">
-        Continue with Google
-      </button>
-      <button className={button} disabled={busy} onClick={() => social("github")} type="button">
-        Continue with GitHub
-      </button>
+      {providers.length > 0 ? <p className="text-center text-xs text-stone-500">or</p> : null}
+      {providers.map((provider) => (
+        <button
+          className={button}
+          disabled={busy}
+          key={provider}
+          onClick={() => social(provider)}
+          type="button"
+        >
+          {PROVIDER_LABELS[provider]}
+        </button>
+      ))}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       <a className="text-sm text-stone-500 underline" href="/?site">
         Back to the website

@@ -841,12 +841,12 @@ to match.
    [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.
    Next, one at a time and in the same pattern (a source in `sources.json`, a splitter in
    `sections.ts`, ~20 questions, an eval run): the CFF, the LISR and the LIVA.
-10. **API keys** (in code; see [Auth](#auth)). The dashboard (`codice-app`) signs users in by
-    email code, Google or GitHub (Better Auth), gives each a personal team and issues the team's
-    `cdc_` keys; `/v1` and `/mcp` require one. Left before it serves traffic: the D1 database
-    `codice-accounts`, the KV namespace for keys, Email Sending for `codice.io`, the OAuth apps,
-    their Doppler secrets and the site's own key (the pull request's checklist). Next: usage per
-    key on the overview, and member roles beyond the owner.
+10. **API keys** (see [Auth](#auth)). The dashboard (`codice-app`) signs users in by email code
+    (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
+    and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
+    `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
+    Email Sending for `codice.io`, the OAuth apps. Next: usage per key on the overview, and member
+    roles beyond the owner.
 
 ## Open questions
 
