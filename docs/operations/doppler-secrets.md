@@ -32,9 +32,15 @@ The sync should sign in with its own Doppler service account, `codice-worker-sec
 its GitHub identity exists, the workflow uses the corpus identity below; once it does, pin its ID
 in the workflow's `DOPPLER_IDENTITY_ID`.
 
+The repository moved from `trstv/codice` to `handlemotion/codice` (same repository ID
+`1432699064`, owner ID `203549640`). Since then the OIDC subject is
+`repo:handlemotion@203549640/codice@1432699064:ref:refs/heads/main`, so every identity pinned to
+the `trstv` subject must be re-created with it; the scheduled sync of 2026-10-27 already failed at
+the OIDC step.
+
 It runs daily, on demand (plan by default), and on `repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository
-(`POST https://api.github.com/repos/trstv/codice/dispatches`, body
+(`POST https://api.github.com/repos/handlemotion/codice/dispatches`, body
 `{"event_type":"doppler-config-changed"}`, a GitHub token with Contents write); until it does, the
 daily run picks a change up within a day.
 
