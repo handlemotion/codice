@@ -715,6 +715,13 @@ Sentry project is `codice-api` in org `jaantonio`, and `SENTRY_DSN` is in Dopple
 and bound to the Worker; the alert connection in step 1 is unchecked. D1 `0002` was applied by hand
 on 2026-10-25, before the build ran `deploy:production`.
 
+Since 2026-10-27 the Worker is `codice-api` on the Handle account, built from
+`handlemotion/codice`, and Sentry is project `codice-api` in org `handlemotion` (`SENTRY_DSN` and
+the build's `SENTRY_AUTH_TOKEN`, token `codice-api-builds`, in Doppler `codice` `prd`). Preview
+builds are off for `codice-api`: Cloudflare refuses a secret edit (`10215`) while the newest
+version is not the deployed one, and every preview upload left it that way, so the secret sync
+failed whenever a branch had been pushed.
+
 The Worker must exist before anything can bind its secret: the secrets API answers `10007`
 (Worker does not exist), and Wrangler refuses to upload a new Worker whose required `SENTRY_DSN`
 is unset. So the order is fixed:
@@ -735,7 +742,8 @@ is unset. So the order is fixed:
    - Repository `trstv/codice`, production branch `main`, root directory `apps/api`.
    - Deploy command `pnpm run deploy:production`; non-production branches
      `pnpm exec wrangler versions upload` (previews never apply D1 migrations).
-   - Build variables: `SENTRY_ORG` = `jaantonio` and `SENTRY_AUTH_TOKEN` (Doppler `codice` `prd`).
+   - Build variables: `SENTRY_ORG` = `handlemotion` and `SENTRY_AUTH_TOKEN` (Doppler `codice`
+     `prd`). Non-production builds are off (see the status above).
    - Watch paths: include `apps/api/*`, `packages/*` and the root install inputs
      (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`); exclude `*.md` and test files.
 6. **First `deploy:production`** (done). A build of `main` deployed version `a6945917`; the D1
