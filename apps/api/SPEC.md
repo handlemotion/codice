@@ -698,8 +698,8 @@ is unset. So the order is fixed:
 1. **Sentry** (done). Project `codice-api` (org `jaantonio`, platform Cloudflare Workers), to be
    connected to the org-wide `Production issues → incident.io` alert. Its DSN is `SENTRY_DSN` in
    Doppler `codice` `prd`, next to the build's source-map token `SENTRY_AUTH_TOKEN`.
-2. **Sync access** (done). `sync-worker-secrets.yml` signs in to Doppler with the corpus identity
-   `trstv-codice-main` and reads the Worker secrets token in `codice` `prd`
+2. **Sync access** (done). `sync-worker-secrets.yml` signs in to Doppler with its own identity
+   `handlemotion-codice-main-secrets` (service account `codice-worker-secrets`) and reads the Worker secrets token in `codice` `prd`
    (`docs/operations/doppler-secrets.md`, "Worker secret sync"). Left: point the Doppler webhook on
    `codice` `prd` at this repository's dispatches.
 3. **Create the Worker** (done). A placeholder `codice` script from the dashboard (Hello World, no

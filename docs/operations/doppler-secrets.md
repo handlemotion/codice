@@ -31,8 +31,8 @@ issuer `https://token.actions.githubusercontent.com`, audience `https://github.c
 subject `repo:handlemotion@203549640/codice@1432699064:ref:refs/heads/main`.
 
 The repository moved from `trstv/codice` to `handlemotion/codice` (same repository ID
-`1432699064`). The corpus identity below still has the `trstv` subject and audience, so
-`codice-corpus.yml` fails at the OIDC step until it is re-created like the sync's.
+`1432699064`), which changed the OIDC subject; both identities were re-created for it on
+2026-10-27.
 
 It runs daily, on demand (plan by default), and on `repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository
@@ -48,12 +48,14 @@ token, so GitHub holds no long-lived Doppler secret. One-time setup
 
 1. On the service account `codice-corpus` (read access to `codice` `dev` and `prd`), add a GitHub
    identity for this repository: issuer `https://token.actions.githubusercontent.com`, audience
-   `https://github.com/trstv`, subject `repo:trstv@329148314/codice@1432699064:ref:refs/heads/main`
-   (done: identity `trstv-codice-main`).
+   `https://github.com/handlemotion`, subject
+   `repo:handlemotion@203549640/codice@1432699064:ref:refs/heads/main` (done: identity
+   `handlemotion-codice-main`; the old `gh oidc` identity with the `trstv` subject is unused and
+   can be deleted).
 2. Pin its ID in the workflow's `DOPPLER_IDENTITY_ID` (an ID, not a secret).
 
 GitHub writes the subject with the organization's and repository's numeric IDs, and Doppler
-compares it exactly: an identity set to the plain `repo:trstv/codice:…` form fails with
+compares it exactly: an identity set to the plain `repo:handlemotion/codice:…` form fails with
 `claim "sub" does not match identity auth config`. The login step prints the subject it sent
 (`oidc sub=…`). The subject admits only runs on `main`, so a run from any other branch cannot read
 the production tokens.

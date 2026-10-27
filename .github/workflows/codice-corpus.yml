@@ -164,13 +164,14 @@ jobs:
 
       - name: Doppler OIDC login
         env:
-          # Doppler Service Account Identity `trstv-codice-main` on codice-corpus, whose subject
-          # is this repository's `main` (docs/operations/doppler-secrets.md). An ID, not a secret.
-          DOPPLER_IDENTITY_ID: c7a92969-cf18-43a5-8115-58eb994ebe76
+          # Doppler Service Account Identity `handlemotion-codice-main` on codice-corpus, whose
+          # subject is this repository's `main` (docs/operations/doppler-secrets.md). An ID, not a
+          # secret.
+          DOPPLER_IDENTITY_ID: 11ea72e9-0de7-474e-998b-48568d5a08f3
         run: |
           set -euo pipefail
           OIDC_TOKEN=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/trstv" | jq -r .value)
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/handlemotion" | jq -r .value)
           # Claims are not secret; print the ones Doppler validates so a mismatch is diagnosable.
           echo "$OIDC_TOKEN" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null \
             | jq -r '"oidc sub=\(.sub) aud=\(.aud) iss=\(.iss)"' || true
