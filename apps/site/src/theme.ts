@@ -1,5 +1,5 @@
-// The visitor's theme: the system's until they press T, then theirs, remembered on this device.
-// `data-theme` on <html> overrides `prefers-color-scheme` in styles.css.
+// The visitor's theme: dark until they press T, then theirs, remembered on this device.
+// `data-theme="light"` on <html> switches the tokens in styles.css.
 
 export type Theme = "light" | "dark";
 
@@ -10,8 +10,7 @@ export const THEME_SCRIPT = `try{var t=localStorage.getItem("${KEY}");if(t==="li
 
 export function currentTheme(): Theme {
   const chosen = document.documentElement.dataset.theme;
-  if (chosen === "light" || chosen === "dark") return chosen;
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return chosen === "light" ? "light" : "dark";
 }
 
 export function toggleTheme(): Theme {

@@ -52,9 +52,10 @@ function completion(query: string, rotation: number): string | null {
   return null;
 }
 
+// Key caps live only inside the composer, which is inverted (`bg-fg`), so they use the ground's ink.
 function Key({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded-[2px] border border-line px-1.5 py-1 text-[11px] text-muted">
+    <kbd className="rounded-[2px] border border-ink/25 px-1.5 py-1 text-[11px] text-ink/60">
       {children}
     </kbd>
   );
@@ -179,7 +180,7 @@ export function Ask() {
         )}
       </ol>
 
-      <form className="rounded-[4px] border border-line bg-ink" onSubmit={onSubmit} role="search">
+      <form className="rounded-[4px] bg-fg text-ink" onSubmit={onSubmit} role="search">
         <label className="sr-only" htmlFor="ask">
           Pregúntale a Códice
         </label>
@@ -190,11 +191,11 @@ export function Ask() {
             className="pointer-events-none absolute inset-y-2 right-24 left-3 overflow-hidden whitespace-pre"
           >
             <span className="invisible">{query}</span>
-            <span className="text-muted">{rest}</span>
+            <span className="text-ink/50">{rest}</span>
           </div>
           <input
             autoComplete="off"
-            className="relative min-w-0 flex-1 bg-transparent caret-fg outline-none read-only:cursor-default"
+            className="relative min-w-0 flex-1 bg-transparent caret-ink outline-none read-only:cursor-default"
             enterKeyHint="send"
             id="ask"
             maxLength={MAX_QUESTION_LENGTH}
@@ -212,7 +213,7 @@ export function Ask() {
           />
           {open ? (
             <button
-              className="flex items-center gap-2 text-muted hover:text-fg"
+              className="flex items-center gap-2 text-ink/60 hover:text-ink"
               onClick={reset}
               type="button"
             >

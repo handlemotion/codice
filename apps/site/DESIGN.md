@@ -65,13 +65,13 @@ non-scaling-stroke`, so a huge mark still draws a hairline.
 
 ## Themes
 
-- Dark is the default; light follows `prefers-color-scheme`.
+- Dark is the default for everyone, whatever the system prefers.
 - The `T` key toggles and remembers (`localStorage` key `codice-theme`, `data-theme` on `<html>`),
   set before first paint by `THEME_SCRIPT` in `src/theme.ts`. It is not advertised on the page.
 - **Favicon:** dark keeps the original near-black tile with an off-white line; light is an
   electric-blue tile with a white line. It animates on the same clock as the page's marks and
-  follows the theme (`faviconSvg` in `src/brand/shapes.ts`). The static `favicon.svg` covers
-  reduced motion with a media query.
+  follows the theme (`faviconSvg` in `src/brand/shapes.ts`). The static `favicon.svg` (shown
+  with reduced motion) is the dark tile.
 
 ## The mark
 
@@ -109,10 +109,11 @@ marks turning while Códice answers), and the favicon.
 
 ### The "Funciona con" strip
 
-Right under the hero, one row across the full width: "Funciona con" in `muted`, then the MCP
-clients that connect to Códice (Claude, ChatGPT, Cursor, VS Code, Windsurf) as bold text names,
-spread evenly. Names only, never their logos: logos need each brand's permission and would add
-a second visual language.
+Right under the hero, one row across the full width: "Funciona con" in `muted` on the left, and
+on the right the icons of assistants an accountant already knows that can connect to Códice over
+MCP (ChatGPT, Claude, Microsoft Copilot), 20px, 32px apart. Only list an assistant that really
+connects. The SVGs come from svgl.app (`public/_site/logos/`), cropped to their drawn area so they
+render at one size, and are drawn as CSS masks filled with `fg`, one color in either theme.
 
 ### Below: the ruled sheet
 
@@ -155,7 +156,8 @@ Entrar → Obtener clave so the blue one sits in the corner.
   `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
   regla"…, or "Pensando"), then rest. The answer streams in as markdown in plain `fg` text; the API
   ends it with a `Fuente:` line whose links use the prose link style.
-- **Composer:** one bordered box at the bottom of the chat. When empty it shows a suggested
+- **Composer:** one box at the bottom of the chat, inverted: `bg-fg` with `ink` text (black on
+  the light theme, white on the dark), its ghost text and key caps in `ink` at reduced opacity. When empty it shows a suggested
   question as ghost text that rotates every 4s; Enter on an empty composer sends it. While typing,
   it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).

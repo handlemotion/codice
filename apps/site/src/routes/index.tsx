@@ -52,8 +52,14 @@ function Code({ children }: { children: ReactNode }) {
   );
 }
 
-// MCP clients that connect to https://codice.io/mcp; names only, no logos.
-const ASSISTANTS = ["Claude", "ChatGPT", "Cursor", "VS Code", "Windsurf"] as const;
+// Assistants an accountant knows that can connect to https://codice.io/mcp. Their icons come from
+// svgl.app, cropped to their drawn area so they render at one size, and are drawn as masks filled
+// with the page's ink, so every logo is one color in either theme.
+const ASSISTANTS = [
+  ["ChatGPT", "openai"],
+  ["Claude", "claude"],
+  ["Microsoft Copilot", "copilot"],
+] as const;
 
 const FOOTER_LINKS = [
   ["Preguntar", "#preguntar"],
@@ -96,17 +102,28 @@ function Home() {
         </div>
       </header>
 
-      {/* The assistants Códice works with, by name: one strip, spread across the width. */}
+      {/* The assistants Códice works with: the label, then their icons pushed to the right. */}
       <section
         aria-label="Funciona con"
-        className={`${CELL} flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-t border-line text-muted`}
+        className={`${CELL} flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t border-line`}
       >
-        <span>Funciona con</span>
-        {ASSISTANTS.map((name) => (
-          <span className="font-bold" key={name}>
-            {name}
-          </span>
-        ))}
+        <span className="text-muted">Funciona con</span>
+        <ul className="flex items-center gap-8">
+          {ASSISTANTS.map(([name, file]) => (
+            <li key={file}>
+              <span
+                aria-label={name}
+                className="block size-5 bg-fg"
+                role="img"
+                style={{
+                  mask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
+                  WebkitMask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
+                }}
+                title={name}
+              />
+            </li>
+          ))}
+        </ul>
       </section>
 
       <main className="relative">
