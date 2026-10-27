@@ -15,9 +15,6 @@ and purpose is what limits a leak to Códice and lets it be revoked on its own.
 | `prd`  | `SENTRY_DSN`                      | –                         | –                           | Worker `codice-api`                     |
 | `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | `codice-worker-secrets`   | Workers Scripts Edit        | `sync-worker-secrets.yml`               |
 
-Until the Handle tokens are created, the values in Doppler are still the Jaantonio-scoped ones from
-before the 2026-10-27 move, and the ingestion and the sync fail with `403` against Handle.
-
 ## Worker secret sync
 
 Each Worker declares its secrets in its `wrangler.jsonc` (`secrets.required`); today only
@@ -27,16 +24,15 @@ each Worker only the names it declares, so the ingestion tokens and the sync's o
 a Worker. A new Worker secret is a `secrets.required` entry plus the Doppler `prd` value; the
 script needs no change.
 
-The sync should sign in with its own Doppler service account, `codice-worker-secrets` (read on
-`codice` `prd` only), separate from the corpus one, so each workflow can be revoked alone. Until
-its GitHub identity exists, the workflow uses the corpus identity below; once it does, pin its ID
-in the workflow's `DOPPLER_IDENTITY_ID`.
+The sync signs in with its own Doppler service account, `codice-worker-secrets` (Viewer on `codice`
+`prd` only), separate from the corpus one, so each workflow can be revoked alone. Its GitHub
+identity `handlemotion-codice-main-secrets` (ID pinned in the workflow's `DOPPLER_IDENTITY_ID`) has
+issuer `https://token.actions.githubusercontent.com`, audience `https://github.com/handlemotion` and
+subject `repo:handlemotion@203549640/codice@1432699064:ref:refs/heads/main`.
 
 The repository moved from `trstv/codice` to `handlemotion/codice` (same repository ID
-`1432699064`, owner ID `203549640`). Since then the OIDC subject is
-`repo:handlemotion@203549640/codice@1432699064:ref:refs/heads/main`, so every identity pinned to
-the `trstv` subject must be re-created with it; the scheduled sync of 2026-10-27 already failed at
-the OIDC step.
+`1432699064`). The corpus identity below still has the `trstv` subject and audience, so
+`codice-corpus.yml` fails at the OIDC step until it is re-created like the sync's.
 
 It runs daily, on demand (plan by default), and on `repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository
