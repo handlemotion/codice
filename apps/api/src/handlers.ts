@@ -26,7 +26,7 @@ import {
 /** A request Códice refuses, as a problem document's fields. */
 export class CodiceProblem extends Error {
   constructor(
-    readonly status: 400 | 404 | 502,
+    readonly status: 400 | 404 | 502 | 503,
     readonly code: string,
     readonly title: string,
     readonly detail?: string,

@@ -7,6 +7,7 @@ import { sampleSentryTrace, scrubSpanUrls, scrubTransactionUrls } from "@codice/
 import { createMcpHandler } from "agents/mcp/server";
 import { WorkerEntrypoint } from "cloudflare:workers";
 
+import { chatResponse } from "./chat";
 import type { CodiceBindings, CodiceEnv } from "./env";
 import {
   CodiceProblem,
@@ -62,21 +63,28 @@ app.onError((error, context) => {
 
 // The public routes (`/v1`, `/mcp`) need no sign-in, so the client is its address. SPEC.md,
 // "Rate limiting".
-const publicRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
-  const limiter = context.env.CODICE_PUBLIC_RATE_LIMITER;
-  if (!limiter) throw new Error("CODICE_PUBLIC_RATE_LIMITER is not bound");
-  const client = context.req.header("cf-connecting-ip") ?? "unknown";
-  const { success } = await limiter.limit({ key: `client:${client}` });
-  if (!success) {
-    const response = problem(context.get("requestId"), 429, "rate_limited", "Too many requests");
-    response.headers.set("retry-after", "60");
-    return response;
-  }
-  await next();
-};
+function rateLimit(
+  binding: "CODICE_PUBLIC_RATE_LIMITER" | "CODICE_CHAT_RATE_LIMITER",
+): MiddlewareHandler<CodiceEnv> {
+  return async (context, next) => {
+    const limiter = context.env[binding];
+    if (!limiter) throw new Error(`${binding} is not bound`);
+    const client = context.req.header("cf-connecting-ip") ?? "unknown";
+    const { success } = await limiter.limit({ key: `client:${client}` });
+    if (!success) {
+      const response = problem(context.get("requestId"), 429, "rate_limited", "Too many requests");
+      response.headers.set("retry-after", "60");
+      return response;
+    }
+    await next();
+  };
+}
+const publicRateLimit = rateLimit("CODICE_PUBLIC_RATE_LIMITER");
 // Hono's `/x/*` also matches `/x` itself.
 app.use("/v1/*", publicRateLimit);
 app.use("/mcp/*", publicRateLimit);
+// Each chat turn spends model tokens and a few searches, so it has its own, stricter limit.
+app.use("/v1/chat", rateLimit("CODICE_CHAT_RATE_LIMITER"));
 
 app.get("/", (context) => context.json({ service: SERVICE, status: "ok" }));
 app.get("/health", (context) => context.json({ service: SERVICE, status: "ok" }));
@@ -141,6 +149,8 @@ app.get("/v1/catalogs/:name/:key", async (context) =>
     ),
   ),
 );
+
+app.post("/v1/chat", (context) => chatResponse(context.env, context.req.raw));
 
 app.all("/mcp", (context) => {
   const serve = createMcpHandler(() => createCodiceMcpServer(context.env), { route: "/mcp" });

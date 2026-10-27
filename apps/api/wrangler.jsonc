@@ -13,7 +13,7 @@
     "binding": "CF_VERSION_METADATA",
   },
   "secrets": {
-    "required": ["SENTRY_DSN"],
+    "required": ["ANTHROPIC_API_KEY", "SENTRY_DSN"],
   },
   // Hybrid search over the corpus passages (built-in storage). Instance settings: SPEC.md, "Search".
   // AI Search does not run locally, so `wrangler dev` reaches the real instance.
@@ -39,6 +39,12 @@
       "name": "CODICE_PUBLIC_RATE_LIMITER",
       "namespace_id": "1601",
       "simple": { "limit": 60, "period": 60 },
+    },
+    // Per-client limit for the demo chat, `POST /v1/chat`. SPEC.md, "Chat".
+    {
+      "name": "CODICE_CHAT_RATE_LIMITER",
+      "namespace_id": "1602",
+      "simple": { "limit": 10, "period": 60 },
     },
   ],
   "observability": {

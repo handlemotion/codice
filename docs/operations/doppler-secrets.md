@@ -13,12 +13,13 @@ and purpose is what limits a leak to Códice and lets it be revoked on its own.
 | `prd`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search`        | AI Search Write (Edit), Run | `ingest`                                |
 | `prd`  | `CODICE_D1_TOKEN`                 | `codice-d1`               | D1 Edit                     | `ingest` (`wrangler d1 execute`)        |
 | `prd`  | `SENTRY_DSN`                      | –                         | –                           | Worker `codice-api`                     |
+| `prd`  | `ANTHROPIC_API_KEY`               | –                         | –                           | Worker `codice-api` (`POST /v1/chat`)   |
 | `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | `codice-worker-secrets`   | Workers Scripts Edit        | `sync-worker-secrets.yml`               |
 
 ## Worker secret sync
 
 Each Worker declares its secrets in its `wrangler.jsonc` (`secrets.required`); today only
-`codice-api` does (`SENTRY_DSN`). `.github/workflows/sync-worker-secrets.yml` runs
+`codice-api` does (`ANTHROPIC_API_KEY`, `SENTRY_DSN`). `.github/workflows/sync-worker-secrets.yml` runs
 `scripts/secrets/sync-worker-secrets.mjs`, which reads every `apps/*/wrangler.jsonc` and pushes to
 each Worker only the names it declares, so the ingestion tokens and the sync's own token never reach
 a Worker. A new Worker secret is a `secrets.required` entry plus the Doppler `prd` value; the
@@ -34,7 +35,9 @@ The repository moved from `trstv/codice` to `handlemotion/codice` (same reposito
 `1432699064`), which changed the OIDC subject; both identities were re-created for it on
 2026-10-27.
 
-It runs daily, on demand (plan by default), and on `repository_dispatch` `doppler-config-changed`.
+It runs daily, on demand (plan by default), on a push to `main` that changes an
+`apps/*/wrangler.jsonc` (so a merge that declares a new secret syncs it), and on
+`repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository
 (`POST https://api.github.com/repos/handlemotion/codice/dispatches`, body
 `{"event_type":"doppler-config-changed"}`, a GitHub token with Contents write); until it does, the
