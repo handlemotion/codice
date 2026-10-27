@@ -9,18 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as KeysRouteImport } from "./routes/keys";
+import { Route as DashboardRouteImport } from "./routes/_dashboard";
 import { Route as LoginRouteImport } from "./routes/login";
+import { Route as DashboardIndexRouteImport } from "./routes/_dashboard/index";
+import { Route as DashboardKeysRouteImport } from "./routes/_dashboard/keys";
+import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
 
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const KeysRoute = KeysRouteImport.update({
-  id: "/keys",
-  path: "/keys",
+const DashboardRoute = DashboardRouteImport.update({
+  id: "/_dashboard",
   getParentRoute: () => rootRouteImport,
 } as any);
 const LoginRoute = LoginRouteImport.update({
@@ -28,51 +24,63 @@ const LoginRoute = LoginRouteImport.update({
   path: "/login",
   getParentRoute: () => rootRouteImport,
 } as any);
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => DashboardRoute,
+} as any);
+const DashboardKeysRoute = DashboardKeysRouteImport.update({
+  id: "/keys",
+  path: "/keys",
+  getParentRoute: () => DashboardRoute,
+} as any);
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: "/api/auth/$",
+  path: "/api/auth/$",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/keys": typeof KeysRoute;
+  "/": typeof DashboardIndexRoute;
   "/login": typeof LoginRoute;
+  "/keys": typeof DashboardKeysRoute;
+  "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/keys": typeof KeysRoute;
   "/login": typeof LoginRoute;
+  "/keys": typeof DashboardKeysRoute;
+  "/": typeof DashboardIndexRoute;
+  "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/keys": typeof KeysRoute;
+  "/_dashboard": typeof DashboardRouteWithChildren;
   "/login": typeof LoginRoute;
+  "/_dashboard/keys": typeof DashboardKeysRoute;
+  "/_dashboard/": typeof DashboardIndexRoute;
+  "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/keys" | "/login";
+  fullPaths: "/" | "/login" | "/keys" | "/api/auth/$";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/keys" | "/login";
-  id: "__root__" | "/" | "/keys" | "/login";
+  to: "/login" | "/keys" | "/" | "/api/auth/$";
+  id: "__root__" | "/_dashboard" | "/login" | "/_dashboard/keys" | "/_dashboard/" | "/api/auth/$";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  KeysRoute: typeof KeysRoute;
+  DashboardRoute: typeof DashboardRouteWithChildren;
   LoginRoute: typeof LoginRoute;
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
+    "/_dashboard": {
+      id: "/_dashboard";
+      path: "";
       fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/keys": {
-      id: "/keys";
-      path: "/keys";
-      fullPath: "/keys";
-      preLoaderRoute: typeof KeysRouteImport;
+      preLoaderRoute: typeof DashboardRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/login": {
@@ -82,13 +90,46 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof LoginRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/_dashboard/": {
+      id: "/_dashboard/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof DashboardIndexRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/_dashboard/keys": {
+      id: "/_dashboard/keys";
+      path: "/keys";
+      fullPath: "/keys";
+      preLoaderRoute: typeof DashboardKeysRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/api/auth/$": {
+      id: "/api/auth/$";
+      path: "/api/auth/$";
+      fullPath: "/api/auth/$";
+      preLoaderRoute: typeof ApiAuthSplatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
+interface DashboardRouteChildren {
+  DashboardKeysRoute: typeof DashboardKeysRoute;
+  DashboardIndexRoute: typeof DashboardIndexRoute;
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardKeysRoute: DashboardKeysRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+};
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(DashboardRouteChildren);
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  KeysRoute: KeysRoute,
+  DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

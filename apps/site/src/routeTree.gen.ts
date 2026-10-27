@@ -10,33 +10,43 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as Char91_siteChar93ChatRouteImport } from "./routes/[_site]/chat";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
+const Char91_siteChar93ChatRoute = Char91_siteChar93ChatRouteImport.update({
+  id: "/_site/chat",
+  path: "/_site/chat",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/_site/chat": typeof Char91_siteChar93ChatRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/_site/chat": typeof Char91_siteChar93ChatRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/_site/chat": typeof Char91_siteChar93ChatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/";
+  fullPaths: "/" | "/_site/chat";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/";
-  id: "__root__" | "/";
+  to: "/" | "/_site/chat";
+  id: "__root__" | "/" | "/_site/chat";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  Char91_siteChar93ChatRoute: typeof Char91_siteChar93ChatRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -48,11 +58,19 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/_site/chat": {
+      id: "/_site/chat";
+      path: "/_site/chat";
+      fullPath: "/_site/chat";
+      preLoaderRoute: typeof Char91_siteChar93ChatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  Char91_siteChar93ChatRoute: Char91_siteChar93ChatRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

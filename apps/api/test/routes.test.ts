@@ -77,17 +77,20 @@ const CHUNK = {
 
 const bindings = env as unknown as CodiceBindings;
 
-/** Each request is its own client, so the public rate limit (3 a minute in tests) never trips. */
-let client = 0;
-function clientAddress() {
-  client += 1;
-  return `203.0.113.${client}`;
+/**
+ * Each request has its own key (test/accounts-stub.js), so the per-key rate limit (3 a minute in
+ * tests) never trips.
+ */
+let keys = 0;
+function apiKey() {
+  keys += 1;
+  return `Bearer cdc_test_routes${keys}`;
 }
 
 function request(path: string, search = fakeSearch([CHUNK]), headers: Record<string, string> = {}) {
   return app.request(
     `https://codice.test${path}`,
-    { headers: { "cf-connecting-ip": clientAddress(), ...headers } },
+    { headers: { authorization: apiKey(), ...headers } },
     { ...bindings, CODICE_SEARCH: search },
   );
 }
@@ -829,7 +832,7 @@ describe("/mcp", () => {
         method: "POST",
         headers: {
           host: "localhost",
-          "cf-connecting-ip": clientAddress(),
+          authorization: apiKey(),
           "content-type": "application/json",
           accept: "application/json, text/event-stream",
           "mcp-protocol-version": "2025-06-18",

@@ -12,6 +12,16 @@ export default defineConfig({
         bindings: {
           TEST_MIGRATIONS: migrations,
         },
+        // `codice-app`'s `CodiceAccounts`, stubbed: test/accounts-stub.js.
+        serviceBindings: { ACCOUNTS: { name: "codice-app", entrypoint: "CodiceAccounts" } },
+        workers: [
+          {
+            name: "codice-app",
+            modules: true,
+            scriptPath: "./test/accounts-stub.js",
+            compatibilityDate: "2026-08-14",
+          },
+        ],
       },
     }),
   ],

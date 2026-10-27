@@ -13,7 +13,7 @@ forwards the unmodified request through a service binding.
 - A stale-cookie `/` that the app answers with a redirect to `/login` is served by the site
   (`isLoginRedirect`).
 - `APP` (`codice-app`, `apps/app`, the dashboard) gets everything else, including `/` when the
-  `__Secure-codice-session` cookie is present.
+  `__Secure-codice-session` cookie is present and Better Auth's `/api/auth/*`, which sets it.
 - The site has one page today. A second one needs its own path in `routeTarget` (Transitive's
   `SITE_PAGES` pattern) that the dashboard never uses. Prefer few pages.
 - `SITE_ENABLED` must be exactly `"true"` to route to the site; any other value sends every

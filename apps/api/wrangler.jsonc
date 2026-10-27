@@ -33,7 +33,9 @@
       "migrations_dir": "migrations",
     },
   ],
-  // Per-client limit for the public `/v1` and `/mcp` routes. SPEC.md, "Rate limiting".
+  // API keys: `/v1` and `/mcp` verify the caller's key with `codice-app`. SPEC.md, "Auth".
+  "services": [{ "binding": "ACCOUNTS", "service": "codice-app", "entrypoint": "CodiceAccounts" }],
+  // Per-key limit for `/v1` and `/mcp`. SPEC.md, "Rate limiting".
   "ratelimits": [
     {
       "name": "CODICE_PUBLIC_RATE_LIMITER",

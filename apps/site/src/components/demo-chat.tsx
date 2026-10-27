@@ -11,8 +11,8 @@ import {
   Message,
 } from "./chat/chat";
 
-// The API's `POST /v1/chat` on the same host: the edge routes `/v1` to `codice-api` (apps/edge).
-const connection = fetchServerSentEvents("/v1/chat");
+// The site's own `POST /_site/chat`, which calls the API's `POST /v1/chat` with the site's key.
+const connection = fetchServerSentEvents("/_site/chat");
 
 const SUGGESTIONS = [
   "¿Qué significa el error CFDI40149?",

@@ -17,5 +17,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
-  }
+  },
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    }
+  ]
 }

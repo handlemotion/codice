@@ -8,16 +8,6 @@ import { defineConfig } from "vite";
 // a page lives under `/_site/` (assets and server functions) to keep routing a prefix.
 export default defineConfig({
   build: { assetsDir: "_site" },
-  // In production the edge sends `/v1` (the demo chat's `POST /v1/chat`) to the API; in `vite dev`
-  // this proxy stands in for it, to the local API (`pnpm dev:up`) unless CODICE_API_ORIGIN says.
-  server: {
-    proxy: {
-      "/v1": {
-        target: process.env.CODICE_API_ORIGIN ?? "https://codice.localhost",
-        changeOrigin: true,
-      },
-    },
-  },
   plugins: [
     cloudflare({ inspectorPort: false, viteEnvironment: { name: "ssr" } }),
     tailwindcss(),

@@ -4,7 +4,8 @@ Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git bu
 cutover on 2026-10-25, with no route or custom domain: Transitive's Agent reaches it through its
 `CODICE` service binding. Phase 1 has begun with the RMF. The Worker serves the whole
 [HTTP API](#http-api-v1) and
-[MCP surface](#mcp-surface-mcp), behind the public rate limit; the ingestion has loaded
+[MCP surface](#mcp-surface-mcp), behind a team's API key and its per-key rate limit
+([Auth](#auth)); the ingestion has loaded
 `docs/sat-md` into the AI Search instance and D1 (see [Infrastructure](#infrastructure)).
 
 Códice is an index of Mexican tax (SAT) and customs rules that people and AI assistants can
@@ -229,7 +230,8 @@ identify a row, the parts of a pedimento number the SAT checks. A repeated key r
 
 Responses use the repo envelope (`{ data, meta: { requestId } }`, `apiJson` in `src/http.ts`);
 errors are `application/problem+json`. Every response, including `/health` and `/ready`, carries
-`x-request-id`: the caller's when it is 1–128 characters, else a new UUID.
+`x-request-id`: the caller's when it is 1–128 characters, else a new UUID. Every `/v1` route takes
+an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 
 | Method and path                                | Backed by                                                |
 | ---------------------------------------------- | -------------------------------------------------------- |
@@ -283,8 +285,8 @@ entrypoint (`src/index.ts`; contract `@codice/contracts`, mirrored by Transitive
 `@transitive/api-contracts/codice`): `search`,
 `readPassage`, `lookupError`, `lookupCatalog` and `listCatalog`, each answering
 `{ ok: true, data }` with the route's `data`, or `{ ok: false, problem: { status, code, title } }`
-(RPC keeps only an error's message). It skips the public rate limit: a binding's requests carry no
-`cf-connecting-ip`, so every caller would share one bucket. The Agent binds it as `CODICE`.
+(RPC keeps only an error's message). It takes no API key and skips the per-key rate limit: only a
+Worker the account binds can call it. The Agent binds it as `CODICE`.
 
 ## MCP surface (`/mcp`)
 
@@ -300,7 +302,8 @@ Each is a thin call to the same handler as `/v1` and returns its `data` as `stru
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
 status } }`, the problem's code and status. `lookup_catalog`'s optional `where` object
 (`{ c_CodigoPostal: "01000" }`) is the route's column filters. All are annotated read-only and idempotent. Built with `createMcpHandler` from the `agents` package, as in
-`apps/mcp`. Public and read-only, rate limited per client with the Workers rate-limit binding.
+`apps/mcp`. Read-only; it takes the same API key as `/v1` (`Authorization: Bearer cdc_…`, which
+MCP clients send) and shares the key's rate limit.
 
 ### Chat
 
@@ -311,14 +314,18 @@ answering with five tools that call the same handlers as the MCP tools (`search`
 `@tanstack/ai-anthropic`), the stack Transitive's Agent uses. A tool refusal goes back to the model
 as `{ error: { code, message } }`.
 
+- The site calls it server-side: the browser's `useChat` posts to the site's `POST /_site/chat`,
+  which forwards the turn over the site's `API` service binding with the site's own key
+  (`CODICE_SITE_API_KEY`) and the visitor's `cf-connecting-ip`. The key never reaches the browser.
 - Stateless: the body is the AG-UI run the browser's `useChat` posts (`fetchServerSentEvents`), the
   whole conversation each turn; nothing is stored. The answer streams back as AG-UI server-sent
   events (`text/event-stream`).
 - Refusals, before any model call: `503 chat_unavailable` without `ANTHROPIC_API_KEY`;
   `400 invalid_chat_request` for a body that is not JSON or not an AG-UI run, has no messages or
   more than 24, or is over 64 KB.
-- Its own per-client limit, `CODICE_CHAT_RATE_LIMITER` (namespace `1602`, 10 requests per 60
-  seconds), after the public one.
+- Its own per-visitor limit, `CODICE_CHAT_RATE_LIMITER` (namespace `1602`, 10 requests per 60
+  seconds, keyed by `cf-connecting-ip`), after the per-key one. Every demo visitor shares the
+  site's key, so the per-key limit (60 a minute) also caps the whole demo.
 - A question costs about 4–5k input and 0.4–0.6k output tokens: well under $0.001 at Haiku 5.5's
   $0.10 / $0.50 per million (measured 2026-10-27 on `CFDI40149` and `c_UsoCFDI S01`, one tool call
   each).
@@ -326,9 +333,29 @@ as `{ error: { code, message } }`.
 ### Rate limiting
 
 `/v1/*` and `/mcp/*` pass the Workers rate-limit binding `CODICE_PUBLIC_RATE_LIMITER` (namespace
-`1601`, 60 requests per 60 seconds), keyed per client by `cf-connecting-ip`. Over the limit:
-`429` problem+json, code `rate_limited`, `retry-after: 60`. `/`, `/health`, `/ready` and the
-[internal entrypoint](#internal-entrypoint) are not limited.
+`1601`, 60 requests per 60 seconds), keyed per API key by its id (`key:<keyId>`), after the key is
+verified. Over the limit: `429` problem+json, code `rate_limited`, `retry-after: 60`. `/`,
+`/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) are not limited. A refused
+key never reaches the limiter, so a request without a valid key costs no limit and no query.
+
+### Auth
+
+`/v1/*` and `/mcp/*` (each path and its subpaths) require an API key of a Códice team, issued in
+the dashboard (`apps/app`, `/keys`):
+
+- Sent as `Authorization: Bearer cdc_…`, or else as `x-api-key: cdc_…`. Keys start with `cdc_`.
+- Verified by `codice-app` over the service binding `ACCOUNTS` (entrypoint `CodiceAccounts`,
+  contract `CodiceAccountsService` in `@codice/contracts`): `verifyApiKey(key)` answers
+  `{ valid: true, keyId, organizationId }` or `{ valid: false }`. It reads only the KV namespace
+  where Better Auth's api-key plugin keeps the hashed keys, never D1, and records the key's last use
+  at most once a minute per isolate.
+- Missing, unknown, revoked or expired → `401` problem+json, code `unauthorized`, with
+  `www-authenticate: Bearer realm="codice"`. A binding failure is a `500`.
+- `/`, `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) stay open.
+- A revoked key can still pass for up to a minute: KV caches a read at each location for 60 seconds.
+- Keys belong to a team (a Better Auth organization); each new user gets a personal team. Only a
+  team's owner can create and revoke its keys. Accounts, sessions and teams are in D1
+  `codice-accounts`, bound to `codice-app` only.
 
 Why not AI Search's own public endpoint, which also serves `/mcp`: it exposes one `search` tool and
 cannot apply the validity filter by default, so a client could get a repealed rule, and it cannot
@@ -491,7 +518,7 @@ full-text queries. D1 at this size stays inside the Workers Paid allowance.
 | Queries, public at 10k/month  | 9,000 billable hybrid                     | ~$7           |
 | Queries, public at 100k/month | 99,000 billable hybrid                    | ~$74          |
 
-Queries are the only cost that grows; the per-client rate limit bounds it. The demo chat adds
+Queries are the only cost that grows; the per-key rate limit bounds it. The demo chat adds
 model tokens (under $0.001 a question, [Chat](#chat)) and one to a few queries a question, bounded
 by its own limit.
 
@@ -673,11 +700,13 @@ was copied with `wrangler d1 export` and re-imported (same rows), the AI Search 
 with the settings above and filled by `ingest`. The Jaantonio Worker `codice` and its resources stay
 until Transitive's Agent stops binding it.
 
-| Resource           | Name     | Binding                      |
-| ------------------ | -------- | ---------------------------- |
-| AI Search instance | `codice` | `CODICE_SEARCH`              |
-| D1 database        | `codice` | `CODICE_DATABASE`            |
-| Rate limit         | `1601`   | `CODICE_PUBLIC_RATE_LIMITER` |
+| Resource           | Name                            | Binding                      |
+| ------------------ | ------------------------------- | ---------------------------- |
+| AI Search instance | `codice`                        | `CODICE_SEARCH`              |
+| D1 database        | `codice`                        | `CODICE_DATABASE`            |
+| Rate limit         | `1601`                          | `CODICE_PUBLIC_RATE_LIMITER` |
+| Rate limit         | `1602`                          | `CODICE_CHAT_RATE_LIMITER`   |
+| Service binding    | `codice-app` (`CodiceAccounts`) | `ACCOUNTS`                   |
 
 No route, no custom domain, `workers.dev` off; the public host is the edge Worker `codice-edge`
 (`apps/edge`), which forwards `/v1`, `/mcp`, `/health` and `/ready` here over a service binding. The
@@ -688,8 +717,8 @@ local D1 with `ingest --local` when it is empty; the tests use a local binding.
 
 ### Readiness
 
-`/ready` answers `200 { service, status: "ready" }` when `CODICE_DATABASE`, `CODICE_SEARCH` and
-`CODICE_PUBLIC_RATE_LIMITER` are bound, else `503` problem+json with code
+`/ready` answers `200 { service, status: "ready" }` when `ACCOUNTS`, `CODICE_DATABASE`,
+`CODICE_SEARCH` and `CODICE_PUBLIC_RATE_LIMITER` are bound, else `503` problem+json with code
 `codice_bindings_not_ready`. It checks bindings only; it makes no D1 or search call.
 
 ### Monitoring and deploy
@@ -812,9 +841,14 @@ to match.
    [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.
    Next, one at a time and in the same pattern (a source in `sources.json`, a splitter in
    `sections.ts`, ~20 questions, an eval run): the CFF, the LISR and the LIVA.
+10. **API keys** (in code; see [Auth](#auth)). The dashboard (`codice-app`) signs users in by
+    email code, Google or GitHub (Better Auth), gives each a personal team and issues the team's
+    `cdc_` keys; `/v1` and `/mcp` require one. Left before it serves traffic: the D1 database
+    `codice-accounts`, the KV namespace for keys, Email Sending for `codice.io`, the OAuth apps,
+    their Doppler secrets and the site's own key (the pull request's checklist). Next: usage per
+    key on the overview, and member roles beyond the owner.
 
 ## Open questions
 
 - Legal review of republishing government texts (LFDA art. 14 fr. VIII) and the disclaimer wording.
 - IMPI trademark search for "Códice".
-- Whether public MCP use needs an API key for abuse control beyond the rate limit.
