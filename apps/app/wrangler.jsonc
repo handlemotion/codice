@@ -40,8 +40,8 @@
   "kv_namespaces": [
     {
       "binding": "API_KEYS",
-      // Placeholder: create the `codice-api-keys` namespace on the Handle account and put its id here.
-      "id": "00000000000000000000000000000000",
+      // `codice-api-keys` on the Handle account.
+      "id": "6e6c5c63c59247a2ac3c0aa4bf945f4b",
     },
   ],
   // Cloudflare Email Sending, for sign-in codes.
