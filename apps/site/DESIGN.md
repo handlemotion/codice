@@ -105,21 +105,11 @@ marks turning while Códice answers), and the favicon.
 - `min-h-[85vh]`, content centered and nudged up (`pb-[14vh]`) so the chat sits above the middle.
 - The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
   over the wave field. No brand mark, no nav bar, no section label, no dividers.
-- A top bar, no background: the page's links (Producto, Documentación, API) start on the text
-  column's edge (48%), the same line as the section text below; the compact pair of buttons sits
-  top-right (Entrar outlined, Obtener clave electric). The links hide on phones. Until `/docs`
-  exists, Documentación and API point at the developer section.
-
-### The "Funciona con" strip
-
-Right under the hero, one row across the full width: "Funciona con" in `muted` on the left, and
-on the right the icons of assistants an accountant already knows that can connect to Códice over
-MCP (ChatGPT, Claude, Microsoft Copilot), 20px, 32px apart. Only list an assistant that really
-connects. The SVGs come from svgl.app (`public/_site/logos/`), cropped to their drawn area so they
-render at one size, and are drawn as CSS masks filled with `fg`, one color in either theme.
-
-### Below: the ruled sheet
-
+- A top bar fixed to the top of the window, 76px (60px on phones), with no ground of its own: the
+  page's links (Producto, Documentación, API) start on the text column's edge (48%), the same
+  line as the section text below; the compact pair of buttons sits on the right (Entrar
+  outlined, Obtener clave electric). The links hide on phones. Until `/docs` exists,
+  Documentación and API point at the developer section.
 - Each section is a two-column grid at `sm` and up: `48fr` margin column for the section's name,
   `52fr` text column (max 34rem). The text starts just right of center, like a note in a codex's
   outer margin (from the Figma reference, node 2:2).

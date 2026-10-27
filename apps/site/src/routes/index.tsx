@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { Ask } from "../ask";
 import { Mark, MarkField } from "../brand/mark";
@@ -36,7 +36,7 @@ const CELL = "p-4 sm:p-6";
 
 function Section({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
   return (
-    <section className={`${SHEET} scroll-mt-0 border-t border-line`} id={id}>
+    <section className={`${SHEET} scroll-mt-[76px] border-t border-line`} id={id}>
       <h2 className={`${CELL} border-line font-bold max-sm:pb-0 sm:border-r`}>{title}</h2>
       <div className={`${CELL} flex max-w-[34rem] flex-col gap-5`}>{children}</div>
     </section>
@@ -78,60 +78,49 @@ const FOOTER_LINKS = [
   ["Entrar", "/login"],
 ] as const;
 
-const LINK = "underline decoration-line underline-offset-4 hover:decoration-fg";
+// The top bar's height, which the logo strip matches so it can become the bar's ground.
+const BAR = "h-[60px] sm:h-[76px]";
 
-// The dashboard lives on the same host; `/login` and `/keys` are its routes (apps/edge).
-function Home() {
+/**
+ * The assistants Códice works with: the label, then their icons pushed to the right. The strip
+ * sticks under the top bar; as it slides up beneath the bar its content fades out, so what stays
+ * is its fill and bottom border, the bar's ground from then on.
+ */
+function Strip() {
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const strip = content.current?.parentElement;
+    if (!strip) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      // 1 while the strip is a bar-height or more below the top, 0 once it is stuck there.
+      const { top, height } = strip.getBoundingClientRect();
+      const visible = Math.min(Math.max(top / height, 0), 1);
+      if (content.current) {
+        content.current.style.opacity = String(visible);
+        content.current.style.visibility = visible === 0 ? "hidden" : "visible";
+      }
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
   return (
-    <div className="min-h-dvh text-[14px] leading-[1.7]">
-      {/* The first and tallest part, unruled: what Códice is on the left, with its two actions;
-          the whole right side is for asking it, the box sitting at the foot of the column. */}
-      {/* The first screen is only the chat, centered and nudged above the middle, over the three
-          field of marks rolling corner to corner like a wave. */}
-      <header className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-[14vh]">
-        <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
-        {/* The page's links start on the text column's edge (48%), like the sections below. */}
-        <div className={`${SHEET} pointer-events-none absolute inset-x-0 top-0 max-sm:hidden`}>
-          <nav
-            aria-label="Principal"
-            className={`${CELL} pointer-events-auto flex gap-16 sm:col-start-2`}
-          >
-            {NAV_LINKS.map(([label, href]) => (
-              <a
-                className="inline-flex h-7 items-center bg-ink hover:underline"
-                href={href}
-                key={label}
-              >
-                {label}
-              </a>
-            ))}
-          </nav>
-        </div>
-        {/* The two actions float in the corner, over the mark. */}
-        <div className={`${CELL} absolute top-0 right-0 flex gap-2`}>
-          <a
-            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2.5 text-[13px] hover:border-fg"
-            href="/login"
-          >
-            Entrar
-          </a>
-          <a
-            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2.5 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
-            href="/keys"
-          >
-            Obtener clave
-          </a>
-        </div>
-        <div className="relative w-full max-w-[34rem] scroll-mt-24" id="preguntar">
-          <Ask />
-        </div>
-      </header>
-
-      {/* The assistants Códice works with: the label, then their icons pushed to the right. */}
-      <section
-        aria-label="Funciona con"
-        className={`${CELL} flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t border-line`}
-      >
+    <section
+      aria-label="Funciona con"
+      className={`${BAR} sticky top-0 z-20 border-b border-line bg-ink px-4 sm:px-6`}
+    >
+      <div className="flex h-full items-center justify-between gap-8" ref={content}>
         <span className="text-muted">Funciona con</span>
         <ul className="flex items-center gap-8">
           {ASSISTANTS.map(([name, file]) => (
@@ -149,7 +138,64 @@ function Home() {
             </li>
           ))}
         </ul>
-      </section>
+      </div>
+    </section>
+  );
+}
+
+const LINK = "underline decoration-line underline-offset-4 hover:decoration-fg";
+
+// The dashboard lives on the same host; `/login` and `/keys` are its routes (apps/edge).
+function Home() {
+  return (
+    <div className="min-h-dvh text-[14px] leading-[1.7]">
+      {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
+          marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
+          border become its ground (see `Strip`). Both are BAR tall, so the handoff is seamless. */}
+      <div
+        className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-30 grid items-center sm:grid-cols-[48fr_52fr]`}
+      >
+        {/* The page's links start on the text column's edge (48%), like the sections below. */}
+        <nav
+          aria-label="Principal"
+          className="pointer-events-auto flex gap-16 px-4 max-sm:hidden sm:col-start-2 sm:px-6"
+        >
+          {NAV_LINKS.map(([label, href]) => (
+            <a
+              className="inline-flex h-7 items-center bg-ink hover:underline"
+              href={href}
+              key={label}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+        <div className="pointer-events-auto absolute right-4 flex gap-2 sm:right-6">
+          <a
+            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2.5 text-[13px] hover:border-fg"
+            href="/login"
+          >
+            Entrar
+          </a>
+          <a
+            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2.5 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
+            href="/keys"
+          >
+            Obtener clave
+          </a>
+        </div>
+      </div>
+
+      {/* The first screen: the title and the chat, centered and nudged above the middle, over a
+          field of marks rolling corner to corner like a wave. */}
+      <header className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden border-b border-line px-4 pt-16 pb-[14vh]">
+        <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
+        <div className="relative w-full max-w-[34rem] scroll-mt-24" id="preguntar">
+          <Ask />
+        </div>
+      </header>
+
+      <Strip />
 
       <main className="relative">
         <Section id="que-es" title="Qué es">
