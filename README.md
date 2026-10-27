@@ -16,6 +16,6 @@ project `codice`, and Wrangler's Cloudflare auth for the remote AI Search bindin
 
 ```sh
 pnpm install
-pnpm dev:up          # Códice on https://codice.local.transitive.app
+pnpm dev:up          # Códice on https://codice.localhost
 pnpm check && pnpm check-types && pnpm test
 ```

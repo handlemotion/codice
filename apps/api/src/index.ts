@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/cloudflare";
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 
 import type { CodiceKnowledgeService, CodiceResult } from "@codice/contracts";
 import { sampleSentryTrace, scrubSpanUrls, scrubTransactionUrls } from "@codice/monitoring";
@@ -7,6 +7,7 @@ import { sampleSentryTrace, scrubSpanUrls, scrubTransactionUrls } from "@codice/
 import { createMcpHandler } from "agents/mcp/server";
 import { WorkerEntrypoint } from "cloudflare:workers";
 
+import { chatResponse } from "./chat";
 import type { CodiceBindings, CodiceEnv } from "./env";
 import {
   CodiceProblem,
@@ -60,29 +61,72 @@ app.onError((error, context) => {
   return problem(requestId, 500, "internal_error", "Internal error");
 });
 
-// The public routes (`/v1`, `/mcp`) need no sign-in, so the client is its address. SPEC.md,
-// "Rate limiting".
-const publicRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
-  const limiter = context.env.CODICE_PUBLIC_RATE_LIMITER;
-  if (!limiter) throw new Error("CODICE_PUBLIC_RATE_LIMITER is not bound");
-  const client = context.req.header("cf-connecting-ip") ?? "unknown";
-  const { success } = await limiter.limit({ key: `client:${client}` });
-  if (!success) {
-    const response = problem(context.get("requestId"), 429, "rate_limited", "Too many requests");
-    response.headers.set("retry-after", "60");
+/** A `cdc_` key from `Authorization: Bearer` or, failing that, `x-api-key`. */
+function presentedKey(request: Request): string | undefined {
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.match(/^Bearer\s+(\S+)\s*$/iu)?.[1];
+  return bearer ?? request.headers.get("x-api-key")?.trim() ?? undefined;
+}
+
+// `/v1` and `/mcp` take a team's API key, verified by `codice-app` (`ACCOUNTS`). SPEC.md, "Auth".
+const requireApiKey: MiddlewareHandler<CodiceEnv> = async (context, next) => {
+  const accounts = context.env.ACCOUNTS;
+  if (!accounts) throw new Error("ACCOUNTS is not bound");
+  const key = presentedKey(context.req.raw);
+  const verification = key ? await accounts.verifyApiKey(key) : { valid: false as const };
+  if (!verification.valid) {
+    const response = problem(
+      context.get("requestId"),
+      401,
+      "unauthorized",
+      "Unauthorized",
+      key
+        ? "The API key is not valid."
+        : "Send an API key as `Authorization: Bearer cdc_…` or `x-api-key`.",
+    );
+    response.headers.set("www-authenticate", 'Bearer realm="codice"');
     return response;
   }
+  context.set("apiKey", { keyId: verification.keyId, organizationId: verification.organizationId });
   await next();
 };
+
+function limited(context: Context<CodiceEnv>) {
+  const response = problem(context.get("requestId"), 429, "rate_limited", "Too many requests");
+  response.headers.set("retry-after", "60");
+  return response;
+}
+
+// Each key has its own allowance. SPEC.md, "Rate limiting".
+const keyRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
+  const limiter = context.env.CODICE_PUBLIC_RATE_LIMITER;
+  if (!limiter) throw new Error("CODICE_PUBLIC_RATE_LIMITER is not bound");
+  const { success } = await limiter.limit({ key: `key:${context.get("apiKey").keyId}` });
+  if (!success) return limited(context);
+  await next();
+};
+
+// Each chat turn spends model tokens and a few searches, so it has its own, stricter limit per
+// visitor's address: the site's demo sends every visitor's turn with one key.
+const chatRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
+  const limiter = context.env.CODICE_CHAT_RATE_LIMITER;
+  if (!limiter) throw new Error("CODICE_CHAT_RATE_LIMITER is not bound");
+  const client = context.req.header("cf-connecting-ip") ?? "unknown";
+  const { success } = await limiter.limit({ key: `client:${client}` });
+  if (!success) return limited(context);
+  await next();
+};
+
 // Hono's `/x/*` also matches `/x` itself.
-app.use("/v1/*", publicRateLimit);
-app.use("/mcp/*", publicRateLimit);
+for (const path of ["/v1/*", "/mcp/*"]) app.use(path, requireApiKey, keyRateLimit);
+app.use("/v1/chat", chatRateLimit);
 
 app.get("/", (context) => context.json({ service: SERVICE, status: "ok" }));
 app.get("/health", (context) => context.json({ service: SERVICE, status: "ok" }));
 app.get("/ready", (context) => {
-  const { CODICE_DATABASE, CODICE_SEARCH, CODICE_PUBLIC_RATE_LIMITER } = context.env;
+  const { ACCOUNTS, CODICE_DATABASE, CODICE_SEARCH, CODICE_PUBLIC_RATE_LIMITER } = context.env;
   if (
+    typeof ACCOUNTS?.verifyApiKey !== "function" ||
     typeof CODICE_DATABASE?.prepare !== "function" ||
     typeof CODICE_SEARCH?.search !== "function" ||
     typeof CODICE_PUBLIC_RATE_LIMITER?.limit !== "function"
@@ -142,6 +186,8 @@ app.get("/v1/catalogs/:name/:key", async (context) =>
   ),
 );
 
+app.post("/v1/chat", (context) => chatResponse(context.env, context.req.raw));
+
 app.all("/mcp", (context) => {
   const serve = createMcpHandler(() => createCodiceMcpServer(context.env), { route: "/mcp" });
   return serve.fetch(context.req.raw);
@@ -166,9 +212,8 @@ async function internalCall<T>(handler: () => Promise<T>): Promise<CodiceResult<
 
 /**
  * The `/v1` handlers for Transitive's own Workers over a service binding (the Agent's `CODICE`).
- * They skip the public per-client rate limit, which keys on `cf-connecting-ip`: a binding's
- * requests carry none, so every Agent run would share one bucket. A refusal comes back as the
- * problem, since RPC keeps only an error's message.
+ * They take no API key and skip the per-key rate limit: only a Worker the account binds can call
+ * them. A refusal comes back as the problem, since RPC keeps only an error's message.
  */
 export class CodiceKnowledge extends WorkerEntrypoint<Bindings> implements CodiceKnowledgeService {
   search(parameters: SearchParameters) {

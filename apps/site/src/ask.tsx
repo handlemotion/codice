@@ -1,62 +1,12 @@
-import type { ApiSuccessEnvelope } from "@codice/contracts";
+import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Streamdown } from "streamdown";
 
 import { Mark } from "./brand/mark";
 
-// The `POST /v1/answer` contract. Move these to `@codice/contracts` once the API defines them there.
-type Citation = {
-  passageId: string;
-  title: string | null;
-  sourceTitle: string | null;
-  sourceUrl: string | null;
-  validFrom: string | null;
-};
-type Answer = { answer: string; citations: readonly Citation[] };
-
-type State =
-  | { status: "idle" }
-  | { status: "asking"; question: string }
-  | { status: "answered"; question: string; answer: Answer }
-  | { status: "failed"; question: string; message: string };
-
-const BEAT_MS = 1000 / 12; // The answer writes itself on the same 12fps beat as the mark.
-const CHARS_PER_BEAT = 3;
-
-// `/v1` is on the same host: the edge sends it to the API Worker (Vite proxies it in development).
-// One question, one answer: v1 sends no history.
-async function ask(question: string, signal: AbortSignal): Promise<Answer> {
-  const response = await fetch("/v1/answer", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ messages: [{ role: "user", content: question }] }),
-    signal,
-  });
-  // Problem titles are the API's English; the visitor reads Spanish.
-  if (response.status === 429) throw new Error("Demasiadas preguntas. Espera un minuto.");
-  if (response.status === 404) throw new Error("Códice todavía no responde preguntas aquí.");
-  if (response.status === 400)
-    throw new Error("No entendí la pregunta. Intenta escribirla de otra forma.");
-  if (!response.ok) throw new Error("Códice no respondió. Intenta de nuevo.");
-  return ((await response.json()) as ApiSuccessEnvelope<Answer>).data;
-}
-
-// How many characters of `text` are written so far: a few per beat, or all at once when the
-// visitor asks for less motion.
-function useTypedLength(text: string) {
-  const [length, setLength] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setLength(text.length);
-      return;
-    }
-    setLength(0);
-    const timer = setInterval(() => {
-      setLength((count) => Math.min(count + CHARS_PER_BEAT, text.length));
-    }, BEAT_MS);
-    return () => clearInterval(timer);
-  }, [text]);
-  return length;
-}
+// The site's own `POST /_site/chat`, which calls the API's `POST /v1/chat` with the site's key
+// (src/routes/[_site]/chat.ts). The answer streams back as AG-UI server-sent events.
+const connection = fetchServerSentEvents("/_site/chat");
 
 // Questions the composer offers as ghost text: Tab takes one, Enter on an empty composer sends it.
 const SUGGESTIONS = [
@@ -66,6 +16,22 @@ const SUGGESTIONS = [
   "¿Qué pide la regla 2.7.1.34 de la RMF?",
 ];
 const ROTATE_MS = 4000;
+
+/** Matches the API's limit on one question (`CHAT_MAX_BODY_BYTES` bounds the whole conversation). */
+const MAX_QUESTION_LENGTH = 2000;
+
+// What Códice is doing while a tool runs, under its turning shapes.
+const TOOL_LABELS: Record<string, string> = {
+  search: "Buscando en las reglas del SAT",
+  read_passage: "Leyendo la regla",
+  lookup_error: "Consultando la matriz de errores",
+  lookup_catalog: "Consultando el catálogo",
+  list_sources: "Revisando las fuentes",
+};
+
+// The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
+const ANSWER =
+  "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
 
 // Compared without case or accents, so "hasta cuando" still finds "Hasta cuándo". Stripping marks
 // after NFD keeps one character per letter, so the two strings stay aligned.
@@ -93,18 +59,26 @@ function Key({ children }: { children: ReactNode }) {
 }
 
 /**
- * The chat on the right of the first screen: Códice greets, the visitor asks one question (a
- * blue bubble), and Códice answers while its three shapes turn. The composer offers questions.
+ * The chat of the first screen: Códice greets, the visitor asks one question (a blue bubble), and
+ * Códice answers while its three shapes turn. The composer offers questions. One question, one
+ * answer: Esc clears it for the next.
  */
 export function Ask() {
+  const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
   const [query, setQuery] = useState("");
-  const [state, setState] = useState<State>({ status: "idle" });
   const [rotation, setRotation] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const request = useRef<AbortController | null>(null);
-  const open = state.status !== "idle";
+  const open = messages.length > 0 || isLoading;
   const ghost = open ? null : completion(query, rotation);
   const rest = ghost?.slice(query.length) ?? "";
+
+  const question = messages
+    .find((message) => message.role === "user")
+    ?.parts.map((part) => (part.type === "text" ? part.content : ""))
+    .join("");
+  // One question, one answer: the reply is the last message once Códice starts answering.
+  const last = messages.at(-1);
+  const reply = last?.role === "assistant" ? last : undefined;
 
   // While nothing is typed, the offered question changes every few seconds.
   useEffect(() => {
@@ -113,28 +87,17 @@ export function Ask() {
     return () => clearInterval(timer);
   }, [open, query]);
 
-  async function send(question: string) {
-    if (!question || open) return;
-    const controller = new AbortController();
-    request.current = controller;
-    setState({ status: "asking", question });
-    try {
-      const answer = await ask(question, controller.signal);
-      setState({ status: "answered", question, answer });
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      setState({ status: "failed", question, message: (error as Error).message });
-    }
-  }
-
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    void send(query.trim() || (ghost ?? ""));
+    const text = query.trim() || (ghost ?? "");
+    if (!text || open) return;
+    setQuery("");
+    void sendMessage(text);
   }
 
   function reset() {
-    request.current?.abort();
-    setState({ status: "idle" });
+    stop();
+    clear();
     setQuery("");
     setRotation((count) => count + 1);
     requestAnimationFrame(() => input.current?.focus());
@@ -157,6 +120,20 @@ export function Ask() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // The tool Códice is running now, if any: a call with no part after it yet.
+  const parts = reply?.parts ?? [];
+  const tail = parts.at(-1);
+  const running =
+    tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
+      ? tail
+      : undefined;
+  const answer = parts.map((part) => (part.type === "text" ? part.content : "")).join("");
+  const status = running
+    ? (TOOL_LABELS[running.name] ?? "Consultando")
+    : isLoading && !answer
+      ? "Pensando"
+      : null;
+
   return (
     <div className="flex flex-col gap-6">
       <ol aria-live="polite" className="flex flex-col gap-6">
@@ -164,14 +141,39 @@ export function Ask() {
           <Mark animate={false} className="size-3.5 shrink-0" strokeWidth={1.5} />
           <p>Pregúntame por cualquier regla del SAT.</p>
         </li>
-        {open && (
+        {question && (
           <li className="max-w-[80%] self-end rounded-[4px] bg-electric px-3 py-2 text-white">
-            {state.question}
+            {question}
           </li>
         )}
         {open && (
-          <li>
-            <AgentTurn state={state} />
+          <li className="flex flex-col gap-3 bg-ink">
+            <span className="flex items-center gap-3">
+              <span aria-hidden className="flex gap-1.5">
+                {[0, 1, 2].map((step) => (
+                  <Mark
+                    animate={isLoading}
+                    className="size-3.5"
+                    key={step}
+                    step={step}
+                    strokeWidth={1.5}
+                  />
+                ))}
+              </span>
+              {status && (
+                <span className="text-muted" role="status">
+                  {status}
+                </span>
+              )}
+            </span>
+            {answer && (
+              <Streamdown className={ANSWER} isAnimating={isLoading}>
+                {answer}
+              </Streamdown>
+            )}
+            {error && !isLoading && (
+              <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
+            )}
           </li>
         )}
       </ol>
@@ -184,7 +186,7 @@ export function Ask() {
           {/* The ghost: what is typed, invisible, then the rest of the offered question. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-2 left-3 right-24 overflow-hidden whitespace-pre"
+            className="pointer-events-none absolute inset-y-2 right-24 left-3 overflow-hidden whitespace-pre"
           >
             <span className="invisible">{query}</span>
             <span className="text-muted">{rest}</span>
@@ -194,7 +196,7 @@ export function Ask() {
             className="relative min-w-0 flex-1 bg-transparent caret-fg outline-none read-only:cursor-default"
             enterKeyHint="send"
             id="ask"
-            maxLength={500}
+            maxLength={MAX_QUESTION_LENGTH}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Tab" && rest) {
@@ -214,7 +216,7 @@ export function Ask() {
               type="button"
             >
               <Key>Esc</Key>
-              Otra pregunta
+              {isLoading ? "Detener" : "Otra pregunta"}
             </button>
           ) : (
             <span className="flex gap-1.5 max-sm:hidden">
@@ -224,55 +226,6 @@ export function Ask() {
           )}
         </div>
       </form>
-    </div>
-  );
-}
-
-// Códice's side of the chat: its three shapes turn while it reads and while the answer writes
-// itself, then rest beside the finished answer and its sources.
-function AgentTurn({ state }: { state: Exclude<State, { status: "idle" }> }) {
-  const text = state.status === "answered" ? state.answer.answer : "";
-  const length = useTypedLength(text);
-  const working =
-    state.status === "asking" || (state.status === "answered" && length < text.length);
-  return (
-    <div className="flex flex-col gap-3">
-      <span aria-label={working ? "Códice está respondiendo" : undefined} className="flex gap-1.5">
-        {[0, 1, 2].map((step) => (
-          <Mark animate={working} className="size-3.5" key={step} step={step} strokeWidth={1.5} />
-        ))}
-      </span>
-      {state.status === "failed" && <p className="text-muted">{state.message}</p>}
-      {state.status === "answered" && (
-        <>
-          <p className="whitespace-pre-line">{text.slice(0, length)}</p>
-          {!working && state.answer.citations.length > 0 && (
-            <ol className="flex flex-col text-muted">
-              {state.answer.citations.map((citation, index) => {
-                const label = citation.title ?? citation.sourceTitle ?? citation.passageId;
-                return (
-                  <li key={citation.passageId}>
-                    {index + 1}.{" "}
-                    {citation.sourceUrl ? (
-                      <a
-                        className="underline hover:text-fg"
-                        href={citation.sourceUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {label}
-                      </a>
-                    ) : (
-                      label
-                    )}
-                    {citation.validFrom && `, vigente desde ${citation.validFrom}`}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </>
-      )}
     </div>
   );
 }

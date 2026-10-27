@@ -139,18 +139,19 @@ Entrar → Obtener clave so the blue one sits in the corner.
 - **A chat, not a section:** no heading or explanation around it. Códice greets with one line,
   centered, beside a still mark: "Pregúntame por cualquier regla del SAT."
 - **The visitor's question** is a right-aligned bubble: `bg-electric`, white text, 4px radius.
-- **Códice's turn:** three small marks (one step apart) turn while it reads and while the answer
-  types itself (3 characters per 12fps beat), then rest. The answer is plain `fg` text; citations
-  follow in `muted` as a numbered list of links with their validity date.
+- **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
+  `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
+  regla"…, or "Pensando"), then rest. The answer streams in as markdown in plain `fg` text; the API
+  ends it with a `Fuente:` line whose links use the prose link style.
 - **Composer:** one bordered box at the bottom of the chat. When empty it shows a suggested
   question as ghost text that rotates every 4s; Enter on an empty composer sends it. While typing,
   it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
-- **v1 is one question, one answer.** After the answer the composer shows `Esc` "Otra pregunta";
-  Esc starts over from anywhere. `/` focuses the composer from anywhere.
-- Errors are short Spanish sentences in `muted`; never show the API's English problem titles.
-- It calls `POST /v1/answer` on the same host (Vite proxies `/v1` to the local API in
-  development). The contract types live at the top of `ask.tsx` until `@codice/contracts` has them.
+- **v1 is one question, one answer.** While it answers the composer shows `Esc` "Detener"; after,
+  `Esc` "Otra pregunta". Esc clears the chat from anywhere; `/` focuses the composer from anywhere.
+- Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
+- It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
+  route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).
 
 ### Code islands
 
@@ -169,7 +170,7 @@ turning `fg` on hover.
 
 ## Motion
 
-- Everything that moves steps at 12fps: the marks and the typing.
+- Everything that moves steps at 12fps: the marks. The answer streams at the model's pace.
 - No entrance fades, no dimmed sections, no scroll-triggered reveals. They were tried and removed.
 - In-page links scroll smoothly; reduced motion turns that off and rests every mark.
 
@@ -191,8 +192,8 @@ So it isn't proposed again:
 - Large display headlines, mixed type sizes, two typefaces (Geist, Neue Machina): too varied.
 - Elevated grey panels, `rounded-xl`, a black strip behind a fixed bar: not black enough, too
   soft.
-- A fixed bottom ask bar, a full-screen "void" prompt with typed-out verbatim rules: replaced by
-  the chat.
+- A fixed bottom ask bar, a full-screen "void" prompt with typed-out verbatim rules, and the first
+  stone-palette demo chat (`demo-chat.tsx`): replaced by the chat.
 - Designed sections (cards, label/value grids for principles), a top nav bar, keyboard hints in
   prose, a disclaimer in the footer.
 - Section fade-ins (they read as dimmed text).

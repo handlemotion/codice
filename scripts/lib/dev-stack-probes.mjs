@@ -4,22 +4,18 @@ export function portlessOrigin(name) {
   try {
     return execFileSync("portless", ["get", name], {
       encoding: "utf8",
-      env: {
-        ...process.env,
-        PORTLESS_LAN: "0",
-        PORTLESS_TLD: "transitive.app",
-      },
+      env: { ...process.env, PORTLESS_LAN: "0", PORTLESS_TLD: "localhost,transitive.app" },
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch {
-    return `https://${name}.transitive.app`;
+    return `https://${name}.localhost`;
   }
 }
 
 // Códice's readiness on its worktree-aware Portless origin (linked worktrees prepend their branch
 // slug).
 export function codiceProbe() {
-  const origin = portlessOrigin("codice.local");
+  const origin = portlessOrigin("codice");
   return { name: "codice", origin, url: `${origin}/ready`, ok: (status) => status === 200 };
 }
 

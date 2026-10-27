@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@central-icons-react/square-outlined-radius-0-stroke-1.5": "1.2.22",
-    "@codice/contracts": "workspace:*",
+    "@tanstack/ai": "0.64.1",
+    "@tanstack/ai-react": "0.29.4",
     "@tanstack/react-router": "1.170.31",
     "@tanstack/react-start": "1.168.48",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "streamdown": "2.5.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.53.0",

@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codice-app-test",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  // The bindings Better Auth uses, all local; tests pass a recording `EMAIL` of their own.
+  "d1_databases": [
+    {
+      "binding": "ACCOUNTS_DATABASE",
+      "database_name": "codice-accounts-test",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "kv_namespaces": [{ "binding": "API_KEYS", "id": "codice-api-keys-test" }],
+}

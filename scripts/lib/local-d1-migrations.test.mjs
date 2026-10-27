@@ -9,7 +9,10 @@ import {
 } from "./local-d1-migrations.mjs";
 
 test("finds every local D1 database that has a migrations directory", () => {
-  assert.deepEqual(localD1MigrationTargets(), [{ app: "api", binding: "CODICE_DATABASE" }]);
+  assert.deepEqual(localD1MigrationTargets(), [
+    { app: "api", binding: "CODICE_DATABASE" },
+    { app: "app", binding: "ACCOUNTS_DATABASE" },
+  ]);
 });
 
 test("reads the applied migration names from Wrangler output", () => {
