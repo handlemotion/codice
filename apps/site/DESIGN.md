@@ -88,8 +88,9 @@ non-scaling-stroke`, so a huge mark still draws a hairline.
   circle, a square and a triangle at once).
 - Reduced motion: marks rest; nothing morphs.
 
-`<MarkField />` fills a box with whole rows of square cells (about 180px), centered so no mark is
-cropped. Each mark's radius is 0.42 of its cell, so neighbouring triangles keep a gap. Every
+`<MarkField />` fills a box with whole columns and rows of cells (about 180px), stretched a little
+to fit exactly, so no mark is cropped and the edges match the gaps. Each mark's radius is 0.45 of
+its cell, so neighbouring triangles keep a small gap. Every
 diagonal runs 120ms behind the one above-left of it, so the morph rolls from the top-left corner
 to the bottom-right like a wave. One SVG and one clock for the whole field.
 
@@ -129,11 +130,11 @@ marks turning while Códice answers), and the favicon.
 
 ### Buttons
 
-| Kind      | Classes (shape)                                              | Where                  |
-| --------- | ------------------------------------------------------------ | ---------------------- |
-| Primary   | `bg-electric text-white font-bold rounded-[2px] px-3 py-1.5` | Qué es                 |
-| Secondary | `border border-line rounded-[2px] px-3 py-1.5`               | Qué es                 |
-| Compact   | same, `px-2 py-0.5 text-[12px]`; secondary adds `bg-ink`     | Floating, first screen |
+| Kind      | Classes (shape)                                                        | Where                  |
+| --------- | ---------------------------------------------------------------------- | ---------------------- |
+| Primary   | `bg-electric text-white font-bold rounded-[2px] px-3 py-1.5`           | Qué es                 |
+| Secondary | `border border-line rounded-[2px] px-3 py-1.5`                         | Qué es                 |
+| Compact   | same, 28px tall (`h-7`), `px-2.5 text-[13px]`; secondary adds `bg-ink` | Floating, first screen |
 
 Hover: primary inverts to `bg-fg text-ink`; secondary's border goes to `fg`. Sharp, small, flat.
 Primary always comes first in reading order of its group, except the floating pair, which reads

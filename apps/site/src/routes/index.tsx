@@ -76,13 +76,13 @@ function Home() {
         {/* The two actions float in the corner, over the mark. */}
         <div className={`${CELL} absolute top-0 right-0 flex gap-2`}>
           <a
-            className="rounded-[2px] border border-line bg-ink px-2 py-1.5 text-[12px] hover:border-fg"
+            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2.5 text-[13px] hover:border-fg"
             href="/login"
           >
             Entrar
           </a>
           <a
-            className="rounded-[2px] bg-electric px-2 py-1.5 text-[12px] font-bold text-white hover:bg-fg hover:text-ink"
+            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2.5 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
             href="/keys"
           >
             Obtener clave

@@ -83,19 +83,19 @@ export function Mark({
 
 const FIELD_CELL = 180; // px per mark in the field, roughly: the cells stretch to fit whole rows
 const WAVE_MS = 120; // each diagonal runs this far behind the one above-left of it
-// The radius as a share of the cell. At 0.42 a triangle is 0.89 of the cell wide, so neighbouring
-// triangles keep a gap; circles and squares sit smaller inside their cells.
-const FIELD_RADIUS = 0.42;
+// The radius as a share of the cell. At 0.45 a triangle is 0.95 of the cell wide, so neighbouring
+// triangles keep a small gap; circles and squares sit a little smaller inside their cells.
+const FIELD_RADIUS = 0.45;
 
 /**
- * A field of marks filling its box: whole rows of square cells, about 180px each, centered so
- * nothing is cropped. Every mark is on the shared clock, each diagonal a little behind the last,
+ * A field of marks filling its box: whole columns and rows of cells, about 180px each, stretched a
+ * little to fill it exactly, so nothing is cropped and the edges match the gaps. Every mark is on the shared clock, each diagonal a little behind the last,
  * so the morph rolls from the top-left corner to the bottom-right like a wave. One SVG and one
  * clock for the whole field.
  */
 export function MarkField({ className }: { className?: string }) {
   const svg = useRef<SVGSVGElement>(null);
-  const grid = useRef({ cols: 0, cell: 0, x: 0, y: 0 });
+  const grid = useRef({ cols: 0, width: 0, height: 0 });
 
   // Rebuilds the grid of paths whenever the box changes size.
   useEffect(() => {
@@ -103,10 +103,11 @@ export function MarkField({ className }: { className?: string }) {
     if (!element) return;
     const layout = () => {
       const { width, height } = element.getBoundingClientRect();
+      // Whole columns and rows that fill the box exactly; cells stretch a little to fit, so the
+      // space at the edges is the same as between marks.
       const rows = Math.max(1, Math.round(height / FIELD_CELL));
-      const cell = Math.min(height / rows, width);
-      const cols = Math.max(1, Math.floor(width / cell));
-      grid.current = { cols, cell, x: (width - cols * cell) / 2, y: (height - rows * cell) / 2 };
+      const cols = Math.max(1, Math.round(width / FIELD_CELL));
+      grid.current = { cols, width: width / cols, height: height / rows };
       element.setAttribute("viewBox", `0 0 ${width} ${height}`);
       element.replaceChildren(
         ...Array.from({ length: cols * rows }, () =>
@@ -123,14 +124,15 @@ export function MarkField({ className }: { className?: string }) {
   function draw(elapsed: number) {
     const element = svg.current;
     if (!element) return;
-    const { cols, cell, x, y } = grid.current;
+    const { cols, width, height } = grid.current;
+    const radius = Math.min(width, height) * FIELD_RADIUS;
     Array.from(element.children).forEach((path, index) => {
       const col = index % cols;
       const row = Math.floor(index / cols);
       const lag = (col + row) * WAVE_MS;
-      const cx = x + col * cell + cell / 2;
-      const cy = y + row * cell + cell / 2;
-      path.setAttribute("d", markPath(Math.max(0, elapsed - lag), cx, cy, cell * FIELD_RADIUS));
+      const cx = col * width + width / 2;
+      const cy = row * height + height / 2;
+      path.setAttribute("d", markPath(Math.max(0, elapsed - lag), cx, cy, radius));
     });
   }
 
