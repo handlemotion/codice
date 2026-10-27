@@ -99,7 +99,7 @@ Regenerate these with their tool; never hand-edit them:
 
 - Start or reuse the local Worker only with `pnpm dev:up`; it never starts a duplicate. Restart it
   with `pnpm dev:restart`, never by killing its processes. Portless serves it on
-  `https://codice.local.transitive.app` (linked worktrees add the branch slug). Setup and logs:
+  `https://codice.localhost` (linked worktrees add the branch slug). Setup and logs:
   `docs/development/local-development.md`.
 - Local Worker output is in `.openlogs/codice/latest.txt`.
 - `wrangler dev` reaches the real AI Search instance (`"remote": true`): a local search is a real,
