@@ -54,7 +54,7 @@ import { largeCatalogFiles, recordsSql } from "./records-sql";
 
 const APP = resolve(import.meta.dirname, "..");
 const SAT_MD = resolve(APP, "../../docs/sat-md");
-const ACCOUNT_ID = "2504eb0d24f17f6efbf89c1296a08389";
+const ACCOUNT_ID = "473fbe436e39d8f3d33b6bb09afd3dd7";
 const INSTANCE = "codice";
 const DATABASE = "codice";
 const PAGE_SIZE = 50;

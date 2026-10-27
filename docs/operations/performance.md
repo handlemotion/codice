@@ -1,6 +1,6 @@
 # Performance
 
-Latency of the Worker `codice`: its `/v1` routes and the `CodiceKnowledge` entrypoint that the
+Latency of the Worker `codice-api` (`codice` before the 2026-10-27 move to Handle): its `/v1` routes and the `CodiceKnowledge` entrypoint that the
 Agent binds as `CODICE`.
 
 ## Measurement, 2026-10-25

@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "codice",
-  "account_id": "2504eb0d24f17f6efbf89c1296a08389",
+  "name": "codice-api",
+  "account_id": "473fbe436e39d8f3d33b6bb09afd3dd7",
   "main": "src/index.ts",
   "minify": true,
   "compatibility_date": "2026-08-14",
@@ -29,7 +29,7 @@
     {
       "binding": "CODICE_DATABASE",
       "database_name": "codice",
-      "database_id": "c4df9b36-a98a-4963-b43f-83b2697e195b",
+      "database_id": "71e6503f-0e57-4349-b37f-53aa545d90b1",
       "migrations_dir": "migrations",
     },
   ],

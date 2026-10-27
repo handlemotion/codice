@@ -1,24 +1,36 @@
 # Doppler secrets
 
-Códice has its own Doppler project, `codice`, with the root configs `dev`, `stg` and `prd`. Each
-holds Cloudflare account tokens for the AI Search instance and the D1 database `codice`:
+Códice has its own Doppler project, `codice`, with the root configs `dev`, `stg` and `prd`. Its
+Cloudflare tokens are per project: account-owned tokens on the Handle account
+(`473fbe436e39d8f3d33b6bb09afd3dd7`) named `codice-*`, held only here and rotated without touching
+another project. Cloudflare cannot narrow Workers Scripts or D1 permissions to one script or
+database, so a per-project token still reaches the whole account; keeping one token per project
+and purpose is what limits a leak to Códice and lets it be revoked on its own.
 
-| Config | Secret                            | Cloudflare token                                                             | Permissions                 | Used by                                 |
-| ------ | --------------------------------- | ---------------------------------------------------------------------------- | --------------------------- | --------------------------------------- |
-| `dev`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search-dev`                                                       | AI Search Run, Read         | `dev`, `eval` (cannot change the index) |
-| `prd`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search`                                                           | AI Search Write (Edit), Run | `ingest`                                |
-| `prd`  | `CODICE_D1_TOKEN`                 | `codice-d1`                                                                  | D1 Edit                     | `ingest` (`wrangler d1 execute`)        |
-| `prd`  | `SENTRY_DSN`                      | –                                                                            | –                           | Worker `codice`                         |
-| `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | Transitive's scoped Worker secrets token (a copy of `transitive` `prd_sync`) | Workers Scripts Edit        | `sync-worker-secrets.yml`               |
+| Config | Secret                            | Cloudflare token (Handle) | Permissions                 | Used by                                 |
+| ------ | --------------------------------- | ------------------------- | --------------------------- | --------------------------------------- |
+| `dev`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search-dev`    | AI Search Run, Read         | `dev`, `eval` (cannot change the index) |
+| `prd`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search`        | AI Search Write (Edit), Run | `ingest`                                |
+| `prd`  | `CODICE_D1_TOKEN`                 | `codice-d1`               | D1 Edit                     | `ingest` (`wrangler d1 execute`)        |
+| `prd`  | `SENTRY_DSN`                      | –                         | –                           | Worker `codice-api`                     |
+| `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | `codice-worker-secrets`   | Workers Scripts Edit        | `sync-worker-secrets.yml`               |
+
+Until the Handle tokens are created, the values in Doppler are still the Jaantonio-scoped ones from
+before the 2026-10-27 move, and the ingestion and the sync fail with `403` against Handle.
 
 ## Worker secret sync
 
-The Worker declares one secret, `SENTRY_DSN` (`apps/api/wrangler.jsonc`, `secrets.required`).
-`.github/workflows/sync-worker-secrets.yml` pushes it from `codice` `prd` to Worker `codice` with
-`scripts/secrets/sync-worker-secrets.mjs`, limited to the declared names, so the ingestion tokens
-and the sync's own token never reach the Worker. It logs in with the corpus workflow's identity
-(below) and reads `CLOUDFLARE_WORKER_SECRETS_TOKEN` from `prd`. That token is a copy of
-`trstv/transitive`'s (`transitive` `prd_sync`): rotating it means updating both projects.
+Each Worker declares its secrets in its `wrangler.jsonc` (`secrets.required`); today only
+`codice-api` does (`SENTRY_DSN`). `.github/workflows/sync-worker-secrets.yml` runs
+`scripts/secrets/sync-worker-secrets.mjs`, which reads every `apps/*/wrangler.jsonc` and pushes to
+each Worker only the names it declares, so the ingestion tokens and the sync's own token never reach
+a Worker. A new Worker secret is a `secrets.required` entry plus the Doppler `prd` value; the
+script needs no change.
+
+The sync should sign in with its own Doppler service account, `codice-worker-secrets` (read on
+`codice` `prd` only), separate from the corpus one, so each workflow can be revoked alone. Until
+its GitHub identity exists, the workflow uses the corpus identity below; once it does, pin its ID
+in the workflow's `DOPPLER_IDENTITY_ID`.
 
 It runs daily, on demand (plan by default), and on `repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository

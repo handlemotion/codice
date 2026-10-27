@@ -21,7 +21,7 @@ import { RERANKING_THRESHOLD, searchRequest, todayInMexicoCity } from "../src/se
 import { buildCorpus } from "./corpus";
 
 const APP = resolve(import.meta.dirname, "..");
-const ACCOUNT_ID = "2504eb0d24f17f6efbf89c1296a08389";
+const ACCOUNT_ID = "473fbe436e39d8f3d33b6bb09afd3dd7";
 /** Results fetched per question: enough to see how far a miss fell. */
 const DEPTH = 10;
 const TOP = 3;
