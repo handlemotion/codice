@@ -8,13 +8,22 @@
    in cloud sessions and CI).
 4. Wrangler's Cloudflare auth for the remote AI Search binding (see "Cloudflare auth" below).
 
+## Host names
+
+Códice is served on `https://codice.localhost` (linked worktrees prepend their branch slug), on
+Portless's default `.localhost` TLD: browsers and `curl` resolve it to `127.0.0.1` with no DNS or
+purchase. The proxy is shared with Transitive's dev stack, so `dev:proxy:start` serves both
+`localhost` (first, Códice's URLs) and `transitive.app` (Transitive's). A proxy already running
+with only `transitive.app` keeps giving Códice `codice.transitive.app` names: restart it once with
+`pnpm dev:proxy:stop` and `pnpm dev:proxy:start`.
+
 ## Start, reuse, restart
 
 - `pnpm dev:up` reuses this checkout's running dev run or starts `pnpm dev` detached (log:
   `.local/dev-stack.log`), waits until `/ready` answers 200, then applies pending local D1
   migrations. It prints the dev run's pid; stop it with `kill -TERM -<pid>`.
 - `pnpm dev` runs in the foreground: it starts the portless HTTPS proxy
-  (`pnpm dev:proxy:start`, TLD `transitive.app`, the same proxy Transitive uses), then
+  (`pnpm dev:proxy:start`), then
   `@codice/api` `dev`: `openlogs` → `portless` → `doppler run -p codice -c dev` →
   `scripts/worker-dev.mjs` → `wrangler dev`. It holds a per-checkout lock, so a second run never
   starts beside it.
@@ -38,7 +47,7 @@ In a Conductor workspace (`CONDUCTOR_PORT`), Códice gets port `CONDUCTOR_PORT +
 
 ## Códice
 
-`pnpm dev` starts Códice (`apps/api`) on `https://codice.local.transitive.app` under Doppler
+`pnpm dev` starts Códice (`apps/api`) on `https://codice.localhost` under Doppler
 `codice` `dev`. Its D1 is local; its AI Search binding `CODICE_SEARCH` is `"remote": true`, so
 every local search is a real, billed query to the instance `codice`.
 
@@ -55,18 +64,15 @@ every local search is a real, billed query to the instance `codice`.
   session; it is for `eval` only.
 - **`SENTRY_DSN`**: `secrets.required` does not block `wrangler dev`, and Sentry stays off without
   `SENTRY_RELEASE`, so no placeholder is needed.
-- **Running beside Transitive**: Transitive's `pnpm dev` also serves Códice on
-  `codice.local.transitive.app` until cutover. Run one of the two at a time on a machine, or use a
-  linked worktree (its own branch-slug host).
 
 Check it with real calls:
 
 ```sh
-curl https://codice.local.transitive.app/ready
-curl 'https://codice.local.transitive.app/v1/search?q=CFDI40149'
-curl https://codice.local.transitive.app/v1/errors/CFDI40149
-curl https://codice.local.transitive.app/v1/catalogs/c_UsoCFDI/S01
-curl https://codice.local.transitive.app/mcp \
+curl https://codice.localhost/ready
+curl 'https://codice.localhost/v1/search?q=CFDI40149'
+curl https://codice.localhost/v1/errors/CFDI40149
+curl https://codice.localhost/v1/catalogs/c_UsoCFDI/S01
+curl https://codice.localhost/mcp \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search","arguments":{"q":"CFDI40149"}}}'
 ```
@@ -76,5 +82,5 @@ curl https://codice.local.transitive.app/mcp \
 - **`Exec format error (os error 8)` from turbo**: pnpm self-installed its `packageManager`
   version without its native binary. `bash scripts/ensure-pnpm-native.sh` puts it in place (the
   cloud SessionStart hook runs it).
-- **A proxy answers `502` for `*.local.transitive.app`**: exempt the host from the egress proxy
-  (`NO_PROXY=.local.transitive.app`, or `curl --noproxy '*'`).
+- **A proxy answers `502` for `*.localhost`**: exempt the host from the egress proxy
+  (`NO_PROXY=.localhost`, or `curl --noproxy '*'`).

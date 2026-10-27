@@ -26,7 +26,7 @@ the behavior changes.
   `CODICE_PUBLIC_RATE_LIMITER`.
 - `wrangler dev` reaches the real AI Search instance (`"remote": true`): a local search is a real,
   billed query. Tests use a local binding and never prove retrieval.
-- Local run: `pnpm dev:up` starts Códice on `https://codice.local.transitive.app`, applies the local
+- Local run: `pnpm dev:up` starts Códice on `https://codice.localhost`, applies the local
   D1 migrations and seeds the records with `ingest --local` when the local D1 is empty;
   `pnpm dev:restart` restarts it. The remote binding needs Wrangler's Cloudflare auth
   (`wrangler login`, or `CLOUDFLARE_API_TOKEN` with Workers Scripts: Edit), not the read-only

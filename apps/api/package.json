@@ -5,7 +5,7 @@
   "scripts": {
     "build": "wrangler deploy --dry-run",
     "check-types": "tsc -b --pretty false && tsc -p scripts/tsconfig.json --pretty false",
-    "dev": "PORTLESS_LAN=0 PORTLESS_TLD=transitive.app openlogs --out-dir ../../.openlogs/codice --name codice -- node ../../scripts/portless-run.mjs",
+    "dev": "PORTLESS_LAN=0 PORTLESS_TLD=localhost,transitive.app openlogs --out-dir ../../.openlogs/codice --name codice -- node ../../scripts/portless-run.mjs",
     "dev:app": "doppler run -p codice -c dev -- node ../../scripts/worker-dev.mjs",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "db:generate": "drizzle-kit generate",
@@ -38,7 +38,7 @@
     "wrangler": "^4.129.1"
   },
   "portless": {
-    "name": "codice.local",
+    "name": "codice",
     "script": "dev:app"
   }
 }
