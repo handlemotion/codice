@@ -52,6 +52,9 @@ function Code({ children }: { children: ReactNode }) {
   );
 }
 
+// MCP clients that connect to https://codice.io/mcp; names only, no logos.
+const ASSISTANTS = ["Claude", "ChatGPT", "Cursor", "VS Code", "Windsurf"] as const;
+
 const FOOTER_LINKS = [
   ["Preguntar", "#preguntar"],
   ["Qué es", "#que-es"],
@@ -71,7 +74,7 @@ function Home() {
           the whole right side is for asking it, the box sitting at the foot of the column. */}
       {/* The first screen is only the chat, centered and nudged above the middle, over the three
           field of marks rolling corner to corner like a wave. */}
-      <header className="relative flex min-h-[95vh] flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-[18vh]">
+      <header className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden px-4 pt-16 pb-[14vh]">
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
         {/* The two actions float in the corner, over the mark. */}
         <div className={`${CELL} absolute top-0 right-0 flex gap-2`}>
@@ -92,6 +95,19 @@ function Home() {
           <Ask />
         </div>
       </header>
+
+      {/* The assistants Códice works with, by name: one strip, spread across the width. */}
+      <section
+        aria-label="Funciona con"
+        className={`${CELL} flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-t border-line text-muted`}
+      >
+        <span>Funciona con</span>
+        {ASSISTANTS.map((name) => (
+          <span className="font-bold" key={name}>
+            {name}
+          </span>
+        ))}
+      </section>
 
       <main className="relative">
         <Section id="que-es" title="Qué es">

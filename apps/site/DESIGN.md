@@ -102,10 +102,17 @@ marks turning while Códice answers), and the favicon.
 
 ### First screen: the chat, alone
 
-- `min-h-[95vh]`, content centered and nudged up (`pb-[18vh]`) so the chat sits above the middle.
+- `min-h-[85vh]`, content centered and nudged up (`pb-[14vh]`) so the chat sits above the middle.
 - The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
   over the wave field. No brand mark, no nav bar, no section label, no dividers.
 - A small compact pair of buttons floats top-right (Entrar outlined, Obtener clave electric).
+
+### The "Funciona con" strip
+
+Right under the hero, one row across the full width: "Funciona con" in `muted`, then the MCP
+clients that connect to Códice (Claude, ChatGPT, Cursor, VS Code, Windsurf) as bold text names,
+spread evenly. Names only, never their logos: logos need each brand's permission and would add
+a second visual language.
 
 ### Below: the ruled sheet
 
