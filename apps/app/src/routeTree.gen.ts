@@ -13,6 +13,7 @@ import { Route as DashboardRouteImport } from "./routes/_dashboard";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as DashboardIndexRouteImport } from "./routes/_dashboard/index";
 import { Route as DashboardAccountRouteImport } from "./routes/_dashboard/account";
+import { Route as DashboardClientsRouteImport } from "./routes/_dashboard/clients";
 import { Route as DashboardKeysRouteImport } from "./routes/_dashboard/keys";
 import { Route as ApiChatRouteImport } from "./routes/api/chat";
 import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
@@ -36,6 +37,11 @@ const DashboardAccountRoute = DashboardAccountRouteImport.update({
   path: "/account",
   getParentRoute: () => DashboardRoute,
 } as any);
+const DashboardClientsRoute = DashboardClientsRouteImport.update({
+  id: "/clients",
+  path: "/clients",
+  getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardKeysRoute = DashboardKeysRouteImport.update({
   id: "/keys",
   path: "/keys",
@@ -56,6 +62,7 @@ export interface FileRoutesByFullPath {
   "/": typeof DashboardIndexRoute;
   "/login": typeof LoginRoute;
   "/account": typeof DashboardAccountRoute;
+  "/clients": typeof DashboardClientsRoute;
   "/keys": typeof DashboardKeysRoute;
   "/api/chat": typeof ApiChatRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/login": typeof LoginRoute;
   "/account": typeof DashboardAccountRoute;
+  "/clients": typeof DashboardClientsRoute;
   "/keys": typeof DashboardKeysRoute;
   "/api/chat": typeof ApiChatRoute;
   "/": typeof DashboardIndexRoute;
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   "/_dashboard": typeof DashboardRouteWithChildren;
   "/login": typeof LoginRoute;
   "/_dashboard/account": typeof DashboardAccountRoute;
+  "/_dashboard/clients": typeof DashboardClientsRoute;
   "/_dashboard/keys": typeof DashboardKeysRoute;
   "/api/chat": typeof ApiChatRoute;
   "/_dashboard/": typeof DashboardIndexRoute;
@@ -80,14 +89,15 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/login" | "/account" | "/keys" | "/api/chat" | "/api/auth/$";
+  fullPaths: "/" | "/login" | "/account" | "/clients" | "/keys" | "/api/chat" | "/api/auth/$";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/login" | "/account" | "/keys" | "/api/chat" | "/" | "/api/auth/$";
+  to: "/login" | "/account" | "/clients" | "/keys" | "/api/chat" | "/" | "/api/auth/$";
   id:
     | "__root__"
     | "/_dashboard"
     | "/login"
     | "/_dashboard/account"
+    | "/_dashboard/clients"
     | "/_dashboard/keys"
     | "/api/chat"
     | "/_dashboard/"
@@ -131,6 +141,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof DashboardAccountRouteImport;
       parentRoute: typeof DashboardRoute;
     };
+    "/_dashboard/clients": {
+      id: "/_dashboard/clients";
+      path: "/clients";
+      fullPath: "/clients";
+      preLoaderRoute: typeof DashboardClientsRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
     "/_dashboard/keys": {
       id: "/_dashboard/keys";
       path: "/keys";
@@ -157,12 +174,14 @@ declare module "@tanstack/react-router" {
 
 interface DashboardRouteChildren {
   DashboardAccountRoute: typeof DashboardAccountRoute;
+  DashboardClientsRoute: typeof DashboardClientsRoute;
   DashboardKeysRoute: typeof DashboardKeysRoute;
   DashboardIndexRoute: typeof DashboardIndexRoute;
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAccountRoute: DashboardAccountRoute,
+  DashboardClientsRoute: DashboardClientsRoute,
   DashboardKeysRoute: DashboardKeysRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 };

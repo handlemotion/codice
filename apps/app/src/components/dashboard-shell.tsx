@@ -3,6 +3,7 @@ import {
   IconBubble2,
   IconContrast,
   IconKey2,
+  IconPlugin1,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, getRouteApi, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ComponentType, type ReactNode } from "react";
@@ -13,16 +14,17 @@ import { Key } from "./ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type Destination = { label: string; key: string } & (
-  | { to: "/" | "/keys" | "/account"; icon?: ComponentType<{ size?: number }> }
+  | { to: "/" | "/keys" | "/clients" | "/account"; icon?: ComponentType<{ size?: number }> }
   | { href: string; icon: ComponentType<{ size?: number }> }
 );
 
 // The rail's places, in order, each on its number key. The account is the avatar, last.
 const CHAT: Destination = { to: "/", label: "Chat", key: "1", icon: IconBubble2 };
 const KEYS: Destination = { to: "/keys", label: "Claves", key: "2", icon: IconKey2 };
-const DOCS: Destination = { href: "/docs", label: "Documentación", key: "3", icon: IconBook };
-const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "4" };
-const PLACES = [CHAT, KEYS, DOCS, ACCOUNT];
+const CLIENTS: Destination = { to: "/clients", label: "Clientes", key: "3", icon: IconPlugin1 };
+const DOCS: Destination = { href: "/docs", label: "Documentación", key: "4", icon: IconBook };
+const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "5" };
+const PLACES = [CHAT, KEYS, CLIENTS, DOCS, ACCOUNT];
 
 const dashboardRoute = getRouteApi("/_dashboard");
 

@@ -1,11 +1,17 @@
-import {
-  IconCheckmark1Small,
-  IconSquareBehindSquare1,
-} from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
-import { FIELD, GHOST, PRIMARY, Page, SECONDARY, Section } from "../../components/ui";
+import {
+  Copyable,
+  dateFormat,
+  FIELD,
+  GHOST,
+  ORIGIN,
+  PRIMARY,
+  Page,
+  SECONDARY,
+  Section,
+} from "../../components/ui";
 import { createKey, listKeys, revokeKey } from "../../server/functions";
 
 export const Route = createFileRoute("/_dashboard/keys")({
@@ -17,34 +23,7 @@ export const Route = createFileRoute("/_dashboard/keys")({
   component: Keys,
 });
 
-/** Where the public API answers, as the docs give it. */
-const ORIGIN = "https://codice.io";
-
-const dateFormat = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" });
 const FAILED = "No se pudo completar. Intenta de nuevo.";
-
-/** Something to copy: the value in the mono, in a well, with its copy button. */
-function Copyable({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[2px] border border-edge bg-ink py-1 pr-1 pl-2.5">
-      <code className="min-w-0 flex-1 font-mono text-[12px] break-all">{value}</code>
-      <button
-        aria-label={copied ? "Copiado" : `Copiar ${label}`}
-        className="grid size-7 shrink-0 place-items-center text-muted hover:text-fg"
-        onClick={() => void copy()}
-        type="button"
-      >
-        {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
-      </button>
-    </div>
-  );
-}
 
 function Keys() {
   const { team, keys } = Route.useLoaderData();

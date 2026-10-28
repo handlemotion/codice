@@ -5,7 +5,8 @@ see their usage and manage their API keys. The root `AGENTS.md` applies here. It
 target of `apps/edge`: every path that is not the API's, the site's `/` or `/_site/*` reaches it.
 
 - Read `DESIGN.md` before changing anything visible; it extends `apps/site/DESIGN.md`.
-- Pages: the chat (`/`), the team's keys (`/keys`) and the account (`/account`), under a left rail
+- Pages: the chat (`/`), the team's keys (`/keys`), its MCP clients (`/clients`, stubbed until
+  MCP OAuth lands) and the account (`/account`), under a left rail
   (`src/components/dashboard-shell.tsx`).
 - Never use `/v1`, `/mcp`, `/health`, `/ready` or `/_site/*`: the edge sends them elsewhere.
 - The session cookie is `__Secure-codice-session` (`apps/edge/src/route.ts`); with it, `/` is the
