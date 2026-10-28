@@ -60,6 +60,9 @@ function toolError(cause: unknown) {
   throw cause;
 }
 
+/** The chat quotes the passages it finds, so its search stays full (SPEC.md, "Chat"). */
+const ChatSearchArguments = SearchArguments.omit({ format: true });
+
 /** Each tool calls the `/v1` handler; a refusal goes back to the model as data, not a failure. */
 function chatTools(env: CodiceBindings) {
   const run =
@@ -76,8 +79,8 @@ function chatTools(env: CodiceBindings) {
       name: "search",
       description:
         "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF (catalog keys are not searched: use lookup_catalog). Returns passages quoted verbatim, each with its passage id, heading, source title and URL, validity dates and relevance score.",
-      inputSchema: SearchArguments,
-    }).server(run((args: z.output<typeof SearchArguments>) => search(env, args))),
+      inputSchema: ChatSearchArguments,
+    }).server(run((args: z.output<typeof ChatSearchArguments>) => search(env, args))),
     toolDefinition({
       name: "read_passage",
       description: "Read one passage in full, verbatim, by the passage id a search result gives.",

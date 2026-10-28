@@ -9,6 +9,7 @@ import {
   corpusVersion,
   errorCode,
   passageChanges,
+  passageHeadings,
   passageRow,
   recordsDatabase,
   sourcesById,
@@ -16,10 +17,13 @@ import {
   validity,
 } from "./records";
 import {
+  briefResult,
   parseAsOf,
   PASSAGE_KINDS,
   SEARCH_LIMIT_DEFAULT,
+  SEARCH_FORMATS,
   SEARCH_LIMIT_MAX,
+  type SearchFormat,
   searchRequest,
   searchResults,
   todayInMexicoCity,
@@ -48,6 +52,8 @@ export type SearchParameters = {
   readonly source?: string | undefined;
   readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
+  /** `full` (the default) or `brief`. */
+  readonly format?: string | undefined;
 };
 
 const QUERY_MAX = 1000;
@@ -83,13 +89,24 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   return { q, asOf, source, kind, limit };
 }
 
+/** The result format, `full` when absent. It shapes the answer only, never the search. */
+export function searchFormat(value: string | undefined): SearchFormat {
+  const format = value?.trim() || "full";
+  if (!(SEARCH_FORMATS as readonly string[]).includes(format)) {
+    throw invalid(`\`format\` is one of ${SEARCH_FORMATS.join(", ")}.`);
+  }
+  return format as SearchFormat;
+}
+
 /**
  * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
  * each result's source as it read that day. A search asked before on the same corpus answers from
- * the cache (`search-cache.ts`); the provenance is read each time.
+ * the cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
+ * heading path and an excerpt after the cache, so both formats share one entry.
  */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
   const input = searchInput(parameters);
+  const format = searchFormat(parameters.format);
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
   const instance = env.CODICE_SEARCH;
   const db = recordsDatabase(env);
@@ -106,6 +123,25 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     }
   });
   const results = searchResults(chunks);
+  const query = {
+    query: input.q,
+    asOf: isoDate(input.asOf),
+    source: input.source ?? null,
+    kind: input.kind ?? null,
+  };
+  if (format === "brief") {
+    const headings = await passageHeadings(
+      db,
+      results.map((result) => result.passageId),
+    );
+    return {
+      ...query,
+      format,
+      results: results.map((result) =>
+        briefResult(result, input.q, headings.get(result.passageId) ?? null),
+      ),
+    };
+  }
   // The version of each source in force on `asOf`, the one a superseded passage was read from.
   const provenance = await sourcesOn(
     db,
@@ -113,10 +149,8 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     input.asOf,
   );
   return {
-    query: input.q,
-    asOf: isoDate(input.asOf),
-    source: input.source ?? null,
-    kind: input.kind ?? null,
+    ...query,
+    format,
     results: results.map((result) => {
       const source = provenance.get(result.source);
       return {

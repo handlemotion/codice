@@ -11,13 +11,19 @@ import {
   readPassage,
   search,
 } from "./handlers";
-import { PASSAGE_KINDS, SEARCH_LIMIT_DEFAULT, SEARCH_LIMIT_MAX } from "./search";
+import {
+  EXCERPT_LENGTH,
+  PASSAGE_KINDS,
+  SEARCH_FORMATS,
+  SEARCH_LIMIT_DEFAULT,
+  SEARCH_LIMIT_MAX,
+} from "./search";
 
 export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla, and the law they rest on: the Código Fiscal de la Federación (CFF), one passage an article, as the Cámara de Diputados publishes it; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla, and the law they rest on: the Código Fiscal de la Federación (CFF), one passage an article, as the Cámara de Diputados publishes it; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages, each as its heading path and a verbatim excerpt (whole when `truncated` is false on both sides); `read_passage` returns one in full, with its source, by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates.";
 
 export const SearchArguments = z.object({
   q: z
@@ -51,6 +57,23 @@ export const SearchArguments = z.object({
     .max(SEARCH_LIMIT_MAX)
     .optional()
     .describe(`How many passages to return; ${SEARCH_LIMIT_DEFAULT} by default.`),
+  format: z
+    .enum(SEARCH_FORMATS)
+    .optional()
+    .describe(
+      `\`full\` (the default) quotes each passage's matched text; \`brief\` gives its heading path and an excerpt of at most ${EXCERPT_LENGTH} characters around the question's words, cut from the text verbatim, for \`/v1/passages/{id}\` to read the one that answers.`,
+    ),
+});
+
+/**
+ * MCP's `search` is brief by default: an agent reads the headings and excerpts, then `read_passage`
+ * for a cut one it quotes, instead of holding every full passage in its context (SPEC.md, "MCP
+ * surface").
+ */
+export const McpSearchArguments = SearchArguments.extend({
+  format: SearchArguments.shape.format.describe(
+    `\`brief\` (the default) gives each passage's heading path and an excerpt of at most ${EXCERPT_LENGTH} characters around the question's words, cut from the text verbatim. \`full\` quotes each passage's whole matched text, with its source.`,
+  ),
 });
 
 export const ReadPassageArguments = z.object({
@@ -165,10 +188,10 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Search SAT rules",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF. Catalog keys are not searched; use `lookup_catalog`. Returns passages quoted verbatim, each with its passage id, source URL, validity dates and relevance score.",
-      inputSchema: SearchArguments,
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF. Catalog keys are not searched; use `lookup_catalog`. Returns the best passages, each with its passage id, heading path, an excerpt cut verbatim from its text, validity dates and relevance score. An excerpt with `truncated.before` and `truncated.after` false is the whole passage; otherwise read the one that answers with `read_passage` before quoting it, or quote the excerpt with an ellipsis (…) where it is cut. `format: full` returns each passage's whole matched text and source instead.",
+      inputSchema: McpSearchArguments,
     },
-    (args) => search(env, args),
+    (args) => search(env, { ...args, format: args.format ?? "brief" }),
   );
   registerTool(
     server,

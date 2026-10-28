@@ -36,6 +36,11 @@ export type CodiceSearchParameters = {
   /** A passage kind, such as `guia` for the filling guides' definitions. */
   readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
+  /**
+   * `full` (the default) quotes each passage's matched text; `brief` gives its heading path and an
+   * excerpt, for `readPassage` to read the one that answers.
+   */
+  readonly format?: "full" | "brief" | undefined;
 };
 
 export type CodiceSearchResult = {
@@ -64,7 +69,28 @@ export type CodiceSearch = {
   readonly asOf: string;
   readonly source: string | null;
   readonly kind: string | null;
+  readonly format: "full";
   readonly results: readonly CodiceSearchResult[];
+};
+
+/** A `brief` search result: where the passage is, and an excerpt of what matched. */
+export type CodiceBriefSearchResult = {
+  readonly passageId: string;
+  /** Its heading path, such as `Anexo 20 › Nodo: Receptor › UsoCFDI`; null if D1 lacks the row. */
+  readonly heading: string | null;
+  /** An exact substring of the matched text, around the question's words; never rewritten. */
+  readonly excerpt: string;
+  /** Whether the matched text continues before or after the excerpt. */
+  readonly truncated: { readonly before: boolean; readonly after: boolean };
+  readonly kind: string | null;
+  readonly validFrom: string | null;
+  readonly validUntil: string | null;
+  readonly score: number;
+};
+
+export type CodiceBriefSearch = Omit<CodiceSearch, "format" | "results"> & {
+  readonly format: "brief";
+  readonly results: readonly CodiceBriefSearchResult[];
 };
 
 export type CodicePassage = {
@@ -122,7 +148,13 @@ export type CodiceCatalog = {
 };
 
 export interface CodiceKnowledgeService {
-  search(parameters: CodiceSearchParameters): Promise<CodiceResult<CodiceSearch>>;
+  search(
+    parameters: CodiceSearchParameters & { readonly format: "brief" },
+  ): Promise<CodiceResult<CodiceBriefSearch>>;
+  // Last, so a type that maps the methods (RPC's) keeps the default's answer.
+  search(
+    parameters: CodiceSearchParameters & { readonly format?: "full" | undefined },
+  ): Promise<CodiceResult<CodiceSearch>>;
   readPassage(id: string): Promise<CodiceResult<CodicePassage>>;
   lookupError(code: string): Promise<CodiceResult<CodiceErrorCode>>;
   lookupCatalog(name: string, key: string): Promise<CodiceResult<CodiceCatalogEntry>>;
