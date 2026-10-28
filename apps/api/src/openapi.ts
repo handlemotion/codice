@@ -1,8 +1,9 @@
 import { z } from "zod";
 
+import { SEARCH_SOURCES_MAX } from "./handlers";
 import {
-  LookupCatalogArguments,
-  LookupErrorArguments,
+  CatalogLookupArgument,
+  ErrorCodeArgument,
   MCP_SERVER_VERSION,
   ReadPassageArguments,
   SearchArguments,
@@ -56,7 +57,7 @@ const SearchResult = z.object({
 const Search = z.object({
   query: z.string(),
   asOf: z.string(),
-  source: z.string().nullable(),
+  source: z.array(z.string()).nullable().describe("The sources asked for, sorted; null for all."),
   kind: z.string().nullable(),
   results: z.array(SearchResult),
 });
@@ -177,6 +178,25 @@ function parametersOf(schema: z.ZodObject, where: "query" | "path", only?: strin
     }));
 }
 
+/**
+ * `/v1/search`'s query parameters: the MCP tool's, with `source` as the repeated parameter the
+ * route reads (`?source=a&source=b`) instead of the tool's one id or list.
+ */
+function searchParameters() {
+  return parametersOf(SearchArguments, "query").map((parameter) =>
+    parameter.name === "source"
+      ? {
+          ...parameter,
+          description:
+            "Only these sources: repeat it for several (`?source=anexo-20-guia-de-llenado&source=matriz-de-errores-cfdi-40`). The ids are `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` and `rmf-2026`.",
+          schema: { type: "array", items: { type: "string" }, maxItems: SEARCH_SOURCES_MAX },
+          style: "form",
+          explode: true,
+        }
+      : parameter,
+  );
+}
+
 export function openApiDocument() {
   return {
     openapi: "3.1.0",
@@ -200,7 +220,7 @@ export function openApiDocument() {
           summary: "Buscar reglas",
           description:
             "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source.",
-          parameters: parametersOf(SearchArguments, "query"),
+          parameters: searchParameters(),
           responses: {
             200: success(Search, "The matching passages, best first."),
             ...problems(400, 502),
@@ -224,7 +244,7 @@ export function openApiDocument() {
           tags: ["Registros"],
           summary: "Consultar un código de error",
           description: "A row of the SAT's CFDI 4.0 validation matrix, verbatim, with its source.",
-          parameters: parametersOf(LookupErrorArguments, "path"),
+          parameters: parametersOf(ErrorCodeArgument, "path"),
           responses: { 200: success(ErrorCode, "The matrix row."), ...problems(404) },
         },
       },
@@ -234,7 +254,7 @@ export function openApiDocument() {
           tags: ["Registros"],
           summary: "Listar un catálogo",
           description: "A SAT catalog in the SAT's order, at most 500 entries.",
-          parameters: parametersOf(LookupCatalogArguments, "path", ["name"]),
+          parameters: parametersOf(CatalogLookupArgument, "path", ["name"]),
           responses: { 200: success(Catalog, "The catalog."), ...problems(404) },
         },
       },
@@ -245,7 +265,7 @@ export function openApiDocument() {
           summary: "Consultar una clave de catálogo",
           description:
             "Every entry of a key in a SAT catalog. Any other query parameter filters by a column, named as in the SAT's catalog (`?c_CodigoPostal=01000`).",
-          parameters: parametersOf(LookupCatalogArguments, "path", ["name", "key"]),
+          parameters: parametersOf(CatalogLookupArgument, "path", ["name", "key"]),
           responses: { 200: success(CatalogEntry, "The key's entries."), ...problems(400, 404) },
         },
       },

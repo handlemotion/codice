@@ -421,6 +421,27 @@ describe("usage", () => {
     });
   });
 
+  it("reports a batch lookup as one call of its tool", async () => {
+    const { accounts, events } = recordingAccounts();
+    await call("/mcp", accounts, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer at_test_usagebatch",
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "lookup_error", arguments: { codes: ["CFDI40149", "CFDI40147"] } },
+      }),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ surface: "mcp", operation: "lookup_error" });
+  });
+
   it("leaves out MCP bookkeeping and refused credentials", async () => {
     const { accounts, events } = recordingAccounts();
     await call("/mcp", accounts, {

@@ -266,6 +266,33 @@ describe("GET /v1/search", () => {
     ]);
   });
 
+  it("filters on several sources' folders with `$in`, in any order", async () => {
+    const calls: SearchCall[] = [];
+    const response = await request(
+      "/v1/search?q=RFC%20gen%C3%A9rico&asOf=2026-06-01&source=matriz-de-errores-cfdi-40&source=anexo-20-guia-de-llenado&source=matriz-de-errores-cfdi-40",
+      fakeSearch([CHUNK], calls),
+    );
+
+    expect(response.status).toBe(200);
+    expect(calls[0]?.ai_search_options?.retrieval?.filters).toEqual({
+      valid_from: { $lte: 20260601 },
+      valid_until: { $gte: 20260601 },
+      folder: { $in: ["anexo-20-guia-de-llenado/", "matriz-de-errores-cfdi-40/"] },
+    });
+    expect(await response.json()).toMatchObject({
+      data: { source: ["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"] },
+    });
+  });
+
+  it("echoes one source as a list", async () => {
+    const response = await request(
+      "/v1/search?q=uno&asOf=2026-06-01&source=rmf-2026",
+      fakeSearch([CHUNK]),
+    );
+
+    expect(await response.json()).toMatchObject({ data: { source: ["rmf-2026"] } });
+  });
+
   it("filters on a passage kind", async () => {
     const calls: SearchCall[] = [];
     const response = await request(
@@ -319,6 +346,11 @@ describe("GET /v1/search", () => {
     ["/v1/search?q=x&asOf=2026-02-30", "`asOf` must be a date as YYYY-MM-DD."],
     ["/v1/search?q=x&limit=100", "`limit` must be a whole number from 1 to 50."],
     ["/v1/search?q=x&kind=nota", "`kind` is one of ley, reglamento, regla, anexo, guia, criterio."],
+    ["/v1/search?q=x&source=rmf-2026&source=RMF%202026", "`RMF 2026` is not a source id."],
+    [
+      `/v1/search?q=x&${Array.from({ length: 11 }, (_, index) => `source=s${index}`).join("&")}`,
+      "`source` takes at most 10 source ids.",
+    ],
   ])("refuses %s", async (path, detail) => {
     const response = await request(path);
 
@@ -388,12 +420,30 @@ describe("search cache", () => {
     ["asOf", "/v1/search?q=key%20cache&asOf=2026-06-02"],
     ["limit", "/v1/search?q=key%20cache&asOf=2026-06-01&limit=3"],
     ["source", "/v1/search?q=key%20cache&asOf=2026-06-01&source=matriz-de-errores-cfdi-40"],
+    [
+      "set of sources",
+      "/v1/search?q=key%20cache&asOf=2026-06-01&source=matriz-de-errores-cfdi-40&source=rmf-2026",
+    ],
     ["kind", "/v1/search?q=key%20cache&asOf=2026-06-01&kind=anexo"],
     ["question", "/v1/search?q=Key%20cache&asOf=2026-06-01"],
   ])("misses for another %s", async (_, path) => {
     await cachedRequest("/v1/search?q=key%20cache&asOf=2026-06-01", fakeSearch([CHUNK]));
     const calls: SearchCall[] = [];
     await cachedRequest(path, fakeSearch([CHUNK], calls));
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it("hits for the same sources asked in another order", async () => {
+    const calls: SearchCall[] = [];
+    await cachedRequest(
+      "/v1/search?q=order%20cache&asOf=2026-06-01&source=rmf-2026&source=anexo-20-guia-de-llenado",
+      fakeSearch([CHUNK], calls),
+    );
+    await cachedRequest(
+      "/v1/search?q=order%20cache&asOf=2026-06-01&source=anexo-20-guia-de-llenado&source=rmf-2026",
+      fakeSearch([CHUNK], calls),
+    );
 
     expect(calls).toHaveLength(1);
   });
@@ -951,6 +1001,29 @@ describe("CodiceKnowledge", () => {
     });
   });
 
+  it("takes one source id or several", async () => {
+    const calls: SearchCall[] = [];
+    const service = new CodiceKnowledge(
+      {} as ExecutionContext,
+      { ...bindings, CODICE_SEARCH: fakeSearch([CHUNK], calls) } as never,
+    );
+
+    expect(
+      await service.search({
+        q: "rpc sources",
+        asOf: "2026-06-01",
+        source: ["rmf-2026", "matriz-de-errores-cfdi-40"],
+      }),
+    ).toMatchObject({ ok: true, data: { source: ["matriz-de-errores-cfdi-40", "rmf-2026"] } });
+    expect(
+      await service.search({ q: "rpc sources", asOf: "2026-06-01", source: "rmf-2026" }),
+    ).toMatchObject({ ok: true, data: { source: ["rmf-2026"] } });
+    expect(calls.map((call) => call.ai_search_options?.retrieval?.filters?.["folder"])).toEqual([
+      { $in: ["matriz-de-errores-cfdi-40/", "rmf-2026/"] },
+      "rmf-2026/",
+    ]);
+  });
+
   it("returns a refusal as its problem", async () => {
     expect(await knowledge().lookupCatalog("c_UsoCFDI", "Z99")).toEqual({
       ok: false,
@@ -1028,44 +1101,67 @@ describe("/mcp", () => {
     expect(calls[0]).toEqual(["list", { key: PASSAGE_ID, per_page: 1 }]);
   });
 
-  it("looks up an error code and a catalog entry", async () => {
-    expect(await json(await call("lookup_error", { code: "cfdi40149" }))).toMatchObject({
-      result: { structuredContent: { code: "CFDI40149", node: "cfdi:Receptor" } },
-    });
-    expect(await json(await call("lookup_catalog", { name: "UsoCFDI", key: "s01" }))).toMatchObject(
-      {
-        result: { structuredContent: { catalog: "c_UsoCFDI", key: "S01" } },
+  it("looks up several error codes in one call, in the order asked", async () => {
+    expect(
+      await json(await call("lookup_error", { codes: ["cfdi40149", "CFDI49999", "CFDI40149"] })),
+    ).toMatchObject({
+      result: {
+        structuredContent: {
+          results: [
+            { code: "cfdi40149", data: { code: "CFDI40149", node: "cfdi:Receptor" } },
+            {
+              code: "CFDI49999",
+              error: { code: "error_code_not_found", message: "Error code not found", status: 404 },
+            },
+            { code: "CFDI40149", data: { code: "CFDI40149", passageId: PASSAGE_ID } },
+          ],
+        },
       },
-    );
+    });
   });
 
-  it("narrows a catalog key with `where`, through the same handler", async () => {
+  it("looks up several catalog keys in one call, each with its own `where`", async () => {
     const response = await call("lookup_catalog", {
-      name: "c_Colonia",
-      key: "0001",
-      where: { c_CodigoPostal: "01000" },
+      lookups: [
+        { name: "UsoCFDI", key: "s01" },
+        { name: "c_Colonia", key: "0001", where: { c_CodigoPostal: "01000" } },
+        { name: "c_UsoCFDI", key: "Z99" },
+        { name: "c_Colonia", key: "0001", where: { c_Estado: "CMX" } },
+      ],
     });
 
     const body = (await json(response)) as {
-      result: { structuredContent: { entries: { fields: Record<string, string> }[] } };
-    };
-    expect(
-      body.result.structuredContent.entries.map((entry) => entry.fields.c_CodigoPostal),
-    ).toEqual(["01000"]);
-    expect(
-      await json(
-        await call("lookup_catalog", {
-          name: "c_Colonia",
-          key: "0001",
-          where: { c_Estado: "CMX" },
-        }),
-      ),
-    ).toMatchObject({
       result: {
-        isError: true,
-        structuredContent: { error: { code: "invalid_request", status: 400 } },
-      },
+        isError?: boolean;
+        structuredContent: {
+          results: (Record<string, unknown> & {
+            data?: { entries: { fields: Record<string, string> }[] };
+          })[];
+        };
+      };
+    };
+    expect(body.result.isError).toBeUndefined();
+    const [usoCfdi, colonia, unknown, badColumn] = body.result.structuredContent.results;
+    expect(usoCfdi).toMatchObject({ name: "UsoCFDI", key: "s01", data: { catalog: "c_UsoCFDI" } });
+    expect(colonia?.["where"]).toEqual({ c_CodigoPostal: "01000" });
+    expect(colonia?.data?.entries.map((entry) => entry.fields["c_CodigoPostal"])).toEqual([
+      "01000",
+    ]);
+    expect(unknown).toMatchObject({
+      key: "Z99",
+      error: { code: "catalog_entry_not_found", status: 404 },
     });
+    expect(badColumn).toMatchObject({ error: { code: "invalid_request", status: 400 } });
+  });
+
+  it.each([
+    ["lookup_error", { codes: [] }],
+    ["lookup_error", { codes: Array.from({ length: 26 }, () => "CFDI40149") }],
+    ["lookup_error", { code: "CFDI40149" }],
+    ["lookup_catalog", { lookups: [] }],
+    ["lookup_catalog", { name: "c_UsoCFDI", key: "S01" }],
+  ])("refuses %s with %j", async (name, args) => {
+    expect(await json(await call(name, args))).toMatchObject({ result: { isError: true } });
   });
 
   it("lists the sources", async () => {
@@ -1083,10 +1179,10 @@ describe("/mcp", () => {
   });
 
   it("answers a refusal as a tool error with its code", async () => {
-    expect(await json(await call("lookup_error", { code: "CFDI49999" }))).toMatchObject({
+    expect(await json(await call("read_passage", { id: "not a passage" }))).toMatchObject({
       result: {
         isError: true,
-        structuredContent: { error: { code: "error_code_not_found", status: 404 } },
+        structuredContent: { error: { code: "invalid_request", status: 400 } },
       },
     });
   });
@@ -1098,7 +1194,15 @@ describe("/mcp", () => {
         jsonrpc: "2.0",
         id: 2,
         method: "tools/call",
-        params: { name: "search", arguments: { q: "CFDI40149", asOf: "2026-06-01", limit: 2 } },
+        params: {
+          name: "search",
+          arguments: {
+            q: "CFDI40149",
+            asOf: "2026-06-01",
+            limit: 2,
+            source: ["matriz-de-errores-cfdi-40", "anexo-20-guia-de-llenado"],
+          },
+        },
       },
       fakeSearch([CHUNK], calls),
     );
@@ -1113,7 +1217,11 @@ describe("/mcp", () => {
       },
     });
     expect(calls[0]?.ai_search_options?.retrieval).toMatchObject({
-      filters: { valid_from: { $lte: 20260601 }, valid_until: { $gte: 20260601 } },
+      filters: {
+        valid_from: { $lte: 20260601 },
+        valid_until: { $gte: 20260601 },
+        folder: { $in: ["anexo-20-guia-de-llenado/", "matriz-de-errores-cfdi-40/"] },
+      },
       max_num_results: 2,
       return_on_failure: false,
     });

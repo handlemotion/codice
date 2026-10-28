@@ -12,8 +12,8 @@ import type { CodiceBindings } from "./env";
 import {
   CodiceProblem,
   listSources,
-  lookupCatalog,
-  lookupError,
+  lookupCatalogEntries,
+  lookupErrors,
   readPassage,
   search,
 } from "./handlers";
@@ -86,17 +86,17 @@ function chatTools(env: CodiceBindings) {
     toolDefinition({
       name: "lookup_error",
       description:
-        "Look up a CFDI40xxx validation code in the SAT's error matrix: the node and attribute it checks, the validation and the message.",
+        "Look up CFDI40xxx validation codes in the SAT's error matrix, up to 25 in one call: for each, the node and attribute it checks, the validation and the message, or an error when the matrix does not hold it.",
       inputSchema: LookupErrorArguments,
-    }).server(run((args: z.output<typeof LookupErrorArguments>) => lookupError(env, args.code))),
+    }).server(run((args: z.output<typeof LookupErrorArguments>) => lookupErrors(env, args.codes))),
     toolDefinition({
       name: "lookup_catalog",
       description:
-        "Look up one key of a SAT CFDI catalog (c_UsoCFDI, c_RegimenFiscal, c_FormaPago…), or only the rows `where` matches.",
+        "Look up keys of the SAT CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_FormaPago…), up to 25 in one call: for each, its rows, or only the rows its `where` matches, or an error when it finds none.",
       inputSchema: LookupCatalogArguments,
     }).server(
       run((args: z.output<typeof LookupCatalogArguments>) =>
-        lookupCatalog(env, args.name, args.key, args.where),
+        lookupCatalogEntries(env, args.lookups),
       ),
     ),
     toolDefinition({

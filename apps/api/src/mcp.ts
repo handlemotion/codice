@@ -5,10 +5,12 @@ import type { CodiceBindings } from "./env";
 import {
   CodiceProblem,
   listSources,
-  lookupCatalog,
-  lookupError,
+  LOOKUP_BATCH_MAX,
+  lookupCatalogEntries,
+  lookupErrors,
   readPassage,
   search,
+  SEARCH_SOURCES_MAX,
 } from "./handlers";
 import { PASSAGE_KINDS, SEARCH_LIMIT_DEFAULT, SEARCH_LIMIT_MAX } from "./search";
 
@@ -16,7 +18,7 @@ export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer exact CFDI40xxx codes or catalog keys, up to 25 a call; `list_sources` names the documents Códice holds.";
 
 export const SearchArguments = z.object({
   q: z
@@ -32,10 +34,10 @@ export const SearchArguments = z.object({
     .optional()
     .describe("Only rules in force on this date, YYYY-MM-DD. Defaults to today in Mexico City."),
   source: z
-    .string()
+    .union([z.string(), z.array(z.string()).min(1).max(SEARCH_SOURCES_MAX)])
     .optional()
     .describe(
-      "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` or `rmf-2026`.",
+      'Only these sources, one id or a list: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40`, `rmf-2026`. `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]` searches the CFDI 4.0 guide and the error matrix.',
     ),
   kind: z
     .enum(PASSAGE_KINDS)
@@ -62,7 +64,8 @@ export const ReadPassageArguments = z.object({
     ),
 });
 
-export const LookupErrorArguments = z.object({
+/** One error code; the `/v1/errors/{code}` path parameter. */
+export const ErrorCodeArgument = z.object({
   code: z
     .string()
     .min(1)
@@ -70,7 +73,18 @@ export const LookupErrorArguments = z.object({
     .describe("A CFDI 4.0 validation code from the SAT's error matrix, such as `CFDI40149`."),
 });
 
-export const LookupCatalogArguments = z.object({
+export const LookupErrorArguments = z.object({
+  codes: z
+    .array(ErrorCodeArgument.shape.code)
+    .min(1)
+    .max(LOOKUP_BATCH_MAX)
+    .describe(
+      `The CFDI 4.0 validation codes from the SAT's error matrix, 1 to ${LOOKUP_BATCH_MAX}, such as \`["CFDI40149", "CFDI40147"]\`.`,
+    ),
+});
+
+/** One catalog key; its `name` and `key` are the `/v1/catalogs/{name}/{key}` path parameters. */
+export const CatalogLookupArgument = z.object({
   name: z
     .string()
     .min(1)
@@ -84,6 +98,16 @@ export const LookupCatalogArguments = z.object({
     .optional()
     .describe(
       "Keep only the entries whose column equals the value, by the catalog's own column names, for a key that repeats: `{ c_CodigoPostal: '01000' }` for a `c_Colonia` key, `{ c_Estado: 'JAL' }` for a `c_Municipio` or `c_Localidad` key.",
+    ),
+});
+
+export const LookupCatalogArguments = z.object({
+  lookups: z
+    .array(CatalogLookupArgument)
+    .min(1)
+    .max(LOOKUP_BATCH_MAX)
+    .describe(
+      `The catalog keys to look up, 1 to ${LOOKUP_BATCH_MAX}, such as \`[{ name: "c_UsoCFDI", key: "G03" }, { name: "c_RegimenFiscal", key: "601" }]\`.`,
     ),
 });
 
@@ -164,23 +188,23 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     server,
     "lookup_error",
     {
-      title: "Look up a CFDI error code",
+      title: "Look up CFDI error codes",
       description:
-        "Look up a CFDI40xxx validation code in the SAT's error matrix: the node and attribute it checks, the validation, the message, and its source.",
+        "Look up CFDI40xxx validation codes in the SAT's error matrix, up to 25 in one call: for each, the node and attribute it checks, the validation, the message, and its source. Returns `results` in the order asked, each the code with its row as `data`, or with `error` when the matrix does not hold it.",
       inputSchema: LookupErrorArguments,
     },
-    (args) => lookupError(env, args.code),
+    (args) => lookupErrors(env, args.codes),
   );
   registerTool(
     server,
     "lookup_catalog",
     {
-      title: "Look up a SAT catalog entry",
+      title: "Look up SAT catalog keys",
       description:
-        "Look up one key of a SAT CFDI catalog (c_UsoCFDI, c_RegimenFiscal, c_Colonia…): every row the catalog holds for it, or only the rows `where` matches, with validity dates and source.",
+        "Look up keys of the SAT CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_Colonia…), up to 25 in one call, from any catalogs: for each, every row the catalog holds for the key, or only the rows its `where` matches, with validity dates and source. Returns `results` in the order asked, each the lookup with its entries as `data`, or with `error` when it finds none.",
       inputSchema: LookupCatalogArguments,
     },
-    (args) => lookupCatalog(env, args.name, args.key, args.where),
+    (args) => lookupCatalogEntries(env, args.lookups),
   );
   registerTool(
     server,
