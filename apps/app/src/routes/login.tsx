@@ -2,10 +2,13 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
 import { authClient } from "../auth-client";
+import { Mark } from "../brand/mark";
+import { FIELD, ISLAND, PRIMARY, SECONDARY } from "../components/ui";
 import type { SocialProvider } from "../server/auth";
 import { getDashboard, getSignInProviders } from "../server/functions";
 
 export const Route = createFileRoute("/login")({
+  head: () => ({ meta: [{ title: "Entrar · Códice" }] }),
   beforeLoad: async () => {
     if (await getDashboard()) throw redirect({ to: "/" });
   },
@@ -14,12 +17,9 @@ export const Route = createFileRoute("/login")({
 });
 
 const PROVIDER_LABELS: Record<SocialProvider, string> = {
-  google: "Continue with Google",
-  github: "Continue with GitHub",
+  google: "Continuar con Google",
+  github: "Continuar con GitHub",
 };
-
-const button =
-  "rounded-md border border-stone-300 bg-white px-4 py-2 text-sm hover:bg-stone-100 disabled:opacity-50";
 
 function Login() {
   const { providers } = Route.useLoaderData();
@@ -30,85 +30,99 @@ function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(action: () => Promise<{ error: { message?: string } | null }>) {
+  async function run(action: () => Promise<{ error: unknown }>, failure: string) {
     setBusy(true);
     setError(null);
-    const { error: failure } = await action();
+    const { error: refused } = await action();
     setBusy(false);
-    if (failure) setError(failure.message ?? "Something went wrong");
-    return !failure;
+    if (refused) setError(failure);
+    return !refused;
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!sent) {
-      if (await run(() => authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" }))) {
-        setSent(true);
-      }
+      const ok = await run(
+        () => authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" }),
+        "No pude enviar el código. Revisa el correo e intenta de nuevo.",
+      );
+      if (ok) setSent(true);
       return;
     }
-    if (await run(() => authClient.signIn.emailOtp({ email, otp }))) {
-      await navigate({ to: "/" });
-    }
+    const ok = await run(
+      () => authClient.signIn.emailOtp({ email, otp }),
+      "El código no es válido o ya venció.",
+    );
+    if (ok) await navigate({ to: "/" });
   }
 
   function social(provider: SocialProvider) {
-    void run(() => authClient.signIn.social({ provider, callbackURL: "/" }));
+    void run(
+      () => authClient.signIn.social({ provider, callbackURL: "/" }),
+      "No se pudo entrar. Intenta de nuevo.",
+    );
   }
 
   return (
-    <main className="mx-auto flex max-w-sm flex-col gap-4 px-6 py-24">
-      <h1 className="text-2xl font-semibold tracking-tight">Sign in to Códice</h1>
-      <form className="flex flex-col gap-2" onSubmit={submit}>
-        <input
-          aria-label="Email"
-          autoComplete="email"
-          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm"
-          disabled={sent}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@company.com"
-          required
-          type="email"
-          value={email}
-        />
-        {sent ? (
-          <input
-            aria-label="Code"
-            autoComplete="one-time-code"
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm tracking-widest"
-            inputMode="numeric"
-            maxLength={6}
-            onChange={(event) => setOtp(event.target.value)}
-            placeholder="6-digit code"
-            required
-            value={otp}
-          />
-        ) : null}
-        <button className={button} disabled={busy} type="submit">
-          {sent ? "Sign in" : "Email me a code"}
-        </button>
-        {sent ? (
-          <p className="text-sm text-stone-500">
-            We sent a code to {email}. It expires in 10 minutes.
-          </p>
-        ) : null}
-      </form>
-      {providers.length > 0 ? <p className="text-center text-xs text-stone-500">or</p> : null}
-      {providers.map((provider) => (
-        <button
-          className={button}
-          disabled={busy}
-          key={provider}
-          onClick={() => social(provider)}
-          type="button"
-        >
-          {PROVIDER_LABELS[provider]}
-        </button>
-      ))}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <a className="text-sm text-stone-500 underline" href="/?site">
-        Back to the website
+    <main className="mx-auto flex min-h-svh max-w-[24rem] flex-col justify-center gap-6 px-4 py-16">
+      <a aria-label="Sitio de Códice" className="flex w-fit items-center gap-2.5" href="/?site">
+        <Mark className="size-5" strokeWidth={1.5} />
+        <span className="[text-box:trim-both_cap_alphabetic]">Códice</span>
       </a>
+      <div className={`${ISLAND} flex flex-col gap-4 p-6`}>
+        <h1 className="font-bold">Entrar</h1>
+        <form className="flex flex-col gap-2" onSubmit={submit}>
+          <input
+            aria-label="Correo"
+            autoComplete="email"
+            className={FIELD}
+            disabled={sent}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="tu@empresa.com"
+            required
+            type="email"
+            value={email}
+          />
+          {sent && (
+            <input
+              aria-label="Código"
+              autoComplete="one-time-code"
+              autoFocus
+              className={`${FIELD} font-mono tracking-[0.3em]`}
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(event) => setOtp(event.target.value)}
+              placeholder="000000"
+              required
+              value={otp}
+            />
+          )}
+          <button className={PRIMARY} disabled={busy} type="submit">
+            {sent ? "Entrar" : "Enviarme un código"}
+          </button>
+        </form>
+        {sent && (
+          <p className="text-[13px] text-muted">
+            Enviamos un código a {email}. Vence en 10 minutos.
+          </p>
+        )}
+        {providers.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {providers.map((provider) => (
+              <button
+                className={SECONDARY}
+                disabled={busy}
+                key={provider}
+                onClick={() => social(provider)}
+                type="button"
+              >
+                {PROVIDER_LABELS[provider]}
+              </button>
+            ))}
+          </div>
+        )}
+        {error && <p className="text-[13px] text-muted">{error}</p>}
+      </div>
     </main>
   );
 }

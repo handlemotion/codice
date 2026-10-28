@@ -1,10 +1,15 @@
+import {
+  IconCheckmark1Small,
+  IconSquareBehindSquare1,
+} from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
-import { DashboardShell } from "../../components/dashboard-shell";
+import { FIELD, GHOST, PRIMARY, Page, SECONDARY, Section } from "../../components/ui";
 import { createKey, listKeys, revokeKey } from "../../server/functions";
 
 export const Route = createFileRoute("/_dashboard/keys")({
+  head: () => ({ meta: [{ title: "Claves · Códice" }] }),
   loader: async ({ context }) => {
     const team = context.dashboard.team;
     return { team, keys: team ? await listKeys({ data: team.id }) : [] };
@@ -12,13 +17,41 @@ export const Route = createFileRoute("/_dashboard/keys")({
   component: Keys,
 });
 
-const dateFormat = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" });
+/** Where the public API answers, as the docs give it. */
+const ORIGIN = "https://codice.io";
+
+const dateFormat = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" });
+const FAILED = "No se pudo completar. Intenta de nuevo.";
+
+/** Something to copy: the value in the mono, in a well, with its copy button. */
+function Copyable({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-[2px] border border-edge bg-ink py-1 pr-1 pl-2.5">
+      <code className="min-w-0 flex-1 font-mono text-[12px] break-all">{value}</code>
+      <button
+        aria-label={copied ? "Copiado" : `Copiar ${label}`}
+        className="grid size-7 shrink-0 place-items-center text-muted hover:text-fg"
+        onClick={() => void copy()}
+        type="button"
+      >
+        {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
+      </button>
+    </div>
+  );
+}
 
 function Keys() {
   const { team, keys } = Route.useLoaderData();
   const router = useRouter();
   const [name, setName] = useState("");
   const [created, setCreated] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -28,8 +61,8 @@ function Keys() {
     try {
       await action();
       await router.invalidate();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Something went wrong");
+    } catch {
+      setError(FAILED);
     } finally {
       setBusy(false);
     }
@@ -45,99 +78,124 @@ function Keys() {
     });
   }
 
-  function revoke(keyId: string, keyName: string | null) {
-    if (!window.confirm(`Revoke ${keyName ?? "this key"}? Calls that use it start failing.`))
-      return;
-    void run(() => revokeKey({ data: keyId }));
+  function revoke(keyId: string) {
+    void run(async () => {
+      await revokeKey({ data: keyId });
+      setConfirming(null);
+    });
   }
 
   return (
-    <DashboardShell title="API keys">
-      <p className="text-stone-600">
-        Every call to <code>/v1</code> and <code>/mcp</code> needs a key of the team, sent as{" "}
-        <code>Authorization: Bearer cdc_…</code> or <code>x-api-key</code>.
-      </p>
+    <Page title="Claves">
       {team ? (
-        <form className="flex max-w-lg gap-2" onSubmit={create}>
-          <input
-            aria-label="Key name"
-            className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm"
-            maxLength={32}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Key name, e.g. production"
-            required
-            value={name}
-          />
-          <button
-            className="rounded-md bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-            disabled={busy || !name.trim()}
-            type="submit"
-          >
-            Create key
-          </button>
-        </form>
-      ) : (
-        <p className="text-stone-600">Join or create a team to issue keys.</p>
-      )}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      {created ? (
-        <div className="flex max-w-2xl flex-col gap-2 rounded-md border border-amber-300 bg-amber-50 p-4">
-          <p className="text-sm font-medium">Copy the key now: it is not shown again.</p>
-          <code className="break-all rounded bg-white px-2 py-1 text-sm">{created}</code>
-          <div className="flex gap-2">
-            <button
-              className="text-sm underline"
-              onClick={() => void navigator.clipboard.writeText(created)}
-              type="button"
-            >
-              Copy
-            </button>
-            <button className="text-sm underline" onClick={() => setCreated(null)} type="button">
-              Done
-            </button>
-          </div>
-        </div>
-      ) : null}
-      <table className="max-w-3xl text-left text-sm">
-        <thead className="text-stone-500">
-          <tr>
-            <th className="py-2 pr-6 font-normal">Name</th>
-            <th className="py-2 pr-6 font-normal">Key</th>
-            <th className="py-2 pr-6 font-normal">Created</th>
-            <th className="py-2 pr-6 font-normal">Last used</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {keys.map((key) => (
-            <tr className="border-t border-stone-200" key={key.id}>
-              <td className="py-2 pr-6">{key.name}</td>
-              <td className="py-2 pr-6 font-mono">{key.start}…</td>
-              <td className="py-2 pr-6">{dateFormat.format(new Date(key.createdAt))}</td>
-              <td className="py-2 pr-6">
-                {key.lastUsedAt ? dateFormat.format(new Date(key.lastUsedAt)) : "Never"}
-              </td>
-              <td className="py-2">
-                <button
-                  className="text-red-700 hover:underline disabled:opacity-50"
-                  disabled={busy}
-                  onClick={() => revoke(key.id, key.name)}
-                  type="button"
-                >
-                  Revoke
+        <Section title="Nueva clave">
+          {created ? (
+            <div className="flex flex-col gap-3">
+              <Copyable label="la clave" value={created} />
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-[13px] text-muted">Cópiala ahora: no se vuelve a mostrar.</p>
+                <button className={SECONDARY} onClick={() => setCreated(null)} type="button">
+                  Listo
                 </button>
-              </td>
-            </tr>
-          ))}
-          {keys.length === 0 ? (
-            <tr className="border-t border-stone-200">
-              <td className="py-2 text-stone-500" colSpan={5}>
-                No keys yet.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </DashboardShell>
+              </div>
+            </div>
+          ) : (
+            <form className="flex gap-2" onSubmit={create}>
+              <input
+                aria-label="Nombre de la clave"
+                className={`${FIELD} flex-1`}
+                maxLength={32}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Nombre, por ejemplo producción"
+                required
+                value={name}
+              />
+              <button className={PRIMARY} disabled={busy || !name.trim()} type="submit">
+                Crear clave
+              </button>
+            </form>
+          )}
+          {error && <p className="text-[13px] text-muted">{error}</p>}
+        </Section>
+      ) : (
+        <Section title="Nueva clave">
+          <p className="text-muted">Únete a un equipo para crear claves.</p>
+        </Section>
+      )}
+
+      <Section note={team?.name} title="Claves del equipo">
+        {keys.length === 0 ? (
+          <p className="text-muted">Aún no hay claves.</p>
+        ) : (
+          <ul className="-my-3 flex flex-col divide-y divide-edge">
+            {keys.map((key) => (
+              <li className="flex items-center justify-between gap-4 py-3" key={key.id}>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate">{key.name}</span>
+                  <span className="truncate text-[13px] text-muted">
+                    <code className="font-mono text-[12px]">{key.start}…</code>
+                    {" · "}
+                    {key.lastUsedAt
+                      ? `Usada el ${dateFormat.format(new Date(key.lastUsedAt))}`
+                      : `Creada el ${dateFormat.format(new Date(key.createdAt))}, sin usar`}
+                  </span>
+                </div>
+                {confirming === key.id ? (
+                  <span className="flex shrink-0 items-center gap-3">
+                    <button className={GHOST} onClick={() => setConfirming(null)} type="button">
+                      Cancelar
+                    </button>
+                    <button
+                      className={PRIMARY}
+                      disabled={busy}
+                      onClick={() => revoke(key.id)}
+                      type="button"
+                    >
+                      Revocar
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className={GHOST}
+                    disabled={busy}
+                    onClick={() => setConfirming(key.id)}
+                    type="button"
+                  >
+                    Revocar
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section
+        note={
+          <a
+            className="underline decoration-line underline-offset-4 hover:text-fg"
+            href="/docs/primeros-pasos"
+          >
+            Guía de inicio
+          </a>
+        }
+        title="Conectar"
+      >
+        <dl className="grid items-center gap-x-4 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <dt className="text-muted">API</dt>
+          <dd>
+            <Copyable label="la URL de la API" value={`${ORIGIN}/v1`} />
+          </dd>
+          <dt className="text-muted">MCP</dt>
+          <dd>
+            <Copyable label="la URL de MCP" value={`${ORIGIN}/mcp`} />
+          </dd>
+          <dt className="text-muted">Encabezado</dt>
+          <dd>
+            <Copyable label="el encabezado" value="Authorization: Bearer cdc_…" />
+          </dd>
+        </dl>
+      </Section>
+    </Page>
   );
 }

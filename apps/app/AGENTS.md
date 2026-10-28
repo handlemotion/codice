@@ -4,6 +4,9 @@ TanStack Start Worker (`@codice/app`, Worker `codice-app`): the Códice dashboar
 see their usage and manage their API keys. The root `AGENTS.md` applies here. It is the default
 target of `apps/edge`: every path that is not the API's, the site's `/` or `/_site/*` reaches it.
 
+- Read `DESIGN.md` before changing anything visible; it extends `apps/site/DESIGN.md`.
+- Pages: the chat (`/`), the team's keys (`/keys`) and the account (`/account`), under a left rail
+  (`src/components/dashboard-shell.tsx`).
 - Never use `/v1`, `/mcp`, `/health`, `/ready` or `/_site/*`: the edge sends them elsewhere.
 - The session cookie is `__Secure-codice-session` (`apps/edge/src/route.ts`); with it, `/` is the
   dashboard. Answer `/` without a valid session with a redirect to `/login`, and the edge serves the
@@ -30,6 +33,12 @@ target of `apps/edge`: every path that is not the API's, the site's `/` or `/_si
   `BETTER_AUTH_URL` (the public origin), `AUTH_EMAIL_FROM`. Locally, put them in `apps/app/.env`
   (git-ignored) with `BETTER_AUTH_URL=http://localhost:5173`; the local `EMAIL` binding prints
   each code to the dev server's output instead of sending it.
+- The chat (`src/chat.tsx`) posts to `POST /api/chat` (`src/routes/api/chat.ts`), which refuses
+  without a session and forwards the turn to the API's `POST /v1/chat` over the `API` service
+  binding with the dashboard's own key, `CODICE_APP_API_KEY`, and the visitor's
+  `cf-connecting-ip`, as the site does with its key. Optional: without it the chat answers
+  `503 chat_unavailable`. To turn it on, create a key for a Códice team, add it to Doppler `prd`
+  and to `secrets.required`; locally, put it in `apps/app/.env` and run the API (`pnpm dev:up`).
 - Keep `src/routeTree.gen.ts` generated: `pnpm --filter @codice/app generate-routes`.
 
 Commands: `pnpm --filter @codice/app dev`, `build`, `test`, `check-types`, `generate-routes`,

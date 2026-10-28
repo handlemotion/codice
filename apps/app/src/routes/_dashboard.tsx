@@ -1,5 +1,6 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 
+import { DashboardShell } from "../components/dashboard-shell";
 import { getDashboard } from "../server/functions";
 
 /**
@@ -12,5 +13,9 @@ export const Route = createFileRoute("/_dashboard")({
     if (!dashboard) throw redirect({ to: "/login" });
     return { dashboard };
   },
-  component: Outlet,
+  component: () => (
+    <DashboardShell>
+      <Outlet />
+    </DashboardShell>
+  ),
 });

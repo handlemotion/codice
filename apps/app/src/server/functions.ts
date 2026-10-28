@@ -20,7 +20,7 @@ export interface Team {
 }
 
 export interface Dashboard {
-  user: { name: string; email: string };
+  user: { name: string; email: string; image: string | null };
   team: Team | null;
   teams: Team[];
 }
@@ -36,7 +36,11 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
     const teams = organizations.map(({ id, name }) => ({ id, name }));
     const activeId = session.session.activeOrganizationId;
     return {
-      user: { name: session.user.name, email: session.user.email },
+      user: {
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image ?? null,
+      },
       team: teams.find((team) => team.id === activeId) ?? teams[0] ?? null,
       teams,
     };
@@ -55,6 +59,35 @@ export const setActiveTeam = createServerFn({ method: "POST" })
       headers: getRequestHeaders(),
       body: { organizationId },
     });
+  });
+
+export const renameUser = createServerFn({ method: "POST" })
+  .validator((name: string) => name.trim().slice(0, 64))
+  .handler(async ({ data: name }) => {
+    await auth().api.updateUser({ headers: getRequestHeaders(), body: { name } });
+  });
+
+export interface MemberRow {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+/** The members of a team the user belongs to. */
+export const listMembers = createServerFn({ method: "GET" })
+  .validator((organizationId: string) => organizationId)
+  .handler(async ({ data: organizationId }): Promise<MemberRow[]> => {
+    const { members } = await auth().api.listMembers({
+      headers: getRequestHeaders(),
+      query: { organizationId },
+    });
+    return members.map((member) => ({
+      id: member.id,
+      name: member.user.name,
+      email: member.user.email,
+      role: member.role,
+    }));
   });
 
 export interface KeyRow {

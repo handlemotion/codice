@@ -19,7 +19,11 @@
   },
   // Google and GitHub sign-in turn on once their OAuth apps exist: add `GOOGLE_CLIENT_ID`,
   // `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` here and in Doppler `prd`.
+  // `CODICE_APP_API_KEY` (optional, like the OAuth pairs) turns the chat on: the key of a Códice
+  // team that `/api/chat` sends to the API. Add it here and in Doppler `prd` to ship it.
   "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+  // The chat's turns go to `POST /v1/chat` with the dashboard's key (src/routes/api/chat.ts).
+  "services": [{ "binding": "API", "service": "codice-api" }],
   // Users, sessions, teams and members (Better Auth). Schema: src/db/schema.ts.
   "d1_databases": [
     {
