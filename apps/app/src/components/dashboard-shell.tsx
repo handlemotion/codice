@@ -75,7 +75,7 @@ export function Avatar({ size = 28 }: { size?: number }) {
 function RailItem({ place, current }: { place: Destination; current: boolean }) {
   const className = `${ITEM} ${current ? CURRENT : IDLE}`;
   const Icon = place.icon;
-  const content = Icon ? <Icon size={20} /> : <Avatar />;
+  const content = Icon ? <Icon size={18} /> : <Avatar size={22} />;
   return (
     <Hint label={place.label} shortcut={place.key}>
       {"to" in place ? (
@@ -129,7 +129,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         {/* `/?site` is the edge's switch to the marketing site for a signed-in visitor. */}
         <Hint label="Sitio de Códice">
           <a aria-label="Sitio de Códice" className={`${ITEM} ${IDLE} max-sm:hidden`} href="/?site">
-            <Mark className="size-5" strokeWidth={1.5} />
+            <Mark className="size-[18px]" strokeWidth={1.5} />
           </a>
         </Hint>
         <div className="flex items-center gap-2 max-sm:gap-6 sm:flex-1 sm:flex-col sm:justify-center">
@@ -148,7 +148,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             onClick={() => toggleTheme()}
             type="button"
           >
-            <IconContrast size={20} />
+            <IconContrast size={18} />
           </button>
         </Hint>
       </nav>

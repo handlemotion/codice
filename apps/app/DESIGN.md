@@ -21,7 +21,7 @@ This file records only where the dashboard adds to it or departs from it. Values
   `island` and `edge` (`edge` is transparent by day), so "borders only at night" is one class.
   Fields and secondary buttons follow the same rule: a grey well by day, a hairline at night. Rows
   inside an island are divided by `edge`, so by day they are separated by space alone.
-- **The rail.** No top bar: a 64px rail of line icons on the left (a bottom bar on phones), the
+- **The rail.** No top bar: a 64px rail of 18px line icons on the left (a bottom bar on phones), the
   page in a centered column (max 42rem). Top to bottom: the mark (to the site, `/?site`), then,
   centered, Chat, Claves, Clientes, Documentación and the avatar (Cuenta), then the theme toggle. The current
   page's icon takes the island's look; others are `muted` and brighten on hover. Each shows a
