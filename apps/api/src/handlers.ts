@@ -5,6 +5,7 @@ import {
   catalogEntry,
   catalogListing,
   type CatalogFilter,
+  corpusVersion,
   errorCode,
   passageRow,
   recordsDatabase,
@@ -23,6 +24,7 @@ import {
   isoDate,
   passageMetadata,
 } from "./search";
+import { cachedChunks, searchCacheKey } from "./search-cache";
 import { measured } from "./timing";
 
 /** A request Códice refuses, as a problem document's fields. */
@@ -81,24 +83,30 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
 
 /**
  * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
- * each result's source as it read that day.
+ * each result's source as it read that day. A search asked before on the same corpus answers from
+ * the cache (`search-cache.ts`); the provenance is read each time.
  */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
   const input = searchInput(parameters);
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
-  let response: AiSearchSearchResponse;
-  try {
-    const instance = env.CODICE_SEARCH;
-    response = await measured("search", { op: "ai_search.search", name: "AI Search search" }, () =>
-      instance.search(searchRequest(input)),
-    );
-  } catch (cause) {
-    throw searchUnavailable("codice.search_failed", cause);
-  }
-  const results = searchResults(response.chunks);
+  const instance = env.CODICE_SEARCH;
+  const db = recordsDatabase(env);
+  const chunks = await cachedChunks(searchCacheKey(input, await corpusVersion(db)), async () => {
+    try {
+      const response = await measured(
+        "search",
+        { op: "ai_search.search", name: "AI Search search" },
+        () => instance.search(searchRequest(input)),
+      );
+      return response.chunks;
+    } catch (cause) {
+      throw searchUnavailable("codice.search_failed", cause);
+    }
+  });
+  const results = searchResults(chunks);
   // The version of each source in force on `asOf`, the one a superseded passage was read from.
   const provenance = await sourcesOn(
-    recordsDatabase(env),
+    db,
     results.map((result) => result.source),
     input.asOf,
   );

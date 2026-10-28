@@ -4,10 +4,11 @@ import * as Sentry from "@sentry/cloudflare";
 
 /**
  * Where a request's time goes, for Sentry and the caller (SPEC.md, "HTTP API"): each AI
- * Search call is a span and adds to the request's `search` metric. D1 queries are spans through
+ * Search call is a span and adds to the request's `search` metric, each search cache read or write
+ * to its `cache` metric (`search-cache.ts`). D1 queries are spans through
  * `Sentry.instrumentD1WithSentry` (`records.ts`).
  */
-type Metric = "search";
+type Metric = "search" | "cache";
 
 const requestTimings = new AsyncLocalStorage<Map<Metric, number>>();
 
