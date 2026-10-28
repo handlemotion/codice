@@ -140,21 +140,11 @@ function Home() {
       <main className="relative">
         <Section id="que-es" title="Qué es">
           <p>
-            Cuando un cliente te pregunta si todavía puede cancelar una factura, qué uso de CFDI le
-            corresponde o por qué el SAT rechazó un comprobante, la respuesta casi siempre está
-            escrita en algún lado: en el Anexo 20, en la Resolución Miscelánea, en una guía de
-            llenado. Lo que toma tiempo es encontrarla.
+            Un índice de las reglas fiscales de México. Cada respuesta trae el texto de la regla tal
+            como lo publicó el SAT, el documento donde está y las fechas en que aplica.
           </p>
-          <p>
-            Códice reúne esos documentos y los vuelve fáciles de consultar. Le preguntas como le
-            preguntarías a un colega, y te responde con la regla exacta, el documento donde está y
-            desde cuándo aplica.
-          </p>
-          <p>
-            Las reglas cambian cada año, así que cada respuesta corresponde a la fecha que te
-            interesa: si revisas un ejercicio anterior, te dice lo que aplicaba entonces.
-          </p>
-          <p>No sustituye tu criterio. Te da la fuente para sostenerlo.</p>
+          <p>Para un periodo anterior, indica la fecha y obtienes la regla vigente entonces.</p>
+          <p>No es asesoría fiscal: es la fuente.</p>
           <div className="flex gap-2 pt-2">
             <a
               className="rounded-[2px] bg-electric px-3 py-2.5 font-bold text-white hover:bg-fg hover:text-ink"
@@ -172,15 +162,15 @@ function Home() {
         </Section>
 
         <Section id="indice" title="Qué contiene">
-          <p>
-            Lo que consultas para facturar: la guía de llenado del CFDI 4.0 y la del complemento de
-            pagos, los catálogos del SAT (usos de CFDI, claves de producto, códigos postales), los
-            motivos por los que el SAT rechaza un comprobante y la Resolución Miscelánea Fiscal
-            2026.
-          </p>
-          <p>
-            Después vendrán el Código Fiscal, las leyes del ISR y del IVA, y las reglas de comercio
-            exterior.
+          <ul className="flex list-disc flex-col gap-1 pl-5">
+            <li>Guía de llenado del CFDI 4.0 (Anexo 20)</li>
+            <li>Guía de llenado del complemento de pagos</li>
+            <li>Catálogos del CFDI 4.0</li>
+            <li>Matriz de errores de validación del CFDI 4.0</li>
+            <li>Resolución Miscelánea Fiscal 2026</li>
+          </ul>
+          <p className="text-muted">
+            Próximamente: Código Fiscal, leyes del ISR y del IVA, reglas de comercio exterior.
           </p>
         </Section>
 
@@ -190,10 +180,7 @@ function Home() {
         </Section>
 
         <Section id="desarrolladores" title="Para tu software">
-          <p>
-            Conecta Códice a tu asistente de IA por MCP, o intégralo en tu sistema por HTTP. La
-            documentación explica cómo, paso a paso, con una referencia de cada ruta de la API.
-          </p>
+          <p>Las mismas consultas por API HTTP y por MCP, para tu sistema o tu asistente de IA.</p>
           <p>
             <a className={LINK} href="/docs">
               Leer la documentación

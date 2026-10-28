@@ -222,13 +222,14 @@ export function Ask() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <h1 className="text-[20px] leading-snug">
-        <span className="box-decoration-clone bg-ink">
-          Las reglas del SAT, con su fuente. Pregunta por un código de error, un uso de CFDI o un
-          plazo de cancelación, y Códice te muestra la regla exacta, el documento donde está y desde
-          cuándo aplica.
-        </span>
-      </h1>
+      <div className="flex flex-col gap-2">
+        <h1 className="self-start bg-ink text-[20px] leading-snug">
+          Las reglas del SAT, con su fuente.
+        </h1>
+        <p className="self-start bg-ink text-muted">
+          El texto exacto de cada regla, su documento y su vigencia. En el chat, por API o por MCP.
+        </p>
+      </div>
 
       {open && (
         <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
