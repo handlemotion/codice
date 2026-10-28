@@ -208,9 +208,12 @@ Entrar → Obtener clave so the blue one sits in the corner.
   steady pace with its `useStreamedReveal` (`src/components/chat/`).
 - **The visitor's question** is a right-aligned bubble: `bg-line` while typed, `bg-electric` with
   white text once sent, 4px radius, at most 85% of the thread.
-- **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
-  `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
-  regla"…), then rest. While it only thinks, the marks turn alone, at twice the pace. The answer streams in as markdown in plain `fg` text. The API
+- **Códice's turn** starts 40px under the question (the thread's other gaps are 24px): three
+  small marks (one step apart) turn while it works, with no status text beside them, so the row
+  never changes size; they turn at twice the pace while it only thinks, and at the page's pace
+  while a tool runs. The answer streams in as markdown in plain `fg` text; inline code is the
+  mono at 12px on an `electric` tint (15%), its text `electric` mixed 45% toward `fg` so it holds
+  contrast on either theme. The API
   ends it with a `Fuente:` block; the chat takes it out of the text and shows each linked
   document as a pill (see below).
 - **Composer:** one box at the bottom of the chat, inverted: `bg-fg` with `ink` text (black on
@@ -219,12 +222,14 @@ Entrar → Obtener clave so the blue one sits in the corner.
   it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
 - **One question, one answer.** The composer is a grey bubble on the right under the title, as
-  wide as its text; Enter sends it in place as the blue bubble and the answer streams under it.
-  Under the answer, one row: three `muted` icon actions with their names in tooltips (copy the
-  answer, a branch for "Continuar la conversación con una cuenta" to `/login`, a counter-clockwise
-  arrow for "Empezar de nuevo", also Esc), then each source as a pill: `line` border, full
-  radius, 12px `muted` text, a file icon and the section it cites ("CFDI40149"), the document
-  and its date in the tooltip, opening the document. `/` focuses the composer from anywhere.
+  wide as its text; Enter sends it in place (from anywhere on the page, unless a link or button has focus) as the blue bubble and the answer streams under it.
+  Under the answer, one row pulled up close to it: two `muted` icon actions with their names in
+  tooltips (copy the answer, a counter-clockwise arrow for "Empezar de nuevo", also Esc), a 16px
+  `line` divider, then each source as a pill: `line` border, full radius, 12px `muted` text
+  trimmed to cap height so it centers, no icon, the section it cites ("CFDI40149") normalized
+  (no markdown, quotes or "apartado", the last step of a heading path, a capital first), the
+  document and its date in the tooltip, opening the document. (A branch action, "Continuar la
+  conversación con una cuenta", was tried and removed.) `/` focuses the composer from anywhere.
 - Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).

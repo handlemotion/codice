@@ -3,8 +3,6 @@ import {
   IconArrowCornerDownLeft,
   IconArrowRotateCounterClockwise,
   IconCheckmark1Small,
-  IconFileText,
-  IconBranch,
   IconSquareBehindSquare1,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import {
@@ -40,23 +38,16 @@ const ROTATE_MS = 4000;
 /** Matches the API's limit on one question (`CHAT_MAX_BODY_BYTES` bounds the whole conversation). */
 const MAX_QUESTION_LENGTH = 2000;
 
-// What Códice is doing while a tool runs, under its turning shapes.
-const TOOL_LABELS: Record<string, string> = {
-  search: "Buscando en las reglas del SAT",
-  read_passage: "Leyendo la regla",
-  lookup_error: "Consultando la matriz de errores",
-  lookup_catalog: "Consultando el catálogo",
-  list_sources: "Revisando las fuentes",
-};
-
-// The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
+// The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced,
+// inline code (a key, an error code) in the mono on an electric tint, its text the accent mixed
+// toward `fg` so it reads on either theme. Tailwind never sees Streamdown's own classes.
 const ANSWER =
-  "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
+  "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5 [&_[data-streamdown=inline-code]]:rounded-[2px] [&_[data-streamdown=inline-code]]:bg-electric/15 [&_[data-streamdown=inline-code]]:px-1 [&_[data-streamdown=inline-code]]:py-0.5 [&_[data-streamdown=inline-code]]:text-[12px] [&_[data-streamdown=inline-code]]:text-[color-mix(in_oklab,var(--color-electric),var(--color-fg)_45%)]";
 
 // The small raw-text hint under the composer: how to send it.
 const HINT = "flex items-center gap-1.5 text-[13px] text-muted";
 
-// The icon actions under an answer: copy it, go on with an account, start over.
+// The icon actions under an answer: copy it, start over.
 const ACTION = "flex size-7 items-center justify-center text-muted hover:text-fg";
 
 type ChatMessage = ReturnType<typeof useChat>["messages"][number];
@@ -117,33 +108,22 @@ function splitSources(text: string, live: boolean): { body: string; sources: Sou
   return { body: lines.slice(0, start).join("\n").trimEnd(), sources };
 }
 
-/** Códice's three shapes, turning while it works: twice the page's pace while it only thinks. */
-function Working({ animate, status }: { animate: boolean; status: string | null }) {
+/**
+ * Códice's three shapes, turning while it works: twice the page's pace while it only thinks. No
+ * words beside them, so the row keeps one size from the first token to the last.
+ */
+function Working({ tool }: { tool: boolean }) {
   return (
-    <span className="flex items-center gap-3">
-      <span aria-hidden className="flex gap-1.5">
-        {[0, 1, 2].map((step) => (
-          <Mark
-            animate={animate}
-            className="size-3.5"
-            key={step}
-            speed={status ? 1 : 2}
-            step={step}
-            strokeWidth={1.5}
-          />
-        ))}
-      </span>
-      {status && (
-        <span className="text-muted" role="status">
-          {status}
-        </span>
-      )}
+    <span aria-label="Respondiendo" className="flex gap-1.5" role="status">
+      {[0, 1, 2].map((step) => (
+        <Mark className="size-3.5" key={step} speed={tool ? 1 : 2} step={step} strokeWidth={1.5} />
+      ))}
     </span>
   );
 }
 
 /**
- * One answer: the shapes and what Códice is doing while it works, then the answer revealed at
+ * One answer: the shapes while Códice works, then the answer revealed at
  * a steady pace. Memoized, so a streamed token re-renders only the answer it extends.
  */
 const Answer = memo(function Answer({
@@ -163,10 +143,9 @@ const Answer = memo(function Answer({
     live && tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
       ? tail
       : undefined;
-  const status = running ? (TOOL_LABELS[running.name] ?? "Consultando") : null;
   return (
     <div className="flex flex-col gap-3">
-      {live && <Working animate status={status} />}
+      {live && <Working tool={Boolean(running)} />}
       {body && (
         <Streamdown className={ANSWER} isAnimating={reveal.revealing}>
           {body}
@@ -181,7 +160,7 @@ const Answer = memo(function Answer({
  * The chat of the first screen: one question, one answer. The composer is the visitor's bubble,
  * grey, on the right under the title; Enter sends it where it stands and Códice answers under it,
  * in the page's own flow: the first screen grows with a long answer. Under the answer,
- * icon actions (copy, go on with an account, start over; Esc too) and the sources as pills.
+ * icon actions (copy, start over; Esc too) and, past a divider, the sources as pills.
  */
 export function Ask() {
   const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
@@ -205,12 +184,16 @@ export function Ask() {
     return () => clearInterval(timer);
   }, [query, isLoading]);
 
-  function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  function send() {
     const text = query.trim() || (ghost ?? "");
     if (!text || open) return;
     setQuery("");
     void sendMessage(text);
+  }
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    send();
   }
 
   function reset() {
@@ -221,11 +204,18 @@ export function Ask() {
     requestAnimationFrame(() => input.current?.focus());
   }
 
-  // `/` anywhere focuses the composer; Esc starts over, whatever the chat holds.
+  // `/` anywhere focuses the composer; Enter anywhere sends it, unless it would press a focused
+  // control; Esc starts over, whatever the chat holds.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const typing = event.target instanceof HTMLInputElement;
-      if (event.key === "/" && !typing) {
+      const control =
+        event.target instanceof Element &&
+        event.target.closest("a, button, input, select, textarea, [contenteditable]");
+      if (event.key === "Enter" && !control && !open && !event.isComposing) {
+        event.preventDefault();
+        send();
+      } else if (event.key === "/" && !typing) {
         event.preventDefault();
         input.current?.focus();
         input.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -255,7 +245,7 @@ export function Ask() {
             {message.role === "user" ? (
               <Bubble>{textOf(message.parts)}</Bubble>
             ) : (
-              <div className="bg-ink">
+              <div className="mt-4 bg-ink">
                 <Answer
                   failed={Boolean(error) && !isLoading && index === messages.length - 1}
                   live={isLoading && index === messages.length - 1}
@@ -266,12 +256,12 @@ export function Ask() {
           </div>
         ))}
         {pending && (
-          <div className="message-in">
-            <Working animate status={null} />
+          <div className="message-in mt-4">
+            <Working tool={false} />
           </div>
         )}
         {error && !isLoading && last?.role === "user" && (
-          <div>
+          <div className="mt-4">
             <p className="bg-ink text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
           </div>
         )}
@@ -294,9 +284,10 @@ export function Ask() {
             </div>
           </div>
         )}
-        {/* One question, one answer: to keep talking, the visitor makes an account. */}
+        {/* One question, one answer: to keep talking, the visitor makes an account. Pulled up
+            against the answer, so the row reads as its footer. */}
         {open && !isLoading && (
-          <div className="message-in">
+          <div className="message-in -mt-2">
             <Actions answer={answer} reset={reset} />
           </div>
         )}
@@ -316,8 +307,24 @@ function Action({ children, label }: { children: ReactNode; label: string }) {
 }
 
 /**
- * Under the answer: copy it, go on with an account (the fork), start over, then each source it
- * cites as a pill that opens the document.
+ * The pill's label, in one form whatever the model wrote: no markdown, quotes or "apartado"
+ * before it, only the last step of a heading path, one space between words, a capital first.
+ */
+function sourceLabel({ section, title }: Source) {
+  const label = section
+    .replace(/[*_`"“”«»]/g, "")
+    .split(/\s+[>›/]\s+/)
+    .at(-1)!
+    .replace(/^(?:apartado|secci[oó]n)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,;:.–—-]+|[\s,;:.–—-]+$/g, "");
+  const text = label || title;
+  return text.charAt(0).toLocaleUpperCase("es") + text.slice(1);
+}
+
+/**
+ * Under the answer: copy it, start over, then past a divider each source it cites as a pill that
+ * opens the document.
  */
 function Actions({ answer, reset }: { answer: string; reset: () => void }) {
   const { sources } = splitSources(answer, false);
@@ -342,29 +349,28 @@ function Actions({ answer, reset }: { answer: string; reset: () => void }) {
           </button>
         </Action>
       )}
-      <Action label="Continuar la conversación con una cuenta">
-        <a aria-label="Continuar la conversación con una cuenta" className={ACTION} href="/login">
-          <IconBranch size={16} />
-        </a>
-      </Action>
       <Action label="Empezar de nuevo · Esc">
         <button aria-label="Empezar de nuevo" className={ACTION} onClick={reset} type="button">
           <IconArrowRotateCounterClockwise size={16} />
         </button>
       </Action>
+      {sources.length > 0 && <span aria-hidden className="mx-1 h-4 w-px bg-line" />}
       {sources.map((source) => (
         <Action
           key={source.url + source.section}
           label={source.since ? `${source.title}, ${source.since}` : source.title}
         >
+          {/* Trimmed to cap height and baseline like a button, so the label centers; clipped
+              sideways only, so the trim never cuts a descender. */}
           <a
-            className="ml-1 flex h-7 max-w-64 min-w-0 items-center gap-1.5 rounded-full border border-line bg-ink px-2.5 text-[12px] text-muted hover:border-fg hover:text-fg"
+            className="ml-1 flex h-7 max-w-64 min-w-0 items-center rounded-full border border-line bg-ink px-2.5 text-[12px] text-muted hover:border-fg hover:text-fg"
             href={source.url}
             rel="noreferrer"
             target="_blank"
           >
-            <IconFileText className="shrink-0" size={14} />
-            <span className="truncate">{source.section || source.title}</span>
+            <span className="overflow-x-clip text-ellipsis whitespace-nowrap [text-box:trim-both_cap_alphabetic]">
+              {sourceLabel(source)}
+            </span>
           </a>
         </Action>
       ))}
