@@ -102,9 +102,10 @@ marks turning while Códice answers), and the favicon.
 
 ### First screen: the chat, alone
 
-- `min-h-[85vh]`, content centered and nudged up (`pb-[14vh]`) so the chat sits above the middle.
-- The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
-  over the wave field. No brand mark, no nav bar, no section label, no dividers.
+- A fixed height (`85svh`, at least 560px), so a conversation scrolls inside it.
+- The hero title (the page's `h1`, 20px, two lines on desktop) and the chat under it (max 32rem, the title balanced on two lines)
+  start on the sections' text column (48%, the line of the bar's links), a little above the
+  middle, over the wave field; on phones they start under the bar. No section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
   page's links (Producto, Documentación, Precios), 48px apart, with no fill and drawn with
   `mix-blend-mode: difference` so they stay readable over whatever scrolls under them, start on the text
@@ -120,8 +121,7 @@ exactly on the bar's bottom edge. As it slides up under the bar, its content fad
 whole travel (fully gone once stuck), so what remains is its fill and bottom border: from then
 on they are the bar's ground (`Strip` in `index.tsx`).
 
-Content: "Funciona con" in `muted` on the left, and on the right the icons of assistants an
-accountant already knows that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
+Content: "Funciona con" in `muted` on the left, and on the right the icons of assistants that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
 Copilot), 20px, 32px apart. Only list an assistant that really connects. The SVGs come from
 svgl.app (`public/_site/logos/`), cropped to their drawn area so they render at one size, and are
 drawn as CSS masks filled with `fg`, one color in either theme. Each shows its name in a tooltip
@@ -174,8 +174,7 @@ not Fumadocs' defaults:
   with Shiki's dark theme unless the page is light; the sidebar's current page bold in `fg`, never a tinted fill.
 - **Spanish interface:** `src/lib/docs-i18n.ts` translates Fumadocs' labels. Add a key there when
   an English label shows up.
-- **Content:** guides are plain Spanish for accountants first; code only where it is the point.
-  The API reference is generated: change `apps/api/src/openapi.ts`, then run
+- **Content:** the API reference is generated: change `apps/api/src/openapi.ts`, then run
   `pnpm --filter @codice/api openapi`.
 
 ## Components
@@ -196,7 +195,15 @@ Entrar → Obtener clave so the blue one sits in the corner.
 ### Chat (`src/ask.tsx`)
 
 - **A chat, not a section:** only the hero title above it, no explanation around it.
-- **The visitor's question** is a right-aligned bubble: `bg-electric`, white text, 4px radius.
+- **The thread** scrolls inside the first screen, faded at whichever edge has more to read
+  (`.scroll-fade`); each message rises in (`.message-in`). The grey bubble eases its width
+  between the offered questions and holds still while focused.
+- **Ported from Transitive, not hand-rolled:** the thread is shadcn's message scroller
+  (`@shadcn/react`, as `@transitive/ui` wraps it: follows new messages unless the reader scrolls
+  up), the bubble is its `Bubble`, and answers reveal at a steady pace with its
+  `useStreamedReveal` (`src/components/chat/`).
+- **The visitor's question** is a right-aligned bubble: `bg-line` while typed, `bg-electric` with
+  white text once sent, 4px radius, at most 85% of the thread.
 - **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
   `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
   regla"…, or "Pensando"), then rest. The answer streams in as markdown in plain `fg` text; the API
@@ -206,8 +213,10 @@ Entrar → Obtener clave so the blue one sits in the corner.
   question as ghost text that rotates every 4s; Enter on an empty composer sends it. While typing,
   it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
-- **v1 is one question, one answer.** While it answers the composer shows `Esc` "Detener"; after,
-  `Esc` "Otra pregunta". Esc clears the chat from anywhere; `/` focuses the composer from anywhere.
+- **One question, one answer.** The composer is a grey bubble on the right under the title, as
+  wide as its text; Enter sends it in place as the blue bubble and the answer streams under it.
+  After the answer, two small raw-text actions: "Continuar la conversación con una cuenta"
+  (`/login`) and "Empezar de nuevo" (also Esc). `/` focuses the composer from anywhere.
 - Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).
@@ -245,13 +254,7 @@ turning `fg` on hover.
 ## Copy
 
 - Spanish (es-MX), `lang="es-MX"`, `og:locale` `es_MX`.
-- Written for accountants and people who invoice, not developers: plain words ("el Código
-  Fiscal", not "CFF"), the client's real questions as examples, short paragraphs. Only "Para
-  desarrolladores" may be technical.
-- No hype, no disclaimers in the chrome. The stance: "No sustituye tu criterio. Te da la fuente
-  para sostenerlo."
-- The headline (from the Figma reference): "Códice es el primer índice de documentación legal
-  mexicana."
+- No hype, no disclaimers in the chrome.
 
 ## What we tried and dropped
 

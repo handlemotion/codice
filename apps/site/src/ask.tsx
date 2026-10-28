@@ -1,8 +1,29 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import {
+  IconArrowCornerDownLeft,
+  IconArrowRight,
+} from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type RefObject,
+} from "react";
 import { Streamdown } from "streamdown";
 
 import { Mark } from "./brand/mark";
+import { Bubble } from "./components/chat/bubble";
+import {
+  MessageScroller,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "./components/chat/message-scroller";
+import { useStreamedReveal } from "./components/chat/streamed-reveal";
 
 // The site's own `POST /_site/chat`, which calls the API's `POST /v1/chat` with the site's key
 // (src/routes/[_site]/chat.ts). The answer streams back as AG-UI server-sent events.
@@ -10,10 +31,10 @@ const connection = fetchServerSentEvents("/_site/chat");
 
 // Questions the composer offers as ghost text: Tab takes one, Enter on an empty composer sends it.
 const SUGGESTIONS = [
-  "¿Hasta cuándo puedo cancelar un CFDI?",
+  "¿Hasta cuándo puedo cancelar una factura?",
   "¿Qué significa el error CFDI40149?",
-  "¿Para qué es el uso de CFDI G03?",
-  "¿Qué pide la regla 2.7.1.34 de la RMF?",
+  "¿Qué uso de CFDI pongo en gastos médicos?",
+  "¿Qué régimen fiscal es el 626?",
 ];
 const ROTATE_MS = 4000;
 
@@ -32,6 +53,12 @@ const TOOL_LABELS: Record<string, string> = {
 // The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
 const ANSWER =
   "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
+
+// The small raw-text actions around the bubble: how to send, how to go on, how to start over.
+const HINT = "flex items-center gap-1.5 text-[13px] text-muted";
+
+type ChatMessage = ReturnType<typeof useChat>["messages"][number];
+type Part = ChatMessage["parts"][number];
 
 // Compared without case or accents, so "hasta cuando" still finds "Hasta cuándo". Stripping marks
 // after NFD keeps one character per letter, so the two strings stay aligned.
@@ -52,19 +79,71 @@ function completion(query: string, rotation: number): string | null {
   return null;
 }
 
-// Key caps live only inside the composer, which is inverted (`bg-fg`), so they use the ground's ink.
-function Key({ children }: { children: ReactNode }) {
+function textOf(parts: readonly Part[]) {
+  return parts.map((part) => (part.type === "text" ? part.content : "")).join("");
+}
+
+/** Códice's three shapes, turning while it works. */
+function Working({ animate, status }: { animate: boolean; status: string | null }) {
   return (
-    <kbd className="rounded-[2px] border border-ink/25 px-1.5 py-1 text-[11px] text-ink/60">
-      {children}
-    </kbd>
+    <span className="flex items-center gap-3">
+      <span aria-hidden className="flex gap-1.5">
+        {[0, 1, 2].map((step) => (
+          <Mark animate={animate} className="size-3.5" key={step} step={step} strokeWidth={1.5} />
+        ))}
+      </span>
+      {status && (
+        <span className="text-muted" role="status">
+          {status}
+        </span>
+      )}
+    </span>
   );
 }
 
 /**
- * The chat of the first screen: Códice greets, the visitor asks one question (a blue bubble), and
- * Códice answers while its three shapes turn. The composer offers questions. One question, one
- * answer: Esc clears it for the next.
+ * One answer: the shapes and what Códice is doing while it works, then the answer revealed at
+ * a steady pace. Memoized, so a streamed token re-renders only the answer it extends.
+ */
+const Answer = memo(function Answer({
+  parts,
+  live,
+  failed,
+}: {
+  parts: readonly Part[];
+  live: boolean;
+  failed: boolean;
+}) {
+  const reveal = useStreamedReveal(textOf(parts), live);
+  // The tool Códice is running now, if any: a call with no part after it yet.
+  const tail = parts.at(-1);
+  const running =
+    live && tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
+      ? tail
+      : undefined;
+  const status = running
+    ? (TOOL_LABELS[running.name] ?? "Consultando")
+    : live && !reveal.text
+      ? "Pensando"
+      : null;
+  return (
+    <div className="flex flex-col gap-3">
+      {live && <Working animate status={status} />}
+      {reveal.text && (
+        <Streamdown className={ANSWER} isAnimating={reveal.revealing}>
+          {reveal.text}
+        </Streamdown>
+      )}
+      {failed && <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>}
+    </div>
+  );
+});
+
+/**
+ * The chat of the first screen: one question, one answer. The composer is the visitor's bubble,
+ * grey, on the right under the title; Enter sends it where it stands and Códice answers under it,
+ * scrolling inside the first screen, faded at whichever edge has more to read. After the answer,
+ * going on takes an account; Esc starts over.
  */
 export function Ask() {
   const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
@@ -72,23 +151,20 @@ export function Ask() {
   const [rotation, setRotation] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const open = messages.length > 0 || isLoading;
-  const ghost = open ? null : completion(query, rotation);
+  const ghost = completion(query, rotation);
   const rest = ghost?.slice(query.length) ?? "";
-
-  const question = messages
-    .find((message) => message.role === "user")
-    ?.parts.map((part) => (part.type === "text" ? part.content : ""))
-    .join("");
-  // One question, one answer: the reply is the last message once Códice starts answering.
   const last = messages.at(-1);
-  const reply = last?.role === "assistant" ? last : undefined;
+  const pending = isLoading && last?.role === "user";
 
-  // While nothing is typed, the offered question changes every few seconds.
+  // While nothing is typed, the offered question changes every few seconds; it holds still while
+  // the bubble has the keyboard, so the question there is the one Enter sends.
   useEffect(() => {
-    if (open || query) return;
-    const timer = setInterval(() => setRotation((count) => count + 1), ROTATE_MS);
+    if (query || isLoading) return;
+    const timer = setInterval(() => {
+      if (document.activeElement !== input.current) setRotation((count) => count + 1);
+    }, ROTATE_MS);
     return () => clearInterval(timer);
-  }, [open, query]);
+  }, [query, isLoading]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -110,7 +186,7 @@ export function Ask() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const typing = event.target instanceof HTMLInputElement;
-      if (event.key === "/" && !typing && !open) {
+      if (event.key === "/" && !typing) {
         event.preventDefault();
         input.current?.focus();
         input.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -123,111 +199,165 @@ export function Ask() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  // The tool Códice is running now, if any: a call with no part after it yet.
-  const parts = reply?.parts ?? [];
-  const tail = parts.at(-1);
-  const running =
-    tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
-      ? tail
-      : undefined;
-  const answer = parts.map((part) => (part.type === "text" ? part.content : "")).join("");
-  const status = running
-    ? (TOOL_LABELS[running.name] ?? "Consultando")
-    : isLoading && !answer
-      ? "Pensando"
-      : null;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-10">
+      {/* Balanced, so its two lines run about the same length; the ground sits behind the lines only,
+          so the field shows past where each line ends. */}
+      <h1 className="text-[20px] leading-snug text-balance">
+        <span className="box-decoration-clone bg-ink">
+          Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente
+          o intégrala en tu producto.
+        </span>
+      </h1>
+
+      <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
+        <MessageScroller>
+          <MessageScrollerViewport aria-label="Conversación con Códice" role="log">
+            <MessageScrollerContent className="pb-6">
+              {messages.map((message, index) => (
+                <MessageScrollerItem
+                  className="message-in"
+                  key={message.id}
+                  messageId={message.id}
+                  scrollAnchor={message.role === "user"}
+                >
+                  {message.role === "user" ? (
+                    <Bubble>{textOf(message.parts)}</Bubble>
+                  ) : (
+                    <div className="bg-ink">
+                      <Answer
+                        failed={Boolean(error) && !isLoading && index === messages.length - 1}
+                        live={isLoading && index === messages.length - 1}
+                        parts={message.parts}
+                      />
+                    </div>
+                  )}
+                </MessageScrollerItem>
+              ))}
+              {pending && (
+                <MessageScrollerItem className="message-in" messageId="pending">
+                  <Working animate status="Pensando" />
+                </MessageScrollerItem>
+              )}
+              {error && !isLoading && last?.role === "user" && (
+                <MessageScrollerItem messageId="error">
+                  <p className="bg-ink text-muted">
+                    No pude responder. Intenta de nuevo en un minuto.
+                  </p>
+                </MessageScrollerItem>
+              )}
+              {!open && (
+                <MessageScrollerItem messageId="composer">
+                  <div className="flex flex-col items-end gap-2">
+                    <Composer
+                      input={input}
+                      label="Pregúntale a Códice"
+                      onSubmit={onSubmit}
+                      query={query}
+                      rest={rest}
+                      setQuery={setQuery}
+                    />
+                    {/* Under the bubble, in small raw text: how to send it. */}
+                    <span className={`${HINT} bg-ink`}>
+                      <IconArrowCornerDownLeft size={14} />
+                      Enviar
+                    </span>
+                  </div>
+                </MessageScrollerItem>
+              )}
+              {/* One question, one answer: to keep talking, the visitor makes an account. */}
+              {open && !isLoading && (
+                <MessageScrollerItem className="message-in" messageId="after">
+                  <div className="flex items-center gap-4 bg-ink">
+                    <a className={`${HINT} hover:text-fg`} href="/login">
+                      <IconArrowRight size={14} />
+                      Continuar la conversación con una cuenta
+                    </a>
+                    <button className={`${HINT} hover:text-fg`} onClick={reset} type="button">
+                      Empezar de nuevo
+                    </button>
+                  </div>
+                </MessageScrollerItem>
+              )}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+        </MessageScroller>
+      </MessageScrollerProvider>
+    </div>
+  );
+}
+
+/**
+ * The visitor's next message as a grey bubble (blue once sent): exactly as wide as what is typed
+ * (and the offered question, as ghost text Tab accepts), up to 85% of the thread.
+ */
+function Composer({
+  input,
+  label,
+  onSubmit,
+  query,
+  rest,
+  setQuery,
+}: {
+  input: RefObject<HTMLInputElement | null>;
+  label: string;
+  onSubmit: (event: FormEvent) => void;
+  query: string;
+  rest: string;
+  setQuery: (query: string) => void;
+}) {
+  // The text's width, measured from a hidden copy, sets the bubble's: an explicit width can
+  // transition, so the bubble eases between the offered questions as they rotate. While the
+  // visitor types it follows at once.
+  const sizer = useRef<HTMLSpanElement>(null);
+  const [width, setWidth] = useState<number>();
+  useLayoutEffect(() => {
+    if (sizer.current) setWidth(Math.ceil(sizer.current.getBoundingClientRect().width));
+  }, [query, rest]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="self-start bg-ink text-[20px] leading-snug text-balance">
-        Códice es el primer índice de documentación legal mexicana.
-      </h1>
-      <ol aria-live="polite" className="flex flex-col gap-6 empty:hidden">
-        {question && (
-          <li className="max-w-[80%] self-end rounded-[4px] bg-electric px-3 py-2 text-white">
-            {question}
-          </li>
-        )}
-        {open && (
-          <li className="flex flex-col gap-3 bg-ink">
-            <span className="flex items-center gap-3">
-              <span aria-hidden className="flex gap-1.5">
-                {[0, 1, 2].map((step) => (
-                  <Mark
-                    animate={isLoading}
-                    className="size-3.5"
-                    key={step}
-                    step={step}
-                    strokeWidth={1.5}
-                  />
-                ))}
-              </span>
-              {status && (
-                <span className="text-muted" role="status">
-                  {status}
-                </span>
-              )}
-            </span>
-            {answer && (
-              <Streamdown className={ANSWER} isAnimating={isLoading}>
-                {answer}
-              </Streamdown>
-            )}
-            {error && !isLoading && (
-              <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
-            )}
-          </li>
-        )}
-      </ol>
-
-      <form className="rounded-[4px] bg-fg text-ink" onSubmit={onSubmit} role="search">
-        <label className="sr-only" htmlFor="ask">
-          Pregúntale a Códice
-        </label>
-        <div className="relative flex items-center gap-3 px-3 py-2">
-          {/* The ghost: what is typed, invisible, then the rest of the offered question. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-2 right-24 left-3 overflow-hidden whitespace-pre"
-          >
-            <span className="invisible">{query}</span>
-            <span className="text-ink/50">{rest}</span>
-          </div>
-          <input
-            autoComplete="off"
-            className="relative min-w-0 flex-1 bg-transparent caret-ink outline-none read-only:cursor-default"
-            enterKeyHint="send"
-            id="ask"
-            maxLength={MAX_QUESTION_LENGTH}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Tab" && rest) {
-                event.preventDefault();
-                setQuery(query + rest);
-              }
-            }}
-            readOnly={open}
-            ref={input}
-            spellCheck={false}
-            value={open ? "" : query}
-          />
-          {open ? (
-            <button
-              className="flex items-center gap-2 text-ink/60 hover:text-ink"
-              onClick={reset}
-              type="button"
-            >
-              <Key>Esc</Key>
-              {isLoading ? "Detener" : "Otra pregunta"}
-            </button>
-          ) : (
-            <span className="flex gap-1.5 max-sm:hidden">
-              {rest && <Key>Tab</Key>}
-              <Key>↵</Key>
-            </span>
-          )}
-        </div>
-      </form>
-    </div>
+    <form
+      className="max-w-[85%] min-w-0 rounded-[4px] bg-line px-3 py-2 text-fg"
+      onSubmit={onSubmit}
+      role="search"
+    >
+      <label className="sr-only" htmlFor="ask">
+        {label}
+      </label>
+      <span
+        aria-hidden
+        className="pointer-events-none invisible absolute whitespace-pre"
+        ref={sizer}
+      >
+        {query + rest || " "}
+      </span>
+      <span
+        className={`relative block max-w-full overflow-hidden ${query ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"}`}
+        style={{ width: width === undefined ? undefined : `max(4ch, ${width}px)` }}
+      >
+        {/* The ghost: what is typed, invisible, then the rest of the offered question. */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 whitespace-pre">
+          <span className="invisible">{query}</span>
+          <span className="text-muted">{rest}</span>
+        </span>
+        <input
+          autoComplete="off"
+          className="relative block w-full min-w-0 bg-transparent caret-fg outline-none"
+          enterKeyHint="send"
+          id="ask"
+          maxLength={MAX_QUESTION_LENGTH}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Tab" && rest) {
+              event.preventDefault();
+              setQuery(query + rest);
+            }
+          }}
+          ref={input}
+          spellCheck={false}
+          value={query}
+        />
+      </span>
+    </form>
   );
 }

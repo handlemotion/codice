@@ -10,9 +10,9 @@ import { THEME_SCRIPT, toggleTheme } from "../theme";
 import "../styles.css";
 
 const ORIGIN = "https://codice.io";
-const TITLE = "Códice: las reglas fiscales y aduaneras de México, por HTTP y MCP";
+const TITLE = "Códice: el contexto fiscal de México para tus agentes";
 const DESCRIPTION =
-  "Busca las reglas del SAT tal como están escritas: CFDI 4.0, Pagos 2.0, catálogos, matriz de errores y la Resolución Miscelánea Fiscal, citadas textualmente con su fuente y vigencia.";
+  "CFDI 4.0, Pagos 2.0, catálogos, matriz de errores y la Resolución Miscelánea Fiscal, para tus agentes por MCP y tu software por API.";
 const IMAGE = `${ORIGIN}/_site/og.png`;
 
 export const Route = createRootRoute({
