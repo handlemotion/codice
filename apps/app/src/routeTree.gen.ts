@@ -8,229 +8,229 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as DashboardRouteImport } from './routes/_dashboard'
-import { Route as ConsentRouteImport } from './routes/consent'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardIndexRouteImport } from './routes/_dashboard/index'
-import { Route as DashboardAccountRouteImport } from './routes/_dashboard/account'
-import { Route as DashboardClientsRouteImport } from './routes/_dashboard/clients'
-import { Route as DashboardKeysRouteImport } from './routes/_dashboard/keys'
-import { Route as DashboardTeamRouteImport } from './routes/_dashboard/team'
-import { Route as InvitacionIdRouteImport } from './routes/invitacion.$id'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as DashboardRouteImport } from "./routes/_dashboard";
+import { Route as ConsentRouteImport } from "./routes/consent";
+import { Route as LoginRouteImport } from "./routes/login";
+import { Route as DashboardIndexRouteImport } from "./routes/_dashboard/index";
+import { Route as DashboardAccountRouteImport } from "./routes/_dashboard/account";
+import { Route as DashboardClientsRouteImport } from "./routes/_dashboard/clients";
+import { Route as DashboardKeysRouteImport } from "./routes/_dashboard/keys";
+import { Route as DashboardTeamRouteImport } from "./routes/_dashboard/team";
+import { Route as InvitacionIdRouteImport } from "./routes/invitacion.$id";
+import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
 
 const DashboardRoute = DashboardRouteImport.update({
-  id: '/_dashboard',
+  id: "/_dashboard",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const ConsentRoute = ConsentRouteImport.update({
-  id: '/consent',
-  path: '/consent',
+  id: "/consent",
+  path: "/consent",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+  id: "/login",
+  path: "/login",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any);
 const DashboardAccountRoute = DashboardAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+  id: "/account",
+  path: "/account",
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any);
 const DashboardClientsRoute = DashboardClientsRouteImport.update({
-  id: '/clients',
-  path: '/clients',
+  id: "/clients",
+  path: "/clients",
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any);
 const DashboardKeysRoute = DashboardKeysRouteImport.update({
-  id: '/keys',
-  path: '/keys',
+  id: "/keys",
+  path: "/keys",
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any);
 const DashboardTeamRoute = DashboardTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
+  id: "/team",
+  path: "/team",
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any);
 const InvitacionIdRoute = InvitacionIdRouteImport.update({
-  id: '/invitacion/$id',
-  path: '/invitacion/$id',
+  id: "/invitacion/$id",
+  path: "/invitacion/$id",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
+  id: "/api/auth/$",
+  path: "/api/auth/$",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof DashboardIndexRoute
-  '/consent': typeof ConsentRoute
-  '/login': typeof LoginRoute
-  '/account': typeof DashboardAccountRoute
-  '/clients': typeof DashboardClientsRoute
-  '/keys': typeof DashboardKeysRoute
-  '/team': typeof DashboardTeamRoute
-  '/invitacion/$id': typeof InvitacionIdRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
+  "/": typeof DashboardIndexRoute;
+  "/consent": typeof ConsentRoute;
+  "/login": typeof LoginRoute;
+  "/account": typeof DashboardAccountRoute;
+  "/clients": typeof DashboardClientsRoute;
+  "/keys": typeof DashboardKeysRoute;
+  "/team": typeof DashboardTeamRoute;
+  "/invitacion/$id": typeof InvitacionIdRoute;
+  "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRoutesByTo {
-  '/consent': typeof ConsentRoute
-  '/login': typeof LoginRoute
-  '/account': typeof DashboardAccountRoute
-  '/clients': typeof DashboardClientsRoute
-  '/keys': typeof DashboardKeysRoute
-  '/team': typeof DashboardTeamRoute
-  '/invitacion/$id': typeof InvitacionIdRoute
-  '/': typeof DashboardIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
+  "/consent": typeof ConsentRoute;
+  "/login": typeof LoginRoute;
+  "/account": typeof DashboardAccountRoute;
+  "/clients": typeof DashboardClientsRoute;
+  "/keys": typeof DashboardKeysRoute;
+  "/team": typeof DashboardTeamRoute;
+  "/invitacion/$id": typeof InvitacionIdRoute;
+  "/": typeof DashboardIndexRoute;
+  "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/_dashboard': typeof DashboardRouteWithChildren
-  '/consent': typeof ConsentRoute
-  '/login': typeof LoginRoute
-  '/_dashboard/account': typeof DashboardAccountRoute
-  '/_dashboard/clients': typeof DashboardClientsRoute
-  '/_dashboard/keys': typeof DashboardKeysRoute
-  '/_dashboard/team': typeof DashboardTeamRoute
-  '/invitacion/$id': typeof InvitacionIdRoute
-  '/_dashboard/': typeof DashboardIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
+  __root__: typeof rootRouteImport;
+  "/_dashboard": typeof DashboardRouteWithChildren;
+  "/consent": typeof ConsentRoute;
+  "/login": typeof LoginRoute;
+  "/_dashboard/account": typeof DashboardAccountRoute;
+  "/_dashboard/clients": typeof DashboardClientsRoute;
+  "/_dashboard/keys": typeof DashboardKeysRoute;
+  "/_dashboard/team": typeof DashboardTeamRoute;
+  "/invitacion/$id": typeof InvitacionIdRoute;
+  "/_dashboard/": typeof DashboardIndexRoute;
+  "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    | '/'
-    | '/consent'
-    | '/login'
-    | '/account'
-    | '/clients'
-    | '/keys'
-    | '/team'
-    | '/invitacion/$id'
-    | '/api/auth/$'
-  fileRoutesByTo: FileRoutesByTo
+    | "/"
+    | "/consent"
+    | "/login"
+    | "/account"
+    | "/clients"
+    | "/keys"
+    | "/team"
+    | "/invitacion/$id"
+    | "/api/auth/$";
+  fileRoutesByTo: FileRoutesByTo;
   to:
-    | '/consent'
-    | '/login'
-    | '/account'
-    | '/clients'
-    | '/keys'
-    | '/team'
-    | '/invitacion/$id'
-    | '/'
-    | '/api/auth/$'
+    | "/consent"
+    | "/login"
+    | "/account"
+    | "/clients"
+    | "/keys"
+    | "/team"
+    | "/invitacion/$id"
+    | "/"
+    | "/api/auth/$";
   id:
-    | '__root__'
-    | '/_dashboard'
-    | '/consent'
-    | '/login'
-    | '/_dashboard/account'
-    | '/_dashboard/clients'
-    | '/_dashboard/keys'
-    | '/_dashboard/team'
-    | '/invitacion/$id'
-    | '/_dashboard/'
-    | '/api/auth/$'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/_dashboard"
+    | "/consent"
+    | "/login"
+    | "/_dashboard/account"
+    | "/_dashboard/clients"
+    | "/_dashboard/keys"
+    | "/_dashboard/team"
+    | "/invitacion/$id"
+    | "/_dashboard/"
+    | "/api/auth/$";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  DashboardRoute: typeof DashboardRouteWithChildren
-  ConsentRoute: typeof ConsentRoute
-  LoginRoute: typeof LoginRoute
-  InvitacionIdRoute: typeof InvitacionIdRoute
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  DashboardRoute: typeof DashboardRouteWithChildren;
+  ConsentRoute: typeof ConsentRoute;
+  LoginRoute: typeof LoginRoute;
+  InvitacionIdRoute: typeof InvitacionIdRoute;
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/_dashboard': {
-      id: '/_dashboard'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/consent': {
-      id: '/consent'
-      path: '/consent'
-      fullPath: '/consent'
-      preLoaderRoute: typeof ConsentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_dashboard/': {
-      id: '/_dashboard/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/account': {
-      id: '/_dashboard/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof DashboardAccountRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/clients': {
-      id: '/_dashboard/clients'
-      path: '/clients'
-      fullPath: '/clients'
-      preLoaderRoute: typeof DashboardClientsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/keys': {
-      id: '/_dashboard/keys'
-      path: '/keys'
-      fullPath: '/keys'
-      preLoaderRoute: typeof DashboardKeysRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/team': {
-      id: '/_dashboard/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof DashboardTeamRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/invitacion/$id': {
-      id: '/invitacion/$id'
-      path: '/invitacion/$id'
-      fullPath: '/invitacion/$id'
-      preLoaderRoute: typeof InvitacionIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+    "/_dashboard": {
+      id: "/_dashboard";
+      path: "";
+      fullPath: "/";
+      preLoaderRoute: typeof DashboardRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/consent": {
+      id: "/consent";
+      path: "/consent";
+      fullPath: "/consent";
+      preLoaderRoute: typeof ConsentRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/login": {
+      id: "/login";
+      path: "/login";
+      fullPath: "/login";
+      preLoaderRoute: typeof LoginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_dashboard/": {
+      id: "/_dashboard/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof DashboardIndexRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/_dashboard/account": {
+      id: "/_dashboard/account";
+      path: "/account";
+      fullPath: "/account";
+      preLoaderRoute: typeof DashboardAccountRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/_dashboard/clients": {
+      id: "/_dashboard/clients";
+      path: "/clients";
+      fullPath: "/clients";
+      preLoaderRoute: typeof DashboardClientsRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/_dashboard/keys": {
+      id: "/_dashboard/keys";
+      path: "/keys";
+      fullPath: "/keys";
+      preLoaderRoute: typeof DashboardKeysRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/_dashboard/team": {
+      id: "/_dashboard/team";
+      path: "/team";
+      fullPath: "/team";
+      preLoaderRoute: typeof DashboardTeamRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/invitacion/$id": {
+      id: "/invitacion/$id";
+      path: "/invitacion/$id";
+      fullPath: "/invitacion/$id";
+      preLoaderRoute: typeof InvitacionIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/api/auth/$": {
+      id: "/api/auth/$";
+      path: "/api/auth/$";
+      fullPath: "/api/auth/$";
+      preLoaderRoute: typeof ApiAuthSplatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 interface DashboardRouteChildren {
-  DashboardAccountRoute: typeof DashboardAccountRoute
-  DashboardClientsRoute: typeof DashboardClientsRoute
-  DashboardKeysRoute: typeof DashboardKeysRoute
-  DashboardTeamRoute: typeof DashboardTeamRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardAccountRoute: typeof DashboardAccountRoute;
+  DashboardClientsRoute: typeof DashboardClientsRoute;
+  DashboardKeysRoute: typeof DashboardKeysRoute;
+  DashboardTeamRoute: typeof DashboardTeamRoute;
+  DashboardIndexRoute: typeof DashboardIndexRoute;
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -239,11 +239,9 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardKeysRoute: DashboardKeysRoute,
   DashboardTeamRoute: DashboardTeamRoute,
   DashboardIndexRoute: DashboardIndexRoute,
-}
+};
 
-const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
-  DashboardRouteChildren,
-)
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(DashboardRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
@@ -251,16 +249,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   InvitacionIdRoute: InvitacionIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
+  ._addFileTypes<FileRouteTypes>();
