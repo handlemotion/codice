@@ -1,6 +1,7 @@
 import {
   IconChevronDownSmall,
   IconBook,
+  IconChecklist,
   IconCode,
   IconContrast,
   IconMagnifyingGlass,
@@ -16,9 +17,16 @@ import { toggleTheme } from "../theme";
 
 type Group = { name: ReactNode; key: string; pages: Item[] };
 
-// Each group's line icon, in the order of content/docs/meta.json: Empezar, Guías, Conectar,
-// Referencia de la API. (The tree's names arrive as React nodes, so groups are known by position.)
-const ICONS: ComponentType<{ size?: number }>[] = [IconRocket, IconBook, IconPlugin1, IconCode];
+// Each group's line icon, in the order of content/docs/meta.json: Empezar, Guías, Recetas,
+// Conectar, Referencia de la API. (The tree's names arrive as React nodes, so groups are known by
+// position.)
+const ICONS: ComponentType<{ size?: number }>[] = [
+  IconRocket,
+  IconBook,
+  IconChecklist,
+  IconPlugin1,
+  IconCode,
+];
 
 // The page tree as the sidebar's groups: each separator opens a group of the pages after it, and
 // a folder (the API reference) is a group of its own.
