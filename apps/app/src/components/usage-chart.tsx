@@ -42,6 +42,8 @@ function scale(max: number) {
 
 const Y_AXIS_WIDTH = 32;
 const HEIGHT = 220;
+/** Half the gap between bars, on each side of a day's cell: 12px, 6px on a phone. */
+const CELL = "px-1.5 sm:px-3";
 
 /** Each day's calls, stacked per series into a column; hovering a day shows its counts. */
 export function UsageBars({
@@ -58,11 +60,11 @@ export function UsageBars({
   const { top, ticks } = scale(Math.max(...totals));
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex" style={{ height: HEIGHT }}>
         <div
           aria-hidden
-          className="flex shrink-0 flex-col justify-between pr-2 text-right text-[11px] leading-none text-muted tabular-nums"
+          className="flex shrink-0 flex-col justify-between pr-3 text-right text-[11px] leading-none text-muted tabular-nums"
           style={{ width: Y_AXIS_WIDTH }}
         >
           {ticks.map((tick) => (
@@ -80,23 +82,27 @@ export function UsageBars({
               style={{ top: `${(index / (ticks.length - 1)) * 100}%` }}
             />
           ))}
-          <div className="absolute inset-0 flex gap-3 sm:gap-6">
+          {/* Each day is an equal cell with half the gap on either side, so the space between bars
+              and at both ends is the same. */}
+          <div className="absolute inset-0 flex">
             {days.map((day, index) => (
               <div
-                className={`relative flex flex-1 cursor-crosshair flex-col-reverse ${hovered === index ? "bg-fg/5" : ""}`}
+                className={`flex flex-1 cursor-crosshair ${CELL} ${hovered === index ? "bg-fg/5" : ""}`}
                 key={day.date}
                 onMouseEnter={() => setHovered(index)}
               >
-                {series.map((entry) => {
-                  const value = day.requests[entry.id] ?? 0;
-                  if (value === 0) return null;
-                  return (
-                    <div
-                      key={entry.id}
-                      style={{ height: `${(value / top) * 100}%`, background: entry.color }}
-                    />
-                  );
-                })}
+                <div className="flex flex-1 flex-col-reverse">
+                  {series.map((entry) => {
+                    const value = day.requests[entry.id] ?? 0;
+                    if (value === 0) return null;
+                    return (
+                      <div
+                        key={entry.id}
+                        style={{ height: `${(value / top) * 100}%`, background: entry.color }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
@@ -114,11 +120,11 @@ export function UsageBars({
       </div>
       <div
         aria-hidden
-        className="flex gap-3 text-center text-[11px] text-muted sm:gap-6"
+        className="flex text-center text-[11px] text-muted"
         style={{ paddingLeft: Y_AXIS_WIDTH }}
       >
         {days.map((day) => (
-          <span className="min-w-0 flex-1 truncate" key={day.date}>
+          <span className={`min-w-0 flex-1 truncate ${CELL}`} key={day.date}>
             <span className="max-sm:hidden">
               {AXIS_WEEKDAY.format(usageDay(day.date)).replace(".", "")}{" "}
             </span>
@@ -183,14 +189,14 @@ export function SeriesRow({
   value: ReactNode;
 }) {
   return (
-    <li className="flex min-h-12 items-center gap-3 py-2">
+    <div className="flex items-center gap-3 p-4">
       <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: color }} />
       <span className="min-w-0 flex-1 truncate">
         {label}
         {hint ? <span className="text-muted"> ({hint})</span> : null}
       </span>
       <span className="shrink-0 text-[13px] text-muted tabular-nums">{value}</span>
-    </li>
+    </div>
   );
 }
 
@@ -211,7 +217,7 @@ export function MeterRow({
   value: number;
 }) {
   return (
-    <li className="flex flex-col justify-center gap-3 py-3.5">
+    <div className="flex flex-col gap-3 p-4">
       <div className="flex min-w-0 items-baseline gap-3">
         <span className="min-w-0 flex-1 truncate">
           {label}
@@ -235,6 +241,6 @@ export function MeterRow({
           }}
         />
       </div>
-    </li>
+    </div>
   );
 }

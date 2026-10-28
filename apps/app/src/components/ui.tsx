@@ -30,20 +30,50 @@ export const GHOST = "text-[13px] text-muted hover:text-fg disabled:opacity-50";
 export function Page({
   title,
   action,
+  inset = false,
   children,
 }: {
   title: string;
   action?: ReactNode;
+  /** Sets the title 16px in, on the line of the text inside its groups (`Group`). */
+  inset?: boolean;
   children: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-6 py-10 sm:py-16">
-      <header className="flex min-h-8 items-center justify-between gap-4">
+      <header className={`flex min-h-8 items-center justify-between gap-4 ${inset ? "px-4" : ""}`}>
         <h1 className="text-[20px] leading-snug">{title}</h1>
         {action}
       </header>
       {children}
     </div>
+  );
+}
+
+/**
+ * Transitive's settings group: the name in `muted` above the island, on the line of the text in
+ * it, an optional note at the right, and the island's blocks divided edge to edge. Every block
+ * pads itself 16px.
+ */
+export function Group({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex min-h-7 items-center justify-between gap-4 px-4 text-[13px] text-muted">
+        <h2>{title}</h2>
+        {note && <span>{note}</span>}
+      </div>
+      <div className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+        {children}
+      </div>
+    </section>
   );
 }
 

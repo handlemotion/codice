@@ -4,7 +4,7 @@ import {
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
 
-import { ISLAND, Page, Section } from "../../components/ui";
+import { Group, Page } from "../../components/ui";
 import {
   MeterRow,
   SeriesRow,
@@ -118,14 +118,16 @@ function Totals({ usage }: { usage: UsageWeek }) {
     { label: "Tiempo medio", value: meanMs === null ? "–" : `${numberFormat.format(meanMs)} ms` },
   ];
   return (
-    <div className={`${ISLAND} grid grid-cols-3 divide-x divide-edge`}>
-      {figures.map((figure) => (
-        <div className="flex flex-col gap-1 p-4 sm:px-6" key={figure.label}>
-          <span className="text-[13px] text-muted">{figure.label}</span>
-          <span className="text-[20px] leading-snug tabular-nums">{figure.value}</span>
-        </div>
-      ))}
-    </div>
+    <Group title="Resumen">
+      <div className="grid grid-cols-3 divide-x divide-line/60">
+        {figures.map((figure) => (
+          <div className="flex flex-col gap-1 p-4" key={figure.label}>
+            <span className="text-[13px] text-muted">{figure.label}</span>
+            <span className="text-[20px] leading-snug tabular-nums">{figure.value}</span>
+          </div>
+        ))}
+      </div>
+    </Group>
   );
 }
 
@@ -135,10 +137,10 @@ function Usage() {
 
   if (!team || !usage) {
     return (
-      <Page title="Uso">
-        <Section title="Solicitudes">
-          <p className="text-muted">Crea o únete a un equipo para ver su uso.</p>
-        </Section>
+      <Page inset title="Uso">
+        <Group title="Solicitudes">
+          <p className="p-4 text-muted">Crea o únete a un equipo para ver su uso.</p>
+        </Group>
       </Page>
     );
   }
@@ -150,56 +152,52 @@ function Usage() {
   const busiest = usage.operations[0]?.requests ?? 0;
 
   return (
-    <Page action={<WeekControl usage={usage} />} title="Uso">
-      <div className={`flex flex-col gap-6 transition-opacity ${pending ? "opacity-60" : ""}`}>
+    <Page action={<WeekControl usage={usage} />} inset title="Uso">
+      <div className={`flex flex-col gap-8 transition-opacity ${pending ? "opacity-60" : ""}`}>
         <Totals usage={usage} />
-        <Section
+        <Group
           note={series.length > 0 ? `Claves de ${team.name} y tus asistentes` : undefined}
           title="Solicitudes"
         >
           {series.length === 0 ? (
-            <p className="text-muted">
+            <p className="p-4 text-muted">
               Las llamadas a la API y las herramientas que usan tus asistentes aparecen aquí por
               día.
             </p>
           ) : (
             <>
-              <figure aria-label="Solicitudes por día" className="min-w-0">
+              <figure aria-label="Solicitudes por día" className="min-w-0 p-4">
                 <UsageBars days={usage.days} series={series} />
               </figure>
-              <ul className="-mb-2 flex flex-col divide-y divide-edge">
-                {series.map((entry) => (
-                  <SeriesRow
-                    color={entry.color}
-                    hint={entry.kind === "oauth" ? (entry.hint ?? "MCP") : entry.hint}
-                    key={entry.id}
-                    label={entry.label}
-                    value={requests(entry.requests)}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
-        </Section>
-        {usage.operations.length > 0 && (
-          <Section note="De la API y de MCP" title="Operaciones">
-            <ul className="-my-3.5 flex flex-col divide-y divide-edge">
-              {usage.operations.map((operation) => (
-                <MeterRow
-                  amount={
-                    operation.errors > 0
-                      ? `${requests(operation.requests)} · ${numberFormat.format(operation.errors)} con error`
-                      : requests(operation.requests)
-                  }
-                  hint={operation.operation}
-                  key={operation.operation}
-                  label={OPERATIONS[operation.operation] ?? operation.operation}
-                  max={busiest}
-                  value={operation.requests}
+              {series.map((entry) => (
+                <SeriesRow
+                  color={entry.color}
+                  hint={entry.kind === "oauth" ? (entry.hint ?? "MCP") : entry.hint}
+                  key={entry.id}
+                  label={entry.label}
+                  value={requests(entry.requests)}
                 />
               ))}
-            </ul>
-          </Section>
+            </>
+          )}
+        </Group>
+        {usage.operations.length > 0 && (
+          <Group note="De la API y de MCP" title="Operaciones">
+            {usage.operations.map((operation) => (
+              <MeterRow
+                amount={
+                  operation.errors > 0
+                    ? `${requests(operation.requests)} · ${numberFormat.format(operation.errors)} con error`
+                    : requests(operation.requests)
+                }
+                hint={operation.operation}
+                key={operation.operation}
+                label={OPERATIONS[operation.operation] ?? operation.operation}
+                max={busiest}
+                value={operation.requests}
+              />
+            ))}
+          </Group>
         )}
       </div>
     </Page>
