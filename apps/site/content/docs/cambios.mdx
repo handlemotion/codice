@@ -1,0 +1,72 @@
+---
+title: Cambios en las reglas
+description: Qué reglas agregó, cambió o quitó el SAT entre dos fechas, con la versión anterior cuando Códice la tiene.
+---
+
+El SAT modifica la Resolución Miscelánea durante el año y publica versiones nuevas de sus guías. Códice guarda cada versión con su [vigencia](/docs/conceptos), así que puede decirte qué pasajes cambiaron en un periodo: para revisar qué hay de nuevo cada semana, o para saber qué cambió desde el último ejercicio que revisaste.
+
+## Listar los cambios
+
+```bash
+curl -G https://codice.io/v1/changes \
+  --data-urlencode "since=2026-07-01" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+| Parámetro | Qué es                                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `since`   | Obligatorio. El primer día del periodo, `AAAA-MM-DD`.                                                                            |
+| `until`   | Opcional. El último día del periodo, incluido. Sin él, todos los cambios desde `since`, también los que aplican en días futuros. |
+| `source`  | Opcional. Solo una fuente, por su id (`rmf-2026`). Ver `GET /v1/sources`.                                                        |
+
+```json
+{
+  "data": {
+    "since": "2026-07-01",
+    "until": null,
+    "source": null,
+    "changes": [
+      {
+        "change": "changed",
+        "date": "2026-07-09",
+        "passageId": "rmf-2026/regla-2.7.1.48.md",
+        "previousPassageId": null,
+        "source": "rmf-2026",
+        "heading": "Resolución Miscelánea Fiscal para 2026 (compilación del SAT) › …",
+        "kind": "regla",
+        "validFrom": "2026-07-09",
+        "validUntil": null
+      }
+    ]
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+Los cambios vienen ordenados por fecha. Cada uno trae:
+
+| Campo                     | Qué es                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `change`                  | `added` (agregado), `changed` (cambiado) o `removed` (quitado).                      |
+| `date`                    | El día desde el que aplica el cambio, según la regla misma.                          |
+| `passageId`               | El texto vigente desde `date`. En un `removed`, el último texto que tuvo el pasaje.  |
+| `previousPassageId`       | En un `changed`, el texto que aplicaba hasta el día anterior, si Códice lo tiene.    |
+| `source`, `heading`       | La fuente y la ruta del pasaje dentro del documento.                                 |
+| `validFrom`, `validUntil` | La vigencia del texto de `passageId`. `validUntil` es `null` mientras sigue vigente. |
+
+Lee cualquiera de los dos ids con [`GET /v1/passages/{id}`](/docs/api) para comparar el texto anterior con el nuevo.
+
+## Qué significa cada cambio
+
+- **`changed` con `previousPassageId`**: el SAT reemplazó el texto. Códice tiene los dos y puedes compararlos.
+- **`changed` sin `previousPassageId`**: el texto cambió, pero Códice no tiene el anterior. Pasa con las reglas que la Primera Resolución de Modificaciones a la RMF 2026 (DOF, 9 de julio de 2026) reformó o adicionó: Códice cargó la RMF ya compilada con esa modificación, así que solo conoce el texto nuevo. Tampoco distingue si la regla se reformó o se adicionó; la nota al inicio de la regla lo dice.
+- **`added`**: un pasaje que no existía en la versión anterior del documento.
+- **`removed`**: un pasaje que la versión nueva del documento ya no trae. Su último texto se sigue leyendo con su id.
+
+Lo que Códice cargó la primera vez de cada documento no aparece como cambio: es el punto de partida. Una regla derogada antes de esa carga no tiene pasaje, así que tampoco aparece.
+
+Si `since` va después de `until`, o alguna fecha no existe, la respuesta es `400` con el código `invalid_request`.
+
+## Desde un asistente
+
+Por [MCP](/docs/mcp), la herramienta `list_changes` recibe los mismos argumentos (`since`, y opcionales `until` y `source`) y devuelve lo mismo. Pregúntale, por ejemplo: "¿Qué reglas de la Miscelánea cambiaron desde julio?"
