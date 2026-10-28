@@ -160,7 +160,7 @@ function step(parts: readonly Part[]): { label: string; tool: boolean } {
 function Working({ parts }: { parts: readonly Part[] }) {
   const { label, tool } = step(parts);
   return (
-    <span className="flex h-4 items-center gap-2" role="status">
+    <span className="flex h-4 items-center gap-3" role="status">
       <span aria-hidden className="flex shrink-0 gap-1.5">
         {[0, 1, 2].map((index) => (
           <Mark
