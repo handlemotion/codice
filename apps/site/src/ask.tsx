@@ -223,7 +223,8 @@ export function Ask() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <h1 className="self-start bg-ink text-[20px] leading-snug">
-        El contexto fiscal de México para tus agentes.
+        El contexto fiscal de México para tus agentes: reglas del SAT, CFDI, catálogos y errores de
+        validación.
       </h1>
 
       {open && (
