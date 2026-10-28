@@ -75,7 +75,7 @@ function chatTools(env: CodiceBindings) {
     toolDefinition({
       name: "search",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the CFDI catalogs and the RMF. Returns passages quoted verbatim, each with its passage id, heading, source title and URL, validity dates and relevance score.",
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF (catalog keys are not searched: use lookup_catalog). Returns passages quoted verbatim, each with its passage id, heading, source title and URL, validity dates and relevance score.",
       inputSchema: SearchArguments,
     }).server(run((args: z.output<typeof SearchArguments>) => search(env, args))),
     toolDefinition({

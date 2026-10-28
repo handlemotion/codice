@@ -22,6 +22,7 @@ import {
 } from "./handlers";
 import { apiJson, problem, requestIdFor } from "./http";
 import { createCodiceMcpServer } from "./mcp";
+import { timedRequest } from "./timing";
 
 /**
  * Códice: the indexed SAT and Mexican customs knowledge service. Search is AI Search's (binding
@@ -37,8 +38,9 @@ export const app = new Hono<CodiceEnv>();
 app.use("*", async (context, next) => {
   const requestId = requestIdFor(context.req.raw);
   context.set("requestId", requestId);
-  await next();
+  const serverTiming = await timedRequest(next);
   context.res.headers.set("x-request-id", requestId);
+  context.res.headers.set("server-timing", serverTiming);
   if (context.res.status >= 500) {
     Sentry.captureException(new Error("Códice handled server error"), {
       fingerprint: ["codice", "handled-server-error", String(context.res.status)],

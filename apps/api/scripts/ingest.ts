@@ -267,7 +267,7 @@ function wrangler(commandArgs: string[]) {
 /** Item key → what was last uploaded and when it applies, from D1, current and superseded. */
 function recordedPassages() {
   const rows = query<PassageRecord>(
-    "SELECT key, source_id AS sourceId, heading, sha256, valid_from AS validFrom, valid_until AS validUntil FROM passages",
+    "SELECT key, source_id AS sourceId, heading, sha256, body, kind, valid_from AS validFrom, valid_until AS validUntil FROM passages",
   );
   return new Map(rows.map((row) => [row.key, row]));
 }
@@ -449,7 +449,17 @@ async function main() {
   // Before D1: a run that times out waiting leaves the old hashes, so the next run plans the same
   // changes again and its eval still runs.
   if (wait) await waitForIndexing();
-  writeRecords(corpus, plan);
+  // A superseded record D1 kept before it held bodies takes the text just copied from AI Search.
+  const copied = new Map(copies.map((copy) => [copy.key, copy]));
+  writeRecords(corpus, {
+    ...plan,
+    records: plan.records.map((record) => {
+      const copy = copied.get(record.key);
+      return record.body === null && copy
+        ? { ...record, body: copy.body, kind: copy.metadata.kind }
+        : record;
+    }),
+  });
 }
 
 await main();

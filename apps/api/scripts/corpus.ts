@@ -324,6 +324,9 @@ export type PassageRecord = {
   readonly sourceId: string;
   readonly heading: string;
   readonly sha256: string;
+  /** The body uploaded; null in a row D1 recorded before it kept bodies. */
+  readonly body: string | null;
+  readonly kind: string | null;
   readonly validFrom: number;
   readonly validUntil: number;
 };
@@ -334,6 +337,8 @@ export function passageRecord(passage: Passage): PassageRecord {
     sourceId: passage.sourceId,
     heading: passage.heading,
     sha256: passage.sha256,
+    body: passage.body,
+    kind: passage.metadata.kind,
     validFrom: passage.metadata.valid_from,
     validUntil: passage.metadata.valid_until,
   };

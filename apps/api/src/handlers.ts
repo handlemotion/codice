@@ -10,6 +10,7 @@ import {
   recordsDatabase,
   sourcesById,
   sourcesOn,
+  validity,
 } from "./records";
 import {
   parseAsOf,
@@ -22,6 +23,7 @@ import {
   isoDate,
   passageMetadata,
 } from "./search";
+import { measured } from "./timing";
 
 /** A request Códice refuses, as a problem document's fields. */
 export class CodiceProblem extends Error {
@@ -86,7 +88,10 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
   let response: AiSearchSearchResponse;
   try {
-    response = await env.CODICE_SEARCH.search(searchRequest(input));
+    const instance = env.CODICE_SEARCH;
+    response = await measured("search", { op: "ai_search.search", name: "AI Search search" }, () =>
+      instance.search(searchRequest(input)),
+    );
   } catch (cause) {
     throw searchUnavailable("codice.search_failed", cause);
   }
@@ -120,9 +125,8 @@ function searchUnavailable(event: string, cause: unknown) {
 }
 
 /**
- * One passage in full: its body as uploaded to AI Search, its D1 row and its source. D1 answers
- * first, so an unknown id costs no AI Search call; `items.get` takes the item's id, which the
- * listing by key gives.
+ * One passage in full: its body as uploaded to AI Search, its metadata and its source, from D1.
+ * A row the ingestion wrote before D1 kept bodies takes them from AI Search instead.
  */
 export async function readPassage(env: CodiceBindings, id: string) {
   const key = id.trim();
@@ -132,28 +136,46 @@ export async function readPassage(env: CodiceBindings, id: string) {
   const db = recordsDatabase(env);
   const row = await passageRow(db, key);
   if (!row) throw new CodiceProblem(404, "passage_not_found", "Passage not found");
+  // The source version the passage was last read from: a superseded one's, else the current one.
+  const [indexed, provenance] = await Promise.all([
+    row.body === null ? indexedPassage(env, key) : null,
+    sourcesOn(db, [row.sourceId], row.validUntil),
+  ]);
+  const source = provenance.get(row.sourceId) ?? null;
+  return {
+    passageId: row.key,
+    heading: row.heading,
+    ...(indexed ?? {
+      text: row.body ?? "",
+      authority: source?.authority ?? null,
+      kind: row.kind,
+      ...validity(row.validFrom, row.validUntil),
+    }),
+    source,
+  };
+}
+
+/** A passage's body and metadata from AI Search: `items.get` takes the id the listing by key gives. */
+async function indexedPassage(env: CodiceBindings, key: string) {
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
   const items = env.CODICE_SEARCH.items;
-  let item: AiSearchItemInfo | undefined;
-  let text: string;
   try {
-    [item] = (await items.list({ key, per_page: 1 })).result;
+    const [item] = (
+      await measured("search", { op: "ai_search.items.list", name: "AI Search items.list" }, () =>
+        items.list({ key, per_page: 1 }),
+      )
+    ).result;
     if (!item) throw new CodiceProblem(404, "passage_not_found", "Passage not found");
-    const content = await items.get(item.id).download();
-    text = await new Response(content.body).text();
+    const text = await measured(
+      "search",
+      { op: "ai_search.items.download", name: "AI Search items.download" },
+      async () => new Response((await items.get(item.id).download()).body).text(),
+    );
+    return { text, ...passageMetadata(item.metadata) };
   } catch (cause) {
     if (cause instanceof CodiceProblem) throw cause;
     throw searchUnavailable("codice.passage_failed", cause);
   }
-  // The source version the passage was last read from: a superseded one's, else the current one.
-  const provenance = await sourcesOn(db, [row.sourceId], row.validUntil);
-  return {
-    passageId: row.key,
-    heading: row.heading,
-    text,
-    ...passageMetadata(item.metadata),
-    source: provenance.get(row.sourceId) ?? null,
-  };
 }
 
 export async function lookupError(env: CodiceBindings, code: string) {

@@ -191,9 +191,10 @@ jobs:
           set -euo pipefail
           doppler run -p codice -c prd --no-check-version -- \
             pnpm --filter @codice/api ingest --wait | tee "$RUNNER_TEMP/ingest.log"
-          plan=$(grep -E "^AI Search: [0-9]+ to upload, [0-9]+ to delete" "$RUNNER_TEMP/ingest.log")
+          # The plan line `scripts/ingest.ts` prints: superseded, stuck, upload, delete, unchanged.
+          plan=$(grep -E "^AI Search: [0-9]+ to keep as superseded, " "$RUNNER_TEMP/ingest.log")
           echo "$plan" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$plan" == "AI Search: 0 to upload, 0 to delete"* ]]; then
+          if [[ "$plan" == "AI Search: 0 to keep as superseded, 0 stuck to delete and upload again, 0 to upload, 0 to delete,"* ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"

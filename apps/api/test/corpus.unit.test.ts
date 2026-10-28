@@ -221,6 +221,9 @@ describe("ingestionPlan", () => {
     sourceId: "a",
     heading: "A",
     sha256,
+    // As `passage` builds it: the body is the hash.
+    body: sha256,
+    kind: "guia",
     validFrom,
     validUntil,
   });
