@@ -59,7 +59,7 @@ All in `src/styles.css`. Reference tokens in classes (`bg-ink`, `text-fg`, `bord
 ### Radius and borders
 
 - 4px on boxes (code islands, the composer, the chat bubble, the favicon tile). 2px on buttons and
-  key caps. Nothing rounder.
+  key caps. Nothing rounder, except the chat's answer pill, fully round until it opens.
 - Borders are always 1px `line`. The mark's strokes are 1–1.5px with `vector-effect:
 non-scaling-stroke`, so a huge mark still draws a hairline.
 
@@ -95,8 +95,7 @@ diagonal runs 120ms behind the one above-left of it, so the morph rolls from the
 to the bottom-right like a wave. One SVG and one clock for the whole field.
 
 Where it appears: the hero background (the field, in `text-line`), the
-footer band (three cells, one step apart), the chat (a still mark beside the greeting; three small
-marks turning while Códice answers), and the favicon.
+footer band (three cells, one step apart), the chat (three small marks rolling in the answer pill), and the favicon.
 
 ## Layout
 
@@ -162,20 +161,32 @@ Entrar → Obtener clave so the blue one sits in the corner.
 
 ### Chat (`src/ask.tsx`)
 
-- **A chat, not a section:** only the hero title above it, no explanation around it.
-- **The visitor's question** is a right-aligned bubble: `bg-electric`, white text, 4px radius.
-- **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
-  `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
-  regla"…, or "Pensando"), then rest. The answer streams in as markdown in plain `fg` text; the API
-  ends it with a `Fuente:` line whose links use the prose link style.
-- **Composer:** one box at the bottom of the chat, inverted: `bg-fg` with `ink` text (black on
-  the light theme, white on the dark), its ghost text and key caps in `ink` at reduced opacity. When empty it shows a suggested
-  question as ghost text that rotates every 4s; Enter on an empty composer sends it. While typing,
-  it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
-  keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
-- **v1 is one question, one answer.** While it answers the composer shows `Esc` "Detener"; after,
-  `Esc` "Otra pregunta". Esc clears the chat from anywhere; `/` focuses the composer from anywhere.
-- Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
+- **A chat, not a section:** only the hero title above it, no explanation around it. The hero
+  holds just the composer; the exchange floats at the bottom of the window.
+- **Composer:** one box under the title, inverted: `bg-fg` with `ink` text (black on the light
+  theme, white on the dark), its ghost text and key caps in `ink` at reduced opacity. When empty it
+  shows a suggested question as ghost text that rotates every 4s; Tab takes it. While typing, it
+  completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and keeps
+  what was typed. Enter sends only what is typed: an empty composer sends nothing. Key caps `Tab`
+  (when there is a completion) and `↵` (when there is text) sit at the right (hidden on phones).
+- **Sending:** the question leaves the composer as a gooey drop of its ink (a blur-and-threshold
+  SVG filter, confined to the drop's path so it holds 60fps) that pulls out of the composer's
+  bottom edge and falls to a pill 32px off the bottom of the window, centered.
+- **The pill** (`bg-fg`, fully round, 88×36) holds three small marks rolling left to right like
+  the hero's field (each `WAVE_MS` behind the last) while Códice works. It rests at least 900ms,
+  then, once the answer is complete or failed, opens by itself into the thread. Clicking it opens
+  the thread early, with the answer still streaming.
+- **The thread:** the pill grows (300ms, the mark's outline easing) into a 34rem inverted box, as
+  tall as its content up to 70% of the window, then it scrolls and keeps to the end of a streaming
+  answer. The visitor's question is a right-aligned bubble (`bg-electric`, white text, 4px). Under
+  it, the three marks beside a short status from the tool Códice is running ("Buscando en las
+  reglas del SAT", "Leyendo la regla"…, or "Pensando") and `Esc` "Detener" / "Cerrar". The answer
+  streams in as markdown in `ink`; the API ends it with a `Fuente:` line whose links are
+  underlined. A click outside folds it back into the pill.
+- **One question, one answer.** A new question replaces the thread. Esc closes it from anywhere;
+  `/` focuses the composer from anywhere.
+- Errors are one short Spanish sentence in `ink` at reduced opacity; never show the API's English
+  problem titles.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).
 
@@ -205,6 +216,8 @@ turning `fg` on hover.
 ## Motion
 
 - Everything that moves steps at 12fps: the marks. The answer streams at the model's pace.
+- The one exception: the chat's gooey drop and the pill opening into the thread move smoothly,
+  since they carry the visitor's question from the composer to the bottom of the window.
 - No entrance fades, no dimmed sections, no scroll-triggered reveals. They were tried and removed.
 - In-page links scroll smoothly; reduced motion turns that off and rests every mark.
 - No overscroll bounce past the top or bottom of the page (`overscroll-behavior: none`).

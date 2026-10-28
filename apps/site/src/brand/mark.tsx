@@ -51,6 +51,7 @@ export function Mark({
   animate = true,
   radius = 8,
   step = 0,
+  lag = 0,
 }: {
   className?: string;
   strokeWidth?: number;
@@ -59,18 +60,21 @@ export function Mark({
   radius?: number;
   /** Shapes ahead of the shared clock, so marks side by side show different shapes. */
   step?: number;
+  /** Milliseconds behind the shared clock, so a row of marks rolls like the field's wave. */
+  lag?: number;
 }) {
   const path = useRef<SVGPathElement>(null);
-  const offset = step * STEP_MS;
+  const offset = step * STEP_MS - lag;
   useMarkClock(
-    (elapsed) => path.current?.setAttribute("d", markPath(elapsed + offset, 12, 12, radius)),
+    (elapsed) =>
+      path.current?.setAttribute("d", markPath(Math.max(0, elapsed + offset), 12, 12, radius)),
     animate,
   );
 
   return (
     <svg aria-hidden className={className} fill="none" viewBox="0 0 24 24">
       <path
-        d={markPath(offset, 12, 12, radius)}
+        d={markPath(Math.max(0, offset), 12, 12, radius)}
         ref={path}
         stroke="currentColor"
         strokeLinejoin="round"
@@ -82,7 +86,7 @@ export function Mark({
 }
 
 const FIELD_CELL = 180; // px per mark in the field, roughly: the cells stretch to fit whole rows
-const WAVE_MS = 120; // each diagonal runs this far behind the one above-left of it
+export const WAVE_MS = 120; // each diagonal runs this far behind the one above-left of it
 // The radius as a share of the cell. At 0.45 a triangle is 0.95 of the cell wide, so neighbouring
 // triangles keep a small gap; circles and squares sit a little smaller inside their cells.
 const FIELD_RADIUS = 0.45;
