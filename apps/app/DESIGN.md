@@ -7,7 +7,9 @@ This file records only where the dashboard adds to it or departs from it. Values
 ## What it shares with the site
 
 - The tokens (`ink`, `fg`, `muted`, `line`, `electric`), one typeface (Radio Grotesk; Supply Mono
-  for keys and URLs), 14px text, hierarchy by weight, 4px boxes and 2px controls.
+  for keys and URLs), 14px text, 4px boxes and 2px controls.
+- **Regular weight only.** No bold anywhere (titles, buttons, answers) unless the owner asks for
+  it in a specific place. Hierarchy comes from size (20px titles), `muted` and position.
 - Dark by default; `T` toggles and remembers (`codice-theme`, shared with the site on the same host).
 - The mark (`src/brand/`, copied from the site: keep them in step), the animated favicon, the
   tooltips, and the chat's pieces (`src/components/chat/`, the turning marks, the electric bubble,
@@ -26,7 +28,7 @@ This file records only where the dashboard adds to it or departs from it. Values
   centered, Chat, Claves, Clientes, Documentación and the avatar (Cuenta), then the theme toggle. The current
   page's icon takes the island's look; others are `muted` and brighten on hover. Each shows a
   tooltip to its right with its number key; `1`–`5` go there when no field has focus.
-- **Pages.** A 20px bold title, then islands, each with its name in bold and an optional `muted`
+- **Pages.** A 20px title, then islands, each with its name and an optional `muted`
   note on the right. The chat has no islands but its composer: the thread runs on the ground.
 
 ## Pages
@@ -40,8 +42,8 @@ This file records only where the dashboard adds to it or departs from it. Values
   in place, and the MCP URL to connect another.
 - **Cuenta** (`/account`): profile (name editable), the team's members, the user's other teams to
   switch to, and preferences (theme, sign out).
-- **Entrar** (`/login`) and **Conectar** (`/consent`): no card and no rail. One narrow column on
-  the ground: the mark on an electric tile, a bold title with one `muted` line, then full-width
-  40px fields and buttons. Fields and secondary buttons take the island's look (white by day, a
-  hairline at night); the primary is electric. Sign-in is the email code, then "o" and the
-  Google and GitHub buttons with their logos in `fg`.
+- **Entrar** (`/login`) and **Conectar** (`/consent`): no card and no rail. One narrow column
+  (20rem) on the ground: the mark on a 32px electric tile, the title alone, then full-width 32px
+  fields and buttons. Fields and secondary buttons take the island's look (white by day, a
+  hairline at night); the primary is electric. Sign-in is the email code, then the Google and
+  GitHub buttons with their logos in `fg`. No subtitle, divider or footer line.

@@ -29,17 +29,17 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 const COLUMN =
-  "mx-auto flex min-h-svh w-full max-w-[22rem] flex-col justify-center gap-8 px-4 py-16";
-const WIDE = "h-10 flex-1 text-[14px]";
+  "mx-auto flex min-h-svh w-full max-w-[20rem] flex-col justify-center gap-6 px-4 py-16";
+const WIDE = "flex-1";
 
 function Tile() {
   return (
     <a
       aria-label="Sitio de Códice"
-      className="grid size-10 place-items-center rounded-[4px] bg-electric text-white"
+      className="grid size-8 place-items-center rounded-[4px] bg-electric text-white"
       href="/?site"
     >
-      <Mark className="size-6" radius={9} strokeWidth={1.5} />
+      <Mark className="size-5" radius={9} strokeWidth={1.5} />
     </a>
   );
 }
@@ -76,7 +76,7 @@ function Consent() {
       <main className={COLUMN}>
         <Tile />
         <div className="flex flex-col gap-1">
-          <h1 className="text-[20px] leading-snug font-bold">Esta solicitud venció</h1>
+          <h1 className="text-[20px] leading-snug">Esta solicitud venció</h1>
           <p className="text-muted">Vuelve a conectar desde tu aplicación.</p>
         </div>
       </main>
@@ -88,9 +88,7 @@ function Consent() {
       <div className="flex flex-col gap-5">
         <Tile />
         <div className="flex flex-col gap-1">
-          <h1 className="text-[20px] leading-snug font-bold">
-            ¿Conectar {request.client.name} a Códice?
-          </h1>
+          <h1 className="text-[20px] leading-snug">¿Conectar {request.client.name} a Códice?</h1>
           <p className="text-muted">
             Volverás a <span className="text-fg">{request.redirectHost}</span>.
             {request.client.uri && (

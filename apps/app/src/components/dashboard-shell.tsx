@@ -64,7 +64,7 @@ export function Avatar({ size = 28 }: { size?: number }) {
   }
   return (
     <span
-      className="grid place-items-center rounded-full border border-current/40 text-[12px] font-bold"
+      className="grid place-items-center rounded-full border border-current/40 text-[12px]"
       style={style}
     >
       {(name.trim() || email).charAt(0).toLocaleUpperCase("es")}

@@ -45,7 +45,7 @@ const TOOL_LABELS: Record<string, string> = {
 
 // The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
 const ANSWER =
-  "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
+  "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-normal [&_ul]:list-disc [&_ul]:pl-5";
 
 const FAILED = "No pude responder. Intenta de nuevo en un minuto.";
 
@@ -155,7 +155,7 @@ export function Chat() {
   return (
     <div className="flex h-[calc(100svh-3.5rem)] flex-col gap-4 pt-6 pb-4 sm:h-svh sm:pt-10 sm:pb-6">
       <header className="flex h-8 shrink-0 items-center justify-between">
-        <h1 className="text-[20px] leading-snug font-bold">Chat</h1>
+        <h1 className="text-[20px] leading-snug">Chat</h1>
         {messages.length > 0 && (
           <button className={`${GHOST} flex items-center gap-1`} onClick={restart} type="button">
             <IconPlusSmall size={16} />

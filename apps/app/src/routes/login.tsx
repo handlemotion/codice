@@ -18,8 +18,8 @@ export const Route = createFileRoute("/login")({
 
 // On the ground, with no card: white by day, a hairline at night, like an island.
 const FIELD =
-  "h-10 w-full rounded-[2px] border border-edge bg-island px-3 outline-none placeholder:text-muted focus:border-fg disabled:text-muted";
-const WIDE = "h-10 w-full text-[14px]";
+  "h-8 w-full rounded-[2px] border border-edge bg-island px-3 outline-none placeholder:text-muted focus:border-fg disabled:text-muted";
+const WIDE = "w-full";
 
 function GoogleLogo() {
   return (
@@ -103,37 +103,28 @@ function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[22rem] flex-col justify-center gap-8 px-4 py-16">
-      <div className="flex flex-col gap-5">
-        <a
-          aria-label="Sitio de Códice"
-          className="grid size-10 place-items-center rounded-[4px] bg-electric text-white"
-          href="/?site"
-        >
-          <Mark className="size-6" radius={9} strokeWidth={1.5} />
-        </a>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[20px] leading-snug font-bold">Entrar a Códice</h1>
-          <p className="text-muted">
-            {sent
-              ? `Enviamos un código de 6 dígitos a ${email}. Vence en 10 minutos.`
-              : "El contexto fiscal de México para tus agentes."}
-          </p>
-        </div>
-      </div>
+    <main className="mx-auto flex min-h-svh w-full max-w-[20rem] flex-col justify-center gap-6 px-4 py-16">
+      <a
+        aria-label="Sitio de Códice"
+        className="grid size-8 place-items-center rounded-[4px] bg-electric text-white"
+        href="/?site"
+      >
+        <Mark className="size-5" radius={9} strokeWidth={1.5} />
+      </a>
+      <h1 className="text-[20px] leading-snug">Entrar a Códice</h1>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <form className="flex flex-col gap-2" onSubmit={submit}>
           {sent ? (
             <input
               aria-label="Código"
               autoComplete="one-time-code"
               autoFocus
-              className={`${FIELD} font-mono tracking-[0.3em]`}
+              className={`${FIELD} tracking-[0.2em] placeholder:tracking-normal`}
               inputMode="numeric"
               maxLength={6}
               onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-              placeholder="000000"
+              placeholder="Código"
               required
               value={otp}
             />
@@ -150,45 +141,37 @@ function Login() {
               value={email}
             />
           )}
-          {error && <p className="text-[13px] text-muted">{error}</p>}
           <button className={`${PRIMARY} ${WIDE}`} disabled={busy} type="submit">
             {sent ? "Entrar" : "Continuar con correo"}
           </button>
         </form>
 
-        {!sent && providers.length > 0 && (
-          <>
-            <div aria-hidden className="flex items-center gap-3 text-[13px] text-muted">
-              <span className="h-px flex-1 bg-edge" />o<span className="h-px flex-1 bg-edge" />
-            </div>
-            {providers.map((provider) => {
-              const { label, Logo } = PROVIDERS[provider];
-              return (
-                <button
-                  className={`${SECONDARY} ${WIDE} border-edge bg-island`}
-                  disabled={busy}
-                  key={provider}
-                  onClick={() => social(provider)}
-                  type="button"
-                >
-                  <Logo />
-                  {label}
-                </button>
-              );
-            })}
-          </>
-        )}
-      </div>
-
-      <p className="text-[13px] text-muted">
         {sent ? (
-          <button className={GHOST} onClick={restart} type="button">
-            Usar otro correo
-          </button>
+          <p className="flex flex-wrap gap-x-2 text-[13px] text-muted">
+            Código enviado a {email}.
+            <button className={GHOST} onClick={restart} type="button">
+              Cambiar
+            </button>
+          </p>
         ) : (
-          "Si es tu primera vez, entrar crea tu cuenta."
+          providers.map((provider) => {
+            const { label, Logo } = PROVIDERS[provider];
+            return (
+              <button
+                className={`${SECONDARY} ${WIDE} border-edge bg-island`}
+                disabled={busy}
+                key={provider}
+                onClick={() => social(provider)}
+                type="button"
+              >
+                <Logo />
+                {label}
+              </button>
+            );
+          })
         )}
-      </p>
+        {error && <p className="text-[13px] text-muted">{error}</p>}
+      </div>
     </main>
   );
 }

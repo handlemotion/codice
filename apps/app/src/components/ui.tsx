@@ -21,7 +21,7 @@ export const FIELD =
 
 const BUTTON =
   "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[2px] px-3 text-[13px] disabled:pointer-events-none disabled:opacity-50";
-export const PRIMARY = `${BUTTON} bg-electric font-bold text-white hover:bg-fg hover:text-ink`;
+export const PRIMARY = `${BUTTON} bg-electric text-white hover:bg-fg hover:text-ink`;
 export const SECONDARY = `${BUTTON} border border-edge bg-ink hover:border-fg`;
 /** Raw text that brightens on hover, for a row's quiet action. */
 export const GHOST = "text-[13px] text-muted hover:text-fg disabled:opacity-50";
@@ -39,7 +39,7 @@ export function Page({
   return (
     <div className="flex flex-col gap-6 py-10 sm:py-16">
       <header className="flex min-h-8 items-center justify-between gap-4">
-        <h1 className="text-[20px] leading-snug font-bold">{title}</h1>
+        <h1 className="text-[20px] leading-snug">{title}</h1>
         {action}
       </header>
       {children}
@@ -60,7 +60,7 @@ export function Section({
   return (
     <section className={`${ISLAND} flex flex-col gap-4 p-4 sm:p-6`}>
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-bold">{title}</h2>
+        <h2>{title}</h2>
         {note && <span className="text-[13px] text-muted">{note}</span>}
       </div>
       {children}
