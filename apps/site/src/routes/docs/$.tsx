@@ -73,37 +73,38 @@ function Page() {
         <Guide path={page.path} />
       </Suspense>
     );
-  // The site's bar on top, then three columns, the home's ruled sheet: the sidebar, the page's
-  // contents and actions up to the home's 48% line, and the page itself from that line, across the
-  // rest of the width. An API operation is the sidebar and the operation, which has its own example
-  // column. Below 1024px they stack, the actions above the title.
+  // The site's bar on top, then the sidebar and the page. A guide's text is 800px wide and centered
+  // on the screen, not on the space beside the sidebar, while the screen is wide enough; its
+  // contents and actions float at the right edge from 1280px. Narrower, the actions sit above the
+  // title. An API operation is the sidebar and the operation, which has its own example column.
+  // Below 1024px the sidebar stacks above the page.
   const guide = page.type === "docs";
   return (
     <div className="codice-docs">
       <SiteBar grounded />
-      <div
-        className={`pt-[44px] sm:pt-[52px] lg:grid ${guide ? "lg:grid-cols-[300px_calc(48%-300px)_minmax(0,1fr)]" : "lg:grid-cols-[300px_minmax(0,1fr)]"}`}
-      >
+      <div className="pt-[44px] sm:pt-[52px] lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="max-lg:border-b max-lg:border-line lg:sticky lg:top-[52px] lg:h-[calc(100dvh-52px)]">
           <DocsSidebar tree={page.pageTree} />
         </div>
-        {guide && (
-          <div className="max-lg:hidden">
-            <div className="sticky top-[52px] flex max-h-[calc(100dvh-52px)] flex-col gap-10 overflow-y-auto p-6">
-              <DocsToc />
-              <PageActions className="flex-col" path={page.path} title={page.title} />
+        <main className="min-h-[calc(100dvh-52px)] min-w-0 overflow-x-clip">
+          {guide ? (
+            <div className="flex">
+              <div className="w-full max-w-[800px] min-w-0 lg:ml-[max(0px,calc(50vw-700px))]">
+                <div className="p-4 sm:px-6 xl:hidden">
+                  <PageActions className="flex-wrap" path={page.path} title={page.title} />
+                </div>
+                {content}
+              </div>
+              <aside className="ml-auto w-[276px] shrink-0 pr-6 pl-12 max-xl:hidden">
+                <div className="sticky top-[52px] -ml-2 flex max-h-[calc(100dvh-52px)] flex-col gap-10 overflow-y-auto px-2 pt-14 pb-6">
+                  <DocsToc />
+                  <PageActions className="flex-col" path={page.path} title={page.title} />
+                </div>
+              </aside>
             </div>
-          </div>
-        )}
-        <main
-          className={`min-h-[calc(100dvh-52px)] min-w-0 overflow-x-clip ${guide ? "lg:border-l lg:border-line" : ""}`}
-        >
-          {guide && (
-            <div className="p-4 sm:px-6 lg:hidden">
-              <PageActions className="flex-wrap" path={page.path} title={page.title} />
-            </div>
+          ) : (
+            content
           )}
-          {content}
         </main>
       </div>
     </div>

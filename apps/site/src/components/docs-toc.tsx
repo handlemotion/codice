@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 type Heading = { id: string; text: string };
 
 /**
- * The page's table of contents, in the column between the sidebar and the text: its `##` headings,
+ * The page's table of contents, floating to the right of the text: its `##` headings,
  * read from the rendered page (guides and API operations alike), the one being read in the ink.
  */
 export function DocsToc() {
