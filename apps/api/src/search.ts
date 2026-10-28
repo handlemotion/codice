@@ -15,6 +15,12 @@ export const SEARCH_LIMIT_DEFAULT = 5;
  * eval scores best (SPEC.md, "Retrieval eval"). Each result still carries its reranking score.
  */
 export const RERANKING_THRESHOLD = 0;
+/**
+ * Drop a result whose reranking score is under this fraction of the first result's. The reranker
+ * scores a passage it judges off topic two or three orders of magnitude below the best one, while a
+ * correct answer the reranker doubts still scored 3% of the first (SPEC.md, "Query").
+ */
+export const RERANKING_RELATIVE_FLOOR = 0.02;
 /** The passage kinds (SPEC.md, "Items"); the corpus holds `guia` (the filling guides), `anexo`, `regla` (the RMF) and `ley` (the CFF). */
 export const PASSAGE_KINDS = ["ley", "reglamento", "regla", "anexo", "guia", "criterio"] as const;
 /** AI Search returns at most 50 results. */
@@ -155,6 +161,22 @@ export function passageMetadata(metadata: Record<string, unknown> | undefined) {
     validFrom: date(metadata?.["valid_from"]),
     validUntil: validUntil === IN_FORCE_UNTIL ? null : date(validUntil),
   };
+}
+
+/**
+ * The results the reranker did not score below `RERANKING_RELATIVE_FLOOR` of the first one. The
+ * first is always kept, and so is every result when the first has no positive reranking score.
+ */
+export function aboveRerankingFloor(results: readonly SearchResult[]): SearchResult[] {
+  const top = results[0]?.scoring.rerankingScore ?? 0;
+  if (top <= 0) return [...results];
+  const floor = top * RERANKING_RELATIVE_FLOOR;
+  return results.filter(
+    (result, index) =>
+      index === 0 ||
+      result.scoring.rerankingScore === null ||
+      result.scoring.rerankingScore >= floor,
+  );
 }
 
 /** One result a chunk, in AI Search's order. */

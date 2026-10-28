@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { searchFormat, searchInput } from "../src/handlers";
 import {
+  aboveRerankingFloor,
   briefResult,
   excerpt,
   EXCERPT_LENGTH,
   excerptTerms,
   parseAsOf,
+  RERANKING_RELATIVE_FLOOR,
+  type SearchResult,
   searchRequest,
   searchResults,
   todayInMexicoCity,
@@ -219,6 +222,70 @@ describe("searchResults", () => {
         scoring: { keywordScore: null, vectorScore: null, rerankingScore: null },
       },
     ]);
+  });
+});
+
+describe("aboveRerankingFloor", () => {
+  function result(passageId: string, rerankingScore: number | null): SearchResult {
+    return {
+      passageId,
+      source: passageId.split("/")[0] ?? "",
+      quote: "…",
+      authority: "SAT",
+      kind: null,
+      validFrom: "2026-01-01",
+      validUntil: null,
+      score: 0.5,
+      scoring: { keywordScore: null, vectorScore: 0.5, rerankingScore },
+    };
+  }
+  const ids = (results: readonly SearchResult[]) => results.map((r) => r.passageId);
+
+  it("drops the results scored under the floor's fraction of the first", () => {
+    // "¿Cómo hago una nota de crédito que aplique a varias facturas?", 2026-10-28.
+    const results = [
+      result("complemento-pagos-guia-de-llenado/apendice-6-pregunta-2.md", 0.4027),
+      result("rmf-2026/regla-9.1.19.md", 0.0054),
+      result("rmf-2026/regla-9.2.9.md", 0.0033),
+    ];
+    expect(ids(aboveRerankingFloor(results))).toEqual([
+      "complemento-pagos-guia-de-llenado/apendice-6-pregunta-2.md",
+    ]);
+  });
+
+  it("keeps a correct answer the reranker doubts, at 3% of the first", () => {
+    // "¿Qué tipo de factura hago para una nota de crédito?": pregunta 21 is an expected answer.
+    const results = [
+      result("anexo-20-guia-de-llenado/apendice-2.md", 0.2468),
+      result("anexo-20-guia-de-llenado/apendice-7-pregunta-21.md", 0.0075),
+      result("anexo-20-guia-de-llenado/nodo-traslado-tipofactor.md", 0.0038),
+    ];
+    expect(ids(aboveRerankingFloor(results))).toEqual([
+      "anexo-20-guia-de-llenado/apendice-2.md",
+      "anexo-20-guia-de-llenado/apendice-7-pregunta-21.md",
+    ]);
+  });
+
+  it("keeps a result exactly at the floor", () => {
+    const results = [result("a/top.md", 0.5), result("a/edge.md", 0.5 * RERANKING_RELATIVE_FLOOR)];
+    expect(ids(aboveRerankingFloor(results))).toEqual(["a/top.md", "a/edge.md"]);
+  });
+
+  it("never drops the first result, however low it scores", () => {
+    expect(ids(aboveRerankingFloor([result("a/only.md", 0.0001)]))).toEqual(["a/only.md"]);
+    expect(aboveRerankingFloor([])).toEqual([]);
+  });
+
+  it("keeps every result when the first has no positive reranking score", () => {
+    const unranked = [result("a/one.md", null), result("a/two.md", 0.001)];
+    expect(ids(aboveRerankingFloor(unranked))).toEqual(["a/one.md", "a/two.md"]);
+    const zero = [result("a/one.md", 0), result("a/two.md", 0)];
+    expect(ids(aboveRerankingFloor(zero))).toEqual(["a/one.md", "a/two.md"]);
+  });
+
+  it("keeps a later result without a reranking score", () => {
+    const results = [result("a/top.md", 0.9), result("a/unscored.md", null)];
+    expect(ids(aboveRerankingFloor(results))).toEqual(["a/top.md", "a/unscored.md"]);
   });
 });
 
