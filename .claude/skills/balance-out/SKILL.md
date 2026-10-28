@@ -60,6 +60,9 @@ proved with a measurement, never by eye.
   row's line height (`leading-5` on each), or align the row on `center` instead of `baseline`.
 - Dividers run edge to edge and show in both themes; a divider that vanishes by day leaves rows
   floating.
+- A divider drawn as a border (`divide-y`) sits inside a row's box and makes it 1px taller than
+  its neighbours. The eye measures from the divider, and so does `optical-insets.js`: it reports
+  insets and heights inside the borders.
 
 **Alignment**
 

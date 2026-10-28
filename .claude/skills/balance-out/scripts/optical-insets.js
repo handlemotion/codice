@@ -7,7 +7,8 @@
 //
 // `selector` names the blocks (rows, cards, a chart's figure). For each, it finds the first and
 // last line of text inside and reports top (block edge to the capitals), bottom (baseline to
-// block edge), left and right (block edge to the nearest letter), in CSS px. Capitals and
+// block edge), left and right (block edge to the nearest letter), and height, in CSS px, all
+// measured inside the block's borders. Capitals and
 // baselines come from the font's canvas metrics, so they are the letters, not the line boxes.
 globalThis.opticalInsets = function opticalInsets(selector) {
   const canvas = document.createElement("canvas").getContext("2d");
@@ -51,7 +52,17 @@ globalThis.opticalInsets = function opticalInsets(selector) {
   };
   const round = (value) => Math.round(value * 10) / 10;
   return [...document.querySelectorAll(selector)].map((block) => {
-    const box = block.getBoundingClientRect();
+    // Inside the borders: a divider drawn as a row's border is the edge the eye measures from.
+    const outer = block.getBoundingClientRect();
+    const style = getComputedStyle(block);
+    const border = (side) => parseFloat(style[`border${side}Width`]) || 0;
+    const box = {
+      top: outer.top + border("Top"),
+      bottom: outer.bottom - border("Bottom"),
+      left: outer.left + border("Left"),
+      right: outer.right - border("Right"),
+      height: outer.height - border("Top") - border("Bottom"),
+    };
     const found = lines(block);
     if (found.length === 0) return { block: block.tagName.toLowerCase(), text: "(no text)" };
     const top = Math.min(...found.map((line) => line.capTop));
