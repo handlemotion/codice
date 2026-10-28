@@ -64,7 +64,7 @@ function Page() {
         <header className="doc-sheet doc-api prose">
           <h1>{page.title}</h1>
         </header>
-        <div className="codice-api px-4 pb-24 sm:px-6">
+        <div className="codice-api px-4 pb-6 sm:px-6">
           <OpenAPIPage {...page.props} />
         </div>
       </>

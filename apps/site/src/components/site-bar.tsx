@@ -7,7 +7,6 @@ export const BAR = "h-[44px] sm:h-[52px]";
 const NAV_LINKS = [
   ["Producto", "/#que-es"],
   ["Documentación", "/docs"],
-  ["API", "/docs/api"],
   ["Precios", "/#precios"],
 ] as const;
 

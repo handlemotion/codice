@@ -19,7 +19,10 @@ async function markdownOf(path: string, title: string) {
   return `# ${title}\n\n${body}\n`;
 }
 
-const ROW = "flex items-center gap-3 text-left text-muted hover:text-fg";
+// Ghost buttons: no box until hovered, then the hairline's tone behind the ink. The negative
+// margin keeps their labels in line with the text above them.
+const ROW =
+  "-mx-2 inline-flex h-8 items-center gap-2 rounded-[2px] px-2 text-left text-muted hover:bg-line hover:text-fg";
 
 /**
  * What a reader can do with a guide: copy it as Markdown or open it in an assistant with a prompt
@@ -48,7 +51,7 @@ export function PageActions({
   }
 
   return (
-    <ul aria-label="Acciones de la página" className={`flex gap-x-6 gap-y-3 ${className}`}>
+    <ul aria-label="Acciones de la página" className={`flex gap-1 ${className}`}>
       <li>
         <button className={ROW} onClick={copy} type="button">
           {copied ? <IconCheckmark1Small size={16} /> : <IconClipboard size={16} />}
