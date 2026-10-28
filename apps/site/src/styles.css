@@ -194,20 +194,28 @@ kbd {
     border-radius: 4px;
   }
 
-  /* A page is a column of text, 34rem at most, from the home's 48% line. */
+  /* A page's text runs across its column, from the home's 48% line to the page's edge, at 15px. */
   & .doc-sheet {
     max-width: none;
     padding-bottom: 6rem;
   }
   & .doc-sheet > * {
     margin-inline: 16px;
-    max-width: 34rem;
+  }
+  & .doc-sheet,
+  & .doc-sheet :where(p, li, td, th) {
+    font-size: 15px;
   }
   & .doc-sheet > h1 {
     margin-block: 0;
     padding-top: 16px;
   }
+  & .doc-sheet > h3 {
+    font-size: 15px;
+    margin-top: 2em;
+  }
   & .doc-sheet > h2 {
+    font-size: 16px;
     margin-top: 2.5em;
     scroll-margin-top: 76px;
   }

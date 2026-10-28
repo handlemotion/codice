@@ -1,0 +1,90 @@
+---
+title: Catálogos del SAT
+description: Consulta una clave, lista un catálogo y filtra las claves que se repiten, como colonias y municipios.
+---
+
+Los catálogos del CFDI 4.0 definen los valores válidos de muchos atributos: el uso del CFDI, el régimen fiscal, la forma de pago, la clave de producto o servicio, el código postal. Códice los guarda tal como los publica el SAT, con sus columnas y su vigencia, en la versión publicada el 15 de octubre de 2026.
+
+## Consultar una clave
+
+```bash
+curl https://codice.io/v1/catalogs/c_RegimenFiscal/601 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "catalog": "c_RegimenFiscal",
+    "key": "601",
+    "entries": [
+      {
+        "fields": {
+          "c_RegimenFiscal": "601",
+          "Descripción": "General de Ley Personas Morales",
+          "Física": "No",
+          "Moral": "Sí",
+          "Fecha de inicio de vigencia": "2022-01-01"
+        },
+        "validFrom": "2022-01-01",
+        "validUntil": null
+      }
+    ],
+    "source": { "authority": "SAT", "publishedAt": "2026-10-15", "…": "…" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+- **El nombre del catálogo** va con o sin el prefijo `c_`: `c_UsoCFDI` y `UsoCFDI` son el mismo.
+- **La clave** se escribe como la muestra el SAT, con sus ceros: `01000`, no `1000`. Mayúsculas y minúsculas dan igual.
+- **`fields`** trae las columnas del catálogo con los nombres del SAT. Las celdas vacías no aparecen.
+
+Si la clave no existe, la respuesta es `404` con el código `catalog_entry_not_found`; si el catálogo no existe, `catalog_not_found`.
+
+## Claves que se repiten
+
+En algunos catálogos una clave no es única. La colonia `0001` existe en más de mil códigos postales, y el municipio `001` en casi todos los estados. Sin filtro, la respuesta trae todas las entradas de la clave; para quedarte con la que buscas, filtra por otra columna del catálogo con su nombre del SAT:
+
+```bash
+# La colonia 0001 del código postal 01000
+curl "https://codice.io/v1/catalogs/c_Colonia/0001?c_CodigoPostal=01000" \
+  -H "Authorization: Bearer $CODICE_KEY"
+
+# El municipio 001 de Jalisco
+curl "https://codice.io/v1/catalogs/c_Municipio/001?c_Estado=JAL" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+- Puedes usar hasta 8 filtros, cada columna una sola vez.
+- El valor se compara completo, sin distinguir mayúsculas.
+- Una columna que no existe en las entradas de la clave responde `400 invalid_request`; el detalle te dice qué columnas sí tienen.
+- Una columna que existe pero sin coincidencias responde `404 catalog_entry_not_found`.
+
+| Catálogo      | Clave que se repite | Filtra por       |
+| ------------- | ------------------- | ---------------- |
+| `c_Colonia`   | Por código postal   | `c_CodigoPostal` |
+| `c_Municipio` | Por estado          | `c_Estado`       |
+| `c_Localidad` | Por estado          | `c_Estado`       |
+
+## Listar un catálogo
+
+```bash
+curl https://codice.io/v1/catalogs/c_UsoCFDI \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Devuelve las entradas en el orden del SAT, hasta 500. Los catálogos chicos (uso de CFDI, régimen fiscal, forma de pago, países) caben completos. Los grandes, como `c_ClaveProdServ` (más de 52 mil claves) o `c_CodigoPostal` (más de 95 mil), vienen con `truncated: true`: para ellos consulta clave por clave, o busca la clave con [`/v1/search`](/docs/buscar).
+
+## Catálogos grandes
+
+| Catálogo               | Entradas | Clave                                            |
+| ---------------------- | -------- | ------------------------------------------------ |
+| `c_Colonia`            | 145,366  | La colonia; se repite por código postal          |
+| `c_CodigoPostal`       | 95,749   | El código postal                                 |
+| `c_NumPedimentoAduana` | 59,055   | Aduana, patente y ejercicio, como `16-2069-2026` |
+| `c_ClaveProdServ`      | 52,513   | La clave de producto o servicio                  |
+| `c_PatenteAduanal`     | 3,420    | La patente                                       |
+| `c_Municipio`          | 2,478    | El municipio; se repite por estado               |
+| `c_ClaveUnidad`        | 2,418    | La clave de unidad                               |
+| `c_Localidad`          | 664      | La localidad; se repite por estado               |

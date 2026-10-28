@@ -19,20 +19,27 @@ async function markdownOf(path: string, title: string) {
   return `# ${title}\n\n${body}\n`;
 }
 
-const ROW = "flex items-center gap-3 text-muted hover:text-fg";
+const ROW = "flex items-center gap-3 text-left text-muted hover:text-fg";
 
 /**
- * What a reader can do with the page: copy it as Markdown (guides only) or open it in an
- * assistant with a prompt to read it.
+ * What a reader can do with a guide: copy it as Markdown or open it in an assistant with a prompt
+ * to read it.
  */
-export function PageActions({ path, title }: { path?: string; title: string }) {
+export function PageActions({
+  className = "",
+  path,
+  title,
+}: {
+  className?: string;
+  path: string;
+  title: string;
+}) {
   const [copied, setCopied] = useState(false);
   const [url, setUrl] = useState("");
   useEffect(() => setUrl(window.location.origin + window.location.pathname), [path, title]);
   const prompt = encodeURIComponent(`Lee ${url} para responder mis preguntas sobre Códice.`);
 
   async function copy() {
-    if (!path) return;
     const markdown = await markdownOf(path, title);
     if (!markdown) return;
     await navigator.clipboard.writeText(markdown);
@@ -41,15 +48,13 @@ export function PageActions({ path, title }: { path?: string; title: string }) {
   }
 
   return (
-    <ul aria-label="Acciones de la página" className="flex flex-wrap gap-x-6 gap-y-3 xl:flex-col">
-      {path && (
-        <li>
-          <button className={ROW} onClick={copy} type="button">
-            {copied ? <IconCheckmark1Small size={16} /> : <IconClipboard size={16} />}
-            {copied ? "Copiado" : "Copiar como Markdown"}
-          </button>
-        </li>
-      )}
+    <ul aria-label="Acciones de la página" className={`flex gap-x-6 gap-y-3 ${className}`}>
+      <li>
+        <button className={ROW} onClick={copy} type="button">
+          {copied ? <IconCheckmark1Small size={16} /> : <IconClipboard size={16} />}
+          {copied ? "Copiado" : "Copiar como Markdown"}
+        </button>
+      </li>
       <li>
         <a
           className={ROW}

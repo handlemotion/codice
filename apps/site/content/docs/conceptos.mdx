@@ -1,0 +1,69 @@
+---
+title: Conceptos
+description: Fuentes, pasajes y vigencia, las tres ideas detrás de cada respuesta de Códice.
+---
+
+Cada respuesta de Códice se apoya en tres ideas: de qué documento sale (la fuente), qué parte de ese documento es (el pasaje) y en qué fechas aplica (la vigencia).
+
+## Fuentes
+
+Una fuente es un documento publicado por una autoridad: la guía de llenado del Anexo 20, la matriz de errores, los catálogos del CFDI o la Resolución Miscelánea Fiscal. Códice guarda de cada una:
+
+| Campo                     | Qué es                                                                 |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `id`                      | Su nombre en Códice, como `anexo-20-guia-de-llenado`.                  |
+| `title`                   | Su título.                                                             |
+| `authority`               | Quién la publica, como `SAT`.                                          |
+| `url`                     | Dónde la publica la autoridad.                                         |
+| `sha256`                  | La huella del archivo que leyó Códice, para cotejarlo con el original. |
+| `publishedAt`             | Cuándo la publicó la autoridad.                                        |
+| `retrievedAt`             | Cuándo la descargó Códice.                                             |
+| `validFrom`, `validUntil` | Entre qué fechas está vigente esa versión.                             |
+
+La lista completa está en `GET /v1/sources`. Cuando el SAT publica una versión nueva de un documento, Códice la carga como una versión nueva de la misma fuente y conserva la anterior.
+
+## Pasajes
+
+Un pasaje es una regla o sección de una fuente: la descripción de un atributo en la guía de llenado, un renglón de la matriz de errores, una regla de la Resolución Miscelánea. Es la unidad que devuelve una búsqueda.
+
+Cada pasaje tiene un id con la forma `<fuente>/<ancla>.md`, por ejemplo `matriz-de-errores-cfdi-40/cfdi40149.md`. Con él lees el pasaje completo:
+
+```bash
+curl https://codice.io/v1/passages/matriz-de-errores-cfdi-40/cfdi40149.md \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+La barra del id puede ir tal cual o codificada (`%2F`). El texto del pasaje es el del SAT, sin cambios: primero la ruta de títulos donde está, luego su contenido.
+
+### Tipos de pasaje
+
+Cada pasaje tiene un tipo (`kind`), que sirve para acotar una búsqueda:
+
+| Tipo                            | Qué contiene                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------------- |
+| `guia`                          | Las guías de llenado, que definen cada campo del comprobante.                          |
+| `anexo`                         | La matriz de errores de validación.                                                    |
+| `regla`                         | Las reglas de la Resolución Miscelánea Fiscal.                                         |
+| `ley`, `reglamento`, `criterio` | Reservados para las leyes, sus reglamentos y los criterios del SAT, cuando se carguen. |
+
+## Vigencia
+
+Las reglas cambian: el SAT modifica la Resolución Miscelánea durante el año y publica versiones nuevas de las guías y los catálogos. Por eso cada pasaje tiene dos fechas:
+
+- `validFrom`: el primer día en que aplica.
+- `validUntil`: el último día en que aplica, o `null` mientras siga vigente.
+
+Una búsqueda solo devuelve las reglas vigentes en una fecha. Por omisión es hoy en la Ciudad de México; con `asOf` eliges otra:
+
+```bash
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=plazo para cancelar un CFDI" \
+  --data-urlencode "asOf=2025-06-30" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Así, si revisas un ejercicio anterior, obtienes lo que aplicaba entonces y no lo que aplica hoy. Un pasaje que ya no está vigente conserva su propio id, con la fecha de su versión, y se lee igual que cualquier otro.
+
+## Citar una respuesta
+
+Para sostener un criterio con Códice, cita el pasaje (`quote` o `text`), su fuente (`title` y `url`) y su vigencia. Con `sha256` puedes comprobar que el documento que leyó Códice es el mismo que publica el SAT.

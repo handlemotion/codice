@@ -1,40 +1,75 @@
 ---
 title: Primeros pasos
-description: Crea una clave y haz tu primera consulta.
+description: "Crea una clave y haz tus primeras consultas: un código de error, una búsqueda y un catálogo."
 ---
+
+Necesitas una cuenta de Códice y una terminal con `curl`. Si prefieres no escribir código, conecta tu [asistente de IA](/docs/mcp) o usa el chat de la [página principal](/).
 
 ## 1. Crea una clave
 
-Entra a [tu cuenta](/login) y crea una clave en [Claves](/keys). Las claves empiezan con `cdc_`.
+Entra a [tu cuenta](/login) y crea una clave en [Claves](/keys). Las claves empiezan con `cdc_` y pertenecen a tu equipo: cada cuenta nueva tiene uno personal, y solo quien lo administra puede crear o revocar claves.
 
-## 2. Haz una consulta
+Guárdala en una variable de entorno para no escribirla en cada consulta:
 
-Pide un código de error de la matriz del SAT:
+```bash
+export CODICE_KEY="cdc_…"
+```
+
+Trata la clave como una contraseña: no la pongas en código público ni en el navegador.
+
+## 2. Consulta un código de error
+
+Cuando el SAT rechaza un comprobante, te da un código como `CFDI40149`. Pídelo:
 
 ```bash
 curl https://codice.io/v1/errors/CFDI40149 \
   -H "Authorization: Bearer $CODICE_KEY"
 ```
 
-La respuesta trae el renglón de la matriz, palabra por palabra, con su fuente:
+La respuesta trae el renglón de la matriz de errores, palabra por palabra, con su fuente:
 
 ```json
 {
   "data": {
     "code": "CFDI40149",
+    "node": "…",
     "attribute": "DomicilioFiscalReceptor",
     "validation": "Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
-    "source": { "authority": "SAT", "publishedAt": "2026-03-25" }
+    "message": "El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion.",
+    "passageId": "matriz-de-errores-cfdi-40/cfdi40149.md",
+    "source": { "authority": "SAT", "publishedAt": "2026-03-25", "…": "…" }
   },
   "meta": { "requestId": "…" }
 }
 ```
 
+Más en [Códigos de error](/docs/errores).
+
 ## 3. Busca por pregunta
 
+Escribe la pregunta como se la harías a un colega:
+
 ```bash
-curl "https://codice.io/v1/search?q=plazo+para+cancelar+un+CFDI" \
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=uso de CFDI para gastos médicos" \
   -H "Authorization: Bearer $CODICE_KEY"
 ```
 
-Cada resultado es un pasaje textual del SAT con su vigencia. Sigue con [HTTP](/docs/http) o conecta tu [asistente](/docs/mcp).
+Cada resultado es un pasaje del SAT con su fuente y su vigencia. El campo `passageId` te deja leer el pasaje completo en `/v1/passages/{id}`. Más en [Buscar reglas](/docs/buscar).
+
+## 4. Consulta un catálogo
+
+Las claves de los catálogos del SAT se consultan directo, sin búsqueda:
+
+```bash
+curl https://codice.io/v1/catalogs/c_UsoCFDI/G03 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Más en [Catálogos del SAT](/docs/catalogos).
+
+## Siguientes pasos
+
+- [HTTP](/docs/http): autenticación, errores y límites, antes de llevarlo a producción.
+- [Asistentes (MCP)](/docs/mcp): conecta ChatGPT, Claude o Cursor.
+- [Referencia de la API](/docs/api): cada ruta, con una consola para probarla.

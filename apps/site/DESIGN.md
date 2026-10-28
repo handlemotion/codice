@@ -156,12 +156,11 @@ not Fumadocs' defaults:
   the brand: the mark, and from 1280px the name in regular weight. Narrower, the links sit beside
   the mark on the left (they scroll sideways if they must; they never disappear). Fumadocs' own
   layout is off: `routes/docs/$.tsx` lays the page out itself.
-- **Three columns on the home's line:** the sidebar (300px), the page's contents up to 48% of the
-  width, and the page from there, behind one full-height hairline. Text holds 34rem; the page's
-  actions (copy as Markdown, open in ChatGPT or Claude) sit at its right edge from 1280px and
-  above the title below that. No dividers between sections: headings in bold carry the
-  structure. An API operation has no contents or actions column: Fumadocs' operation keeps its
-  own example column.
+- **Three columns on the home's line:** the sidebar (300px), the page's contents and its actions
+  (copy as Markdown, open in ChatGPT or Claude) up to 48% of the width, and the page from there to
+  the edge, behind one full-height hairline. Docs text is 15px and fills its column; headings are
+  16px bold, with no dividers between sections. Below 1024px the actions sit above the title. An
+  API operation has no contents or actions: Fumadocs' operation keeps its own example column.
 - **The sidebar** (`docs-sidebar.tsx`, Figma node 8:4): a search row with its `⌘K` key cap, one
   52px row per group (line icon, label, chevron) between hairlines, the current group open, the
   current page bold in `fg`, and the theme toggle at the foot.
@@ -171,7 +170,7 @@ not Fumadocs' defaults:
   surfaces are the ground (no cards, popovers or muted panels in grey); separation is the hairline.
   The accent is `electric`; Fumadocs' theme switch is off, so `T` and dark-by-default apply.
 - **`.codice-docs` overrides** (`styles.css`): 4px boxes, 2px small controls, no shadows or blur;
-  14px text, the page title at 20px, section headings bold at 14px; code in Supply Mono at 12px
+  14px interface text (15px in a guide), the page title at 20px, section headings bold; code in Supply Mono at 12px
   with Shiki's dark theme unless the page is light; the sidebar's current page bold in `fg`, never a tinted fill.
 - **Spanish interface:** `src/lib/docs-i18n.ts` translates Fumadocs' labels. Add a key there when
   an English label shows up.

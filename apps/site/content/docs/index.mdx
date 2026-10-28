@@ -1,16 +1,45 @@
 ---
 title: Introducción
-description: Qué es Códice y cómo usarlo, desde el chat o desde tu propio software.
+description: Qué es Códice, qué contiene y cómo usarlo, desde el chat o desde tu propio software.
 ---
 
 Códice es un índice de las reglas fiscales y aduaneras de México. Le haces una pregunta y te responde con el texto exacto de la regla, el documento del SAT donde está y desde cuándo aplica.
 
-Hoy contiene la guía de llenado del CFDI 4.0 (Anexo 20), la guía del complemento de pagos 2.0, los catálogos del SAT, la matriz de errores de validación y la Resolución Miscelánea Fiscal 2026.
+No resume ni parafrasea: cita. Cada respuesta trae el pasaje tal como lo publicó el SAT, con su fuente y su vigencia, para que puedas comprobarlo y sostener tu criterio con el documento original.
 
-Hay tres formas de usarlo:
+## Para quién es
 
-- **El chat** de la página principal, para preguntar sin instalar nada.
-- **Tu asistente de IA**, conectado por [MCP](/docs/mcp), para que consulte la regla en vez de recordarla.
+- **Contadores y equipos de facturación** que necesitan la regla exacta detrás de un rechazo, un uso de CFDI o un plazo, sin buscar en PDFs de cientos de páginas.
+- **Asistentes de IA** como ChatGPT, Claude o Cursor, que con Códice consultan la regla en vez de recordarla de memoria.
+- **Desarrolladores** que integran validaciones fiscales en su sistema de facturación, ERP o punto de venta.
+
+## Qué contiene
+
+Hoy Códice reúne los documentos que se consultan para facturar:
+
+| Documento                                                                | Publicado por el SAT  |
+| ------------------------------------------------------------------------ | --------------------- |
+| Guía de llenado del CFDI 4.0 (Anexo 20)                                  | 16 de enero de 2026   |
+| Guía de llenado del complemento de pagos                                 | 16 de enero de 2026   |
+| Matriz de errores de validación del CFDI 4.0                             | 25 de marzo de 2026   |
+| Catálogos del CFDI 4.0                                                   | 15 de octubre de 2026 |
+| Resolución Miscelánea Fiscal 2026, compilada con su primera modificación | 16 de julio de 2026   |
+
+Después vendrán el Código Fiscal de la Federación, las leyes del ISR y del IVA con sus reglamentos, y las reglas de comercio exterior (Ley Aduanera, RGCE y el Anexo 22).
+
+## Tres formas de usarlo
+
+- **El chat** de la [página principal](/), para preguntar sin instalar nada.
+- **Tu asistente de IA**, conectado por [MCP](/docs/mcp), para que cite la regla en sus respuestas.
 - **La API**, por [HTTP](/docs/http), para integrarlo en tu propio software. Cada ruta está en la [referencia](/docs/api).
 
-Códice devuelve reglas, no asesoría fiscal: te da la fuente para sostener tu criterio.
+Las tres consultan lo mismo y responden con las mismas fuentes.
+
+## Qué no es
+
+Códice devuelve reglas, no asesoría fiscal. Te dice qué dice el SAT, dónde y desde cuándo; la interpretación de tu caso sigue siendo tuya o de tu asesor.
+
+## Por dónde seguir
+
+- [Primeros pasos](/docs/primeros-pasos): crea una clave y haz tu primera consulta en dos minutos.
+- [Conceptos](/docs/conceptos): fuentes, pasajes y vigencia, las tres ideas detrás de cada respuesta.

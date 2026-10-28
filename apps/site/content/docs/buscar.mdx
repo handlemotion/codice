@@ -1,0 +1,85 @@
+---
+title: Buscar reglas
+description: Cómo preguntar, acotar por fuente, tipo y fecha, y leer los resultados de una búsqueda.
+---
+
+`GET /v1/search` busca entre las reglas vigentes por significado y por clave exacta a la vez. Entiende una pregunta en palabras propias ("¿qué uso de CFDI pongo en una factura de gastos médicos?") y también un código o una clave (`CFDI40149`, `G03`, `601`).
+
+```bash
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=código postal del receptor con RFC genérico" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+## Parámetros
+
+| Parámetro | Obligatorio | Qué hace                                                                                                                   |
+| --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `q`       | Sí          | La pregunta o el código, en español o inglés, hasta 1,000 caracteres.                                                      |
+| `asOf`    | No          | Solo reglas vigentes en esa fecha, `AAAA-MM-DD`. Por omisión, hoy en la Ciudad de México.                                  |
+| `source`  | No          | Solo una fuente, por su id: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado` o `matriz-de-errores-cfdi-40`. |
+| `kind`    | No          | Solo un tipo de pasaje: `guia`, `anexo`, `regla` (ver [Conceptos](/docs/conceptos#tipos-de-pasaje)).                       |
+| `limit`   | No          | Cuántos pasajes devolver, de 1 a 50. Por omisión, 5.                                                                       |
+
+## Cómo preguntar
+
+- **Pregunta por el caso, no por la palabra.** "¿Puedo cancelar una factura de enero en marzo?" encuentra la regla de cancelación aunque no use esas palabras.
+- **Usa el código cuando lo tengas.** Un `CFDI40xxx`, una clave de catálogo o un número de regla encuentran su pasaje exacto. Para un código de error, [`/v1/errors/{code}`](/docs/errores) es más directo.
+- **Acota con `kind`** cuando sepas qué buscas: `guia` para saber qué significa un campo, `anexo` para saber por qué se rechaza, `regla` para las reglas de la Miscelánea.
+- **Fija `asOf`** si revisas un periodo pasado.
+
+## Resultados
+
+Los resultados vienen ordenados del más al menos relevante:
+
+```json
+{
+  "data": {
+    "query": "código postal del receptor con RFC genérico",
+    "asOf": "2026-10-27",
+    "source": null,
+    "kind": null,
+    "results": [
+      {
+        "passageId": "matriz-de-errores-cfdi-40/cfdi40149.md",
+        "source": "matriz-de-errores-cfdi-40",
+        "quote": "…",
+        "authority": "SAT",
+        "kind": "anexo",
+        "validFrom": "2026-03-25",
+        "validUntil": null,
+        "score": 0.82,
+        "scoring": { "keywordScore": 0.4, "vectorScore": 0.7, "rerankingScore": 0.82 },
+        "sourceTitle": "…",
+        "sourceUrl": "…",
+        "sourcePublishedAt": "2026-03-25"
+      }
+    ]
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+| Campo                                           | Qué es                                                   |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| `passageId`                                     | El id del pasaje. Con él lees el texto completo.         |
+| `quote`                                         | El fragmento que coincidió, tal como lo escribió el SAT. |
+| `kind`                                          | El tipo de pasaje.                                       |
+| `validFrom`, `validUntil`                       | La vigencia del pasaje.                                  |
+| `score`                                         | La relevancia final; `scoring` desglosa cómo se calculó. |
+| `sourceTitle`, `sourceUrl`, `sourcePublishedAt` | La fuente, en la versión vigente en `asOf`.              |
+
+## Leer el pasaje completo
+
+`quote` es el fragmento que coincidió; un pasaje largo puede tener más. Para leerlo entero:
+
+```bash
+curl https://codice.io/v1/passages/matriz-de-errores-cfdi-40/cfdi40149.md \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+La respuesta trae `heading` (su título), `text` (la ruta de títulos y el texto completo), su vigencia y su fuente.
+
+## Cuando no hay resultados
+
+Una búsqueda sin coincidencias responde `200` con `results` vacío. Prueba con otras palabras, quita `source` o `kind`, o revisa que `asOf` caiga dentro de la vigencia de lo que buscas. Si el servicio de búsqueda falla, la respuesta es `502` con el código `search_unavailable`: reintenta en unos segundos.

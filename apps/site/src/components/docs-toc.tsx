@@ -47,7 +47,7 @@ export function DocsToc() {
 
   if (headings.length === 0) return null;
   return (
-    <nav aria-label="En esta página" className="flex flex-col gap-3 p-6">
+    <nav aria-label="En esta página" className="flex flex-col gap-3">
       <span className="text-muted">En esta página</span>
       <ul className="flex flex-col gap-1.5">
         {headings.map((heading) => (

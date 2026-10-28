@@ -74,9 +74,9 @@ function Page() {
       </Suspense>
     );
   // The site's bar on top, then three columns, the home's ruled sheet: the sidebar, the page's
-  // contents up to the home's 48% line, and the page itself from that line, with its actions at
-  // the right edge. An API operation is the sidebar and the operation, which has its own example
-  // column. Below 1024px they stack.
+  // contents and actions up to the home's 48% line, and the page itself from that line, across the
+  // rest of the width. An API operation is the sidebar and the operation, which has its own example
+  // column. Below 1024px they stack, the actions above the title.
   const guide = page.type === "docs";
   return (
     <div className="codice-docs">
@@ -89,22 +89,21 @@ function Page() {
         </div>
         {guide && (
           <div className="max-lg:hidden">
-            <div className="sticky top-[52px] max-h-[calc(100dvh-52px)] overflow-y-auto">
+            <div className="sticky top-[52px] flex max-h-[calc(100dvh-52px)] flex-col gap-10 overflow-y-auto p-6">
               <DocsToc />
+              <PageActions className="flex-col" path={page.path} title={page.title} />
             </div>
           </div>
         )}
         <main
-          className={`min-h-[calc(100dvh-52px)] min-w-0 overflow-x-clip xl:flex ${guide ? "lg:border-l lg:border-line" : ""}`}
+          className={`min-h-[calc(100dvh-52px)] min-w-0 overflow-x-clip ${guide ? "lg:border-l lg:border-line" : ""}`}
         >
           {guide && (
-            <div className="p-4 sm:px-6 xl:order-last xl:w-[240px] xl:shrink-0">
-              <div className="xl:sticky xl:top-[76px]">
-                <PageActions path={page.path} title={page.title} />
-              </div>
+            <div className="p-4 sm:px-6 lg:hidden">
+              <PageActions className="flex-wrap" path={page.path} title={page.title} />
             </div>
           )}
-          <div className="min-w-0 flex-1">{content}</div>
+          {content}
         </main>
       </div>
     </div>
