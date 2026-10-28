@@ -61,15 +61,22 @@
     {
       "idx": 8,
       "version": "6",
-      "when": 1793171688765,
-      "tag": "0008_catalog_search_text",
+      "when": 1793172446160,
+      "tag": "0008_passage_links",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "6",
-      "when": 1793171689682,
-      "tag": "0009_catalog_entries_fts",
+      "when": 1793172602807,
+      "tag": "0009_catalog_search_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793172603652,
+      "tag": "0010_catalog_entries_fts",
       "breakpoints": true
     }
   ]

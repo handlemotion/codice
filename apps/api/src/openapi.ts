@@ -91,6 +91,11 @@ const Passage = z.object({
   authority: z.string().nullable(),
   kind: z.string().nullable(),
   ...Validity,
+  related: z
+    .array(z.string())
+    .describe(
+      "Passage ids its text links to: an RMF regla's referenced reglas, a matrix row's guide passage, a guide passage's matrix rows.",
+    ),
   source: Source.nullable(),
 });
 
@@ -102,6 +107,9 @@ const ErrorCode = z.object({
   validation: z.string().describe("The SAT's validation rule, verbatim."),
   message: z.string().describe("The message the SAT returns, verbatim."),
   passageId: z.string(),
+  related: z
+    .array(z.string())
+    .describe("The Anexo 20 passage that defines the row's attribute, when the guide has one."),
   source: Source.nullable(),
 });
 

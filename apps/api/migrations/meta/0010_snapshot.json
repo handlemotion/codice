@@ -1,0 +1,512 @@
+{
+  "id": "5f231edb-bcfe-44cb-aa90-c6c42439309b",
+  "prevId": "6fb87e84-d442-414f-8541-eb7f07686c5d",
+  "version": "6",
+  "dialect": "sqlite",
+  "tables": {
+    "catalog_entries": {
+      "name": "catalog_entries",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "catalog": {
+          "name": "catalog",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fields": {
+          "name": "fields",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "search_text": {
+          "name": "search_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 99991231
+        }
+      },
+      "indexes": {
+        "catalog_entries_catalog_key_idx": {
+          "name": "catalog_entries_catalog_key_idx",
+          "columns": ["\"catalog\" COLLATE NOCASE", "\"key\" COLLATE NOCASE"],
+          "isUnique": false
+        },
+        "catalog_entries_source_idx": {
+          "name": "catalog_entries_source_idx",
+          "columns": ["source_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "catalog_entries_source_id_sources_id_fk": {
+          "name": "catalog_entries_source_id_sources_id_fk",
+          "tableFrom": "catalog_entries",
+          "columnsFrom": ["source_id"],
+          "tableTo": "sources",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "catalog_entries_validity_check": {
+          "name": "catalog_entries_validity_check",
+          "value": "\"catalog_entries\".\"valid_from\" <= \"catalog_entries\".\"valid_until\""
+        }
+      }
+    },
+    "error_codes": {
+      "name": "error_codes",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "node": {
+          "name": "node",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attribute": {
+          "name": "attribute",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "validation": {
+          "name": "validation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "error_codes_source_idx": {
+          "name": "error_codes_source_idx",
+          "columns": ["source_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "error_codes_source_id_sources_id_fk": {
+          "name": "error_codes_source_id_sources_id_fk",
+          "tableFrom": "error_codes",
+          "columnsFrom": ["source_id"],
+          "tableTo": "sources",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "passage_links": {
+      "name": "passage_links",
+      "columns": {
+        "passage_key": {
+          "name": "passage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "related_key": {
+          "name": "related_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "passage_links_passage_key_passages_key_fk": {
+          "name": "passage_links_passage_key_passages_key_fk",
+          "tableFrom": "passage_links",
+          "columnsFrom": ["passage_key"],
+          "tableTo": "passages",
+          "columnsTo": ["key"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "passage_links_related_key_passages_key_fk": {
+          "name": "passage_links_related_key_passages_key_fk",
+          "tableFrom": "passage_links",
+          "columnsFrom": ["related_key"],
+          "tableTo": "passages",
+          "columnsTo": ["key"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "passage_links_passage_key_related_key_pk": {
+          "columns": ["passage_key", "related_key"],
+          "name": "passage_links_passage_key_related_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "passages": {
+      "name": "passages",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "heading": {
+          "name": "heading",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 99991231
+        }
+      },
+      "indexes": {
+        "passages_source_idx": {
+          "name": "passages_source_idx",
+          "columns": ["source_id"],
+          "isUnique": false
+        },
+        "passages_valid_from_idx": {
+          "name": "passages_valid_from_idx",
+          "columns": ["valid_from"],
+          "isUnique": false
+        },
+        "passages_valid_until_idx": {
+          "name": "passages_valid_until_idx",
+          "columns": ["valid_until"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "passages_source_id_sources_id_fk": {
+          "name": "passages_source_id_sources_id_fk",
+          "tableFrom": "passages",
+          "columnsFrom": ["source_id"],
+          "tableTo": "sources",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "passages_validity_check": {
+          "name": "passages_validity_check",
+          "value": "\"passages\".\"valid_from\" <= \"passages\".\"valid_until\""
+        }
+      }
+    },
+    "source_versions": {
+      "name": "source_versions",
+      "columns": {
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retrieved_at": {
+          "name": "retrieved_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "source_versions_source_id_sources_id_fk": {
+          "name": "source_versions_source_id_sources_id_fk",
+          "tableFrom": "source_versions",
+          "columnsFrom": ["source_id"],
+          "tableTo": "sources",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "source_versions_source_id_valid_from_pk": {
+          "columns": ["source_id", "valid_from"],
+          "name": "source_versions_source_id_valid_from_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "source_versions_validity_check": {
+          "name": "source_versions_validity_check",
+          "value": "\"source_versions\".\"valid_from\" <= \"source_versions\".\"valid_until\""
+        }
+      }
+    },
+    "sources": {
+      "name": "sources",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "authority": {
+          "name": "authority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retrieved_at": {
+          "name": "retrieved_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 99991231
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sources_authority_check": {
+          "name": "sources_authority_check",
+          "value": "\"sources\".\"authority\" IN ('SAT', 'DOF', 'SCJN', 'TFJA', 'Congreso')"
+        },
+        "sources_validity_check": {
+          "name": "sources_validity_check",
+          "value": "\"sources\".\"valid_from\" <= \"sources\".\"valid_until\""
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  },
+  "internal": {
+    "indexes": {
+      "catalog_entries_catalog_key_idx": {
+        "columns": {
+          "\"catalog\" COLLATE NOCASE": {
+            "isExpression": true
+          },
+          "\"key\" COLLATE NOCASE": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

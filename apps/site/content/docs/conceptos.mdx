@@ -7,7 +7,7 @@ Cada respuesta de Códice se apoya en tres ideas: de qué documento sale (la fue
 
 ## Fuentes
 
-Una fuente es un documento publicado por una autoridad: la guía de llenado del Anexo 20, la matriz de errores, los catálogos del CFDI o la Resolución Miscelánea Fiscal. Códice guarda de cada una:
+Una fuente es un documento publicado por una autoridad: la guía de llenado del Anexo 20, la matriz de errores, los catálogos del CFDI, la Resolución Miscelánea Fiscal o el Código Fiscal de la Federación. Códice guarda de cada una:
 
 | Campo                     | Qué es                                                                 |
 | ------------------------- | ---------------------------------------------------------------------- |
@@ -24,7 +24,7 @@ La lista completa está en `GET /v1/sources`. Cuando el SAT publica una versión
 
 ## Pasajes
 
-Un pasaje es una regla o sección de una fuente: la descripción de un atributo en la guía de llenado, un renglón de la matriz de errores, una regla de la Resolución Miscelánea. Es la unidad que devuelve una búsqueda.
+Un pasaje es una regla o sección de una fuente: la descripción de un atributo en la guía de llenado, un renglón de la matriz de errores, una regla de la Resolución Miscelánea, un artículo del Código Fiscal. Es la unidad que devuelve una búsqueda.
 
 Cada pasaje tiene un id con la forma `<fuente>/<ancla>.md`, por ejemplo `matriz-de-errores-cfdi-40/cfdi40149.md`. Con él lees el pasaje completo:
 
@@ -35,16 +35,41 @@ curl https://codice.io/v1/passages/matriz-de-errores-cfdi-40/cfdi40149.md \
 
 La barra del id puede ir tal cual o codificada (`%2F`). El texto del pasaje es el del SAT, sin cambios: primero la ruta de títulos donde está, luego su contenido.
 
+### Pasajes relacionados
+
+Cada pasaje trae en `related` los ids de otros pasajes a los que remite su propio texto, para seguirlos con `/v1/passages/{id}`:
+
+| Pasaje                 | `related`                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Una regla de la RMF    | Las reglas de la RMF que cita su renglón de referencias (`CFF 29, 29 Bis, RMF 2.7.1.32., 2.7.2.1.`), en orden. |
+| Un código de la matriz | El pasaje de la guía de llenado que define su nodo y atributo.                                                 |
+| Un atributo de la guía | Los códigos de la matriz que lo validan.                                                                       |
+
+```json
+{
+  "passageId": "rmf-2026/regla-2.7.1.21.md",
+  "related": [
+    "rmf-2026/regla-2.6.1.2.md",
+    "rmf-2026/regla-2.7.1.23.md",
+    "rmf-2026/regla-2.7.1.32.md",
+    "rmf-2026/regla-3.3.1.7.md"
+  ]
+}
+```
+
+Códice lee estas referencias del texto del SAT al cargarlo, sin interpretarlas: solo enlaza pasajes que tiene. Una referencia a una ley (`CFF 29`) o a una regla derogada no aparece. Un pasaje sin referencias trae `related` vacío.
+
 ### Tipos de pasaje
 
 Cada pasaje tiene un tipo (`kind`), que sirve para acotar una búsqueda:
 
-| Tipo                            | Qué contiene                                                                           |
-| ------------------------------- | -------------------------------------------------------------------------------------- |
-| `guia`                          | Las guías de llenado, que definen cada campo del comprobante.                          |
-| `anexo`                         | La matriz de errores de validación.                                                    |
-| `regla`                         | Las reglas de la Resolución Miscelánea Fiscal.                                         |
-| `ley`, `reglamento`, `criterio` | Reservados para las leyes, sus reglamentos y los criterios del SAT, cuando se carguen. |
+| Tipo                     | Qué contiene                                                                |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `guia`                   | Las guías de llenado, que definen cada campo del comprobante.               |
+| `anexo`                  | La matriz de errores de validación.                                         |
+| `regla`                  | Las reglas de la Resolución Miscelánea Fiscal.                              |
+| `ley`                    | Los artículos del Código Fiscal de la Federación.                           |
+| `reglamento`, `criterio` | Reservados para los reglamentos y los criterios del SAT, cuando se carguen. |
 
 ## Vigencia
 

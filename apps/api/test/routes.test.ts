@@ -4,7 +4,14 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { catalogEntries, errorCodes, passages, sources, sourceVersions } from "../src/db/schema";
+import {
+  catalogEntries,
+  errorCodes,
+  passageLinks,
+  passages,
+  sources,
+  sourceVersions,
+} from "../src/db/schema";
 import type { CodiceBindings } from "../src/env";
 import { app, CodiceKnowledge } from "../src/index";
 import { SOURCES_CACHE_MS } from "../src/records";
@@ -768,6 +775,7 @@ describe("GET /v1/passages/:id", () => {
         kind: "anexo",
         validFrom: "2026-03-25",
         validUntil: null,
+        related: [],
         source: expect.objectContaining({
           id: "matriz-de-errores-cfdi-40",
           url: "http://omawww.sat.gob.mx/matriz.xls",
@@ -797,6 +805,7 @@ describe("GET /v1/passages/:id", () => {
         kind: "anexo",
         validFrom: "2026-03-25",
         validUntil: null,
+        related: [],
         source: {
           id: "matriz-de-errores-cfdi-40",
           title: "Matriz de códigos de error",
@@ -1649,6 +1658,91 @@ describe("GET /v1/changes", () => {
 
     expect(JSON.parse(/^data: (.+)$/mu.exec(text)?.[1] ?? text)).toMatchObject({
       result: { structuredContent: { since: "2026-01-01", changes: GUIDE_CHANGES } },
+    });
+  });
+});
+
+describe("related passages", () => {
+  const RMF = "rmf-2026";
+  const regla = (number: string) => `${RMF}/regla-${number}.md`;
+  const GUIDE_ID = "anexo-20-guia-de-llenado/nodo-receptor-usocfdi.md";
+
+  beforeAll(async () => {
+    const db = drizzle(bindings.CODICE_DATABASE!);
+    await db.insert(sources).values({
+      ...SOURCE,
+      id: RMF,
+      title: "Resolución Miscelánea Fiscal para 2026",
+      url: "http://omawww.sat.gob.mx/rmf.pdf",
+      publishedAt: "2025-12-28",
+      validFrom: 20251228,
+    });
+    await db.insert(passages).values(
+      ["2.7.2.11", "2.7.2.1", "2.7.2.10"].map((number) => ({
+        key: regla(number),
+        sourceId: RMF,
+        heading: `RMF › Regla ${number}.`,
+        sha256: "6".repeat(64),
+        body: `# RMF › Regla ${number}.\n\nCFF 29, RMF 2.7.2.10., 2.7.2.1.\n`,
+        kind: "regla",
+        validFrom: 20251228,
+      })),
+    );
+    // Numbered in the references line's order, which is not the keys' order.
+    await db.insert(passageLinks).values([
+      { passageKey: regla("2.7.2.11"), relatedKey: regla("2.7.2.1"), position: 1 },
+      { passageKey: regla("2.7.2.11"), relatedKey: regla("2.7.2.10"), position: 0 },
+      { passageKey: PASSAGE_ID, relatedKey: GUIDE_ID, position: 0 },
+      { passageKey: GUIDE_ID, relatedKey: PASSAGE_ID, position: 0 },
+    ]);
+  });
+
+  it("answers a passage's related passage ids in its text's order, from D1", async () => {
+    const calls: ItemsCall[] = [];
+    const response = await request(`/v1/passages/${regla("2.7.2.11")}`, fakeItems([], calls));
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual([]);
+    expect(await response.json()).toMatchObject({
+      data: {
+        passageId: regla("2.7.2.11"),
+        kind: "regla",
+        related: [regla("2.7.2.10"), regla("2.7.2.1")],
+        source: { id: RMF },
+      },
+    });
+  });
+
+  it("answers an empty list for a passage without links", async () => {
+    const response = await request(`/v1/passages/${regla("2.7.2.1")}`);
+
+    expect(await response.json()).toMatchObject({ data: { related: [] } });
+  });
+
+  it("links an error code to its guide passage, and the guide passage back", async () => {
+    expect(await (await request("/v1/errors/CFDI40149")).json()).toMatchObject({
+      data: { code: "CFDI40149", passageId: PASSAGE_ID, related: [GUIDE_ID] },
+    });
+    // Recorded before D1 kept bodies (see "versions"): its text comes from AI Search.
+    const guide = fakeItems([{ id: "item-guide", key: GUIDE_ID, body: "# UsoCFDI\n" }]);
+    expect(await (await request(`/v1/passages/${GUIDE_ID}`, guide)).json()).toMatchObject({
+      data: { passageId: GUIDE_ID, related: [PASSAGE_ID] },
+    });
+    expect(await (await request("/v1/errors/CFDI140223")).json()).toMatchObject({
+      data: { code: "CFDI140223", related: [] },
+    });
+  });
+
+  it("answers the same field through the CodiceKnowledge entrypoint", async () => {
+    const knowledge = new CodiceKnowledge({} as ExecutionContext, bindings as never);
+
+    expect(await knowledge.readPassage(regla("2.7.2.11"))).toMatchObject({
+      ok: true,
+      data: { related: [regla("2.7.2.10"), regla("2.7.2.1")] },
+    });
+    expect(await knowledge.lookupError("CFDI40149")).toMatchObject({
+      ok: true,
+      data: { related: [GUIDE_ID] },
     });
   });
 });

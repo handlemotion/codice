@@ -104,6 +104,11 @@ export type CodicePassage = {
   readonly kind: string | null;
   readonly validFrom: string | null;
   readonly validUntil: string | null;
+  /**
+   * The passage ids its text links to, for `readPassage`: an RMF regla's referenced reglas, a
+   * matrix row's guide passage, a guide passage's matrix rows.
+   */
+  readonly related: readonly string[];
   readonly source: CodiceSource | null;
 };
 
@@ -117,6 +122,8 @@ export type CodiceErrorCode = {
   readonly message: string;
   /** The row's own search passage, for `readPassage`. */
   readonly passageId: string;
+  /** The Anexo 20 passage that defines the row's attribute, when the guide has one. */
+  readonly related: readonly string[];
   readonly source: CodiceSource | null;
 };
 

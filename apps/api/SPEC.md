@@ -77,11 +77,11 @@ records, not prose: they go to D1, not to search.
 
 ## Corpus
 
-| Phase | Sources                                                                                                                                                                                                                                   |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.                                                                 |
-| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements (their filling guides in `docs/sat-md` since 2026-10-28). |
-| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                                                                             |
+| Phase | Sources                                                                                                                                                                                                                                                   |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.                                                                                 |
+| 1     | CFF (loaded: `cff`), LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements (their filling guides in `docs/sat-md` since 2026-10-28). |
+| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                                                                                             |
 
 The AI Search website crawler only crawls domains we own, so SAT and DOF pages are fetched by our
 ingestion and uploaded as items (`.html` items are converted to Markdown by AI Search).
@@ -115,7 +115,9 @@ the Phase 0 passages (520 since the parser change).
   section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
   `apendice-8-3` for the third part of an appendix), and
   `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). Phase 1: `rmf-2026`, one
-  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)). A passage
+  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)), and `cff`,
+  one item an article, anchored by its number (`articulo-29-a`, `articulo-17-h-bis`, `articulo-1`
+  for `Artículo 1o.`). A passage
   whose text a newer one replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
   (`rmf-2026/regla-2.7.1.21.20251228.md`; see [Versions](#versions)).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
@@ -133,7 +135,8 @@ range filter never meets a missing value. The Items API takes metadata values as
 these two as numbers, as the instance's schema types them. A guide or matrix passage's
 `valid_from` is its source's publication date; a regla of the RMF has its own: the DOF date of the
 version the SAT's compilation holds (`20251228` for the RMF as published, `20260709` for a regla the
-Primera RMRMF changed or added). An unchanged passage keeps the `valid_from` of the first version
+Primera RMRMF changed or added). An article of the CFF has the law's last reform (`20260409`), with
+`authority` `Congreso` and `kind` `ley`. An unchanged passage keeps the `valid_from` of the first version
 that held its text. `valid_until` is `99991231` while in force, and the day before the text that
 replaced it starts once superseded ([Versions](#versions)).
 
@@ -184,6 +187,33 @@ at a whole word; without a matching word (a match by meaning) it is the quote's 
 says whether the quote continues on either side, so a caller marks the cut with "…". The agent
 then reads the one that answers with `read_passage`. HTTP and `CodiceKnowledge` default to `full`;
 MCP to `brief` ([MCP surface](#mcp-surface-mcp)).
+
+**Relative reranking floor.** Before either format, `search()` drops each result whose `rerankingScore` is under
+2% of the first result's (`RERANKING_RELATIVE_FLOOR` and `aboveRerankingFloor` in
+`src/search.ts`), so a search can return fewer than `limit` results. The first result is always
+kept, and so is every result when the first has no positive reranking score (reranking off). The
+floor is relative because the absolute threshold is 0 (a correct Spanish answer can score 0.34
+first; see [Retrieval eval](#retrieval-eval)). The cache keeps every chunk; the floor applies to
+each answer. It is a fraction of the first result, not a reranking setting, so the retrieval eval,
+which ranks the instance's raw chunks, does not measure it.
+
+The fraction comes from searches on the local Worker (the real instance), `asOf` 2026-10-28, since
+no recorded eval run keeps reranking scores. Share of the first result's `rerankingScore`:
+
+| Question                                                                    | Kept by the floor                                          | Dropped                                   |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------- |
+| "¿Cómo hago una nota de crédito que aplique a varias facturas?"             | the Pagos appendix 6 question 2 (0.40)                     | 9 passages at 1.7% to 0.2%, all off topic |
+| "¿Qué tipo de factura hago para una nota de crédito?"                       | appendix 2 (0.25) and 4 at 5.5% to 3.0%, the last expected | 5 at 1.5% to 0.5%                         |
+| "Si el pago se recibe después de emitir la factura, ¿PUE…?"                 | `MetodoPago` and regla 2.7.1.39, both at 98% or more       | 8 at 1.8% to 0.1%                         |
+| "Opinión del cumplimiento…", UsoCFDI with Pagos, `TotalImpuestosRetenidos…` | all 10: every result at 63% or more                        | none                                      |
+
+The lowest correct answer seen, Anexo 20 question 21 ("Se debe de emitir un CFDI de egresos") for
+the second question, scored 3.0% of the first, and every result under it 1.8% or less, so the floor
+sits at 2%. With the SAT's field names (`CfdiRelacionados`, `TipoRelacion 01`) the first question
+finds the Anexo 20 appendix 5 passages the eval expects, at 41% to 71% of the first. The
+reranker's scores in this low band do not order relevance well (noise at 5.5% above the answer at
+3.0%), so a higher floor would trade correct answers for less noise; check the fraction against
+a run that records each result's `rerankingScore`.
 
 ### Search cache
 
@@ -248,6 +278,9 @@ hand-written migrations).
   row alone (see [HTTP API](#http-api-v1)). `body` and `kind` are null only in a row written
   before `0006`, until the next ingestion rewrites every row; a superseded row keeps the body D1
   recorded for it, or the text the ingestion copies from AI Search for one that has none.
+- `passage_links`: the related passages each current passage's text names (passage key, related
+  key, position in the text's order), both ends `passages` rows; see
+  [Related passages](#related-passages).
 - `error_codes`: the `CFDI40xxx` matrix (code, node, attribute, validation, message). Each row
   is also a search passage, so a plain-language question (_"código postal de un receptor con RFC
   genérico"_) finds its code; the record answers the exact lookup.
@@ -265,9 +298,9 @@ The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generate
 `NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
 custom `0004`, then tighten it with its check), `0006_*.sql` (the passages' `body` and
 `kind`), `0007_*.sql` (indexes on the passages' `valid_from` and `valid_until`, for
-[Changes](#changes)), and `0008_*.sql` and `0009_*.sql` (catalog search: the `search_text` column,
-then the custom `0009` with the full-text index Drizzle cannot declare; see
-[Catalog search](#catalog-search)).
+[Changes](#changes)), `0008_*.sql` (`passage_links`), and `0009_*.sql` and `0010_*.sql` (catalog
+search: the `search_text` column, then the custom `0010` with the full-text index Drizzle cannot
+declare; see [Catalog search](#catalog-search)).
 
 The Worker only reads D1, so it queries through a session that starts `first-unconstrained`
 (`withSession`): with read replication on, a query goes to the nearest replica; without it, to the
@@ -334,9 +367,9 @@ daily problem, and a key lookup only answers a code already known.
   FTS5's `integrity-check` and `rebuild` agree with it. Triggers on `catalog_entries` (insert,
   delete, update) keep it in step with every write, so the ingestion fills it by writing
   `search_text` and nothing else. Drizzle cannot declare a virtual table, a view it does not own
-  or a trigger, so they are the custom migration `0009` (`drizzle-kit generate --custom`, as `0004`
+  or a trigger, so they are the custom migration `0010` (`drizzle-kit generate --custom`, as `0004`
   was; https://orm.drizzle.team/docs/drizzle-kit-generate: "generate empty SQL for custom
-  migration"); `0008` adds the column through `db:generate`. D1 supports FTS5
+  migration"); `0009` adds the column through `db:generate`. D1 supports FTS5
   (https://developers.cloudflare.com/d1/sql-api/sql-statements/: "D1 supports a subset of SQLite
   extensions for added functionality, including: FTS5 module for full-text search"). The porter
   stemmer is English, applied to index and query alike: it folds some plurals and takes some
@@ -365,7 +398,7 @@ validUntil }], source }`, best first, at most `limit` (1–50, default 10), ever
   (https://developers.cloudflare.com/d1/best-practices/import-export-data/: "Export is not
   supported for virtual tables, including databases with virtual tables"). To copy `codice` with
   `wrangler d1 export`, as on 2026-10-27, drop `catalog_entries_fts` and its triggers first, then
-  recreate them with `0009`'s statements and fill the index with
+  recreate them with `0010`'s statements and fill the index with
   `INSERT INTO catalog_entries_fts (catalog_entries_fts) VALUES ('rebuild')`.
 
 ## HTTP API (`/v1`)
@@ -407,14 +440,17 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
   `valid_until`: a superseded passage's own version, else the current one). A superseded passage's
   dated id (`…/nodo-receptor-usocfdi.20220101.md`) reads like any other. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
   `passage_not_found`; an Items API failure is `502 search_unavailable` (both only for a row
-  without a body).
+  without a body). `related` lists the passage ids its text links to, in the text's order, from D1
+  `passage_links` ([Related passages](#related-passages)); empty for a passage without links,
+  including every superseded one.
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
 retrievedAt, validFrom, validUntil }`, the same provenance the other routes attach.
 - **`/v1/changes`**: the passages added, changed or removed in a window, from D1 alone
   ([Changes](#changes)).
 - **`/v1/errors/:code`**: the matrix row, its search passage as `passageId`
-  (`errorCodePassageId`), and its source; or `404 error_code_not_found`.
+  (`errorCodePassageId`), that passage's `related` (the Anexo 20 passage that defines the row's
+  attribute, or none), and its source; or `404 error_code_not_found`.
 - **`/v1/catalogs/:name/:key`**: `{ catalog, key, entries: [{ fields, validFrom, validUntil }],
 source }`, every entry of the key in the SAT's order, or `404 catalog_entry_not_found`. Each query
   parameter names a column of the catalog by its SAT header (`c_CodigoPostal`, `c_Estado`) and
@@ -440,7 +476,8 @@ Transitive's own Workers call the same handlers over a service binding to the `C
 entrypoint (`src/index.ts`; contract `@codice/contracts`, mirrored by Transitive's
 `@transitive/api-contracts/codice`): `search`,
 `readPassage`, `lookupError`, `lookupCatalog` and `listCatalog`, each answering
-`{ ok: true, data }` with the route's `data`, or `{ ok: false, problem: { status, code, title } }`
+`{ ok: true, data }` with the route's `data` (`related` included: `CodicePassage` and
+`CodiceErrorCode` carry it, and Transitive's mirror needs the same field), or `{ ok: false, problem: { status, code, title } }`
 (RPC keeps only an error's message). It takes no API key and skips the per-key rate limit: only a
 Worker the account binds can call it. The Agent binds it as `CODICE`. `search`'s `source` takes
 one id or a list, and its answer's `source` is the sorted list or null (since 2026-10-28; before,
@@ -485,6 +522,10 @@ substring of its full quote. The MCP tool's JSON text is the same `data`, 69 byt
 A brief result costs 640–880 bytes, much of it the heading path (up to 280 characters for the
 Pagos guide), so reading two short passages after a brief search can cost more than one full search;
 reading one never did in these five.
+
+`read_passage` and `lookup_error` answer `related` as the routes do (each item of a
+`lookup_error` batch carries its own), and their descriptions tell the client to follow it with
+`read_passage`.
 
 The two lookups take a batch, so checking a whole invoice is one call each: `lookup_error`
 `{ codes: ["CFDI40149", "CFDI40147"] }` reads every code's matrix row in one D1 query
@@ -674,7 +715,7 @@ fetch source → sha256 → unchanged? stop
   splits the guides with Códice's splitter (`scripts/sections.ts`, below), keeps the passages a
   newer text supersedes under dated keys ([Versions](#versions)), deletes stuck items, uploads only
   passages that are new, changed, missing or stuck, deletes items no record has any more, then
-  replaces the D1 records. A stuck item is one AI Search will never finish indexing:
+  replaces the D1 records, the passages' links among them ([Related passages](#related-passages)). A stuck item is one AI Search will never finish indexing:
   status `error`, or `outdated` with `next_action: null` (`stuckItem` in `scripts/corpus.ts`). On
   2026-10-25 `complemento-pagos-guia-de-llenado/nodo-concepto-descuento.md` stayed so after a
   `workers_ai_timeout_error`: AI Search never retried it, uploading the same key again changed
@@ -747,13 +788,29 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   c_ClavePedimento, …), their error matrices (`Matriz_Errores_CCP_V31.xls`,
   `Matriz_de_Errores_CCE_v2.0.xls`) and the Carta Porte questions
   (`Preguntas_frecuentes_CartaPorte_31.pdf`); see [Next steps](#next-steps).
+- The CFF (Phase 1), and the laws after it: `sat:knowledge` downloads the law's text in force from
+  the Cámara de Diputados' "Leyes Federales Vigentes" page
+  (<https://www.diputados.gob.mx/LeyesBiblio/index.htm>; the CFF at `pdf/CFF.pdf`, a fixed URL a
+  reform replaces) and converts it with MarkItDown, leaving out the page headers (the law's name,
+  the Cámara, its two secretariats) and the `12 de 377` footers. Its `publishedAt` is the last
+  reform its cover names (`Última reforma publicada DOF 09-04-2026`). The Cámara's text is a
+  compilation, like the SAT's RMF: the DOF publication is what has legal effect. The splitter
+  (`lawArticles`) cuts one passage an article, from `Artículo 29-A.` through the Cámara's reform
+  notes below it (`Párrafo adicionado DOF 12-11-2021`) to the next article, heading or editorial
+  note (`Nota: Por Decreto…`), labelled by its `TITULO`, `CAPITULO` and `Sección` and their names.
+  An article must come after the one before it in the numbering (`29`, `29 Bis`, `29-A`,
+  `29-A Bis`), so a reference that wrapped to a line start (`Artículo 192 de este Código.`) starts
+  nothing. A repealed article (`Artículo 29-B. (Se deroga).`) has no passage, nor do the decree
+  above the first `TITULO` and the transitorios. Every article is valid from the law's last
+  reform, not its own: the Cámara notes only the reforms since 2021, so an article without a note
+  may still have changed in 2014. Of its 421 articles, 84 are repealed: 337 passages (3,389 in the corpus with the 3,052 above).
 - The large catalogs skip `docs/sat-md`: the ingestion downloads the catCFDI file
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
   parses it with `parseCatalogSheet` (`scripts/sat-knowledge-render.ts`). It loads them only when D1's catalog source hash
   differs from the manifest's, one of them has no rows, or c_ClaveProdServ has no search text (a
-  load from before `0008`; [Catalog search](#catalog-search)); `--catalogs` forces a reload. Each
-  row carries its `search_text`, and `0009`'s triggers index it as it is inserted. With
+  load from before `0009`; [Catalog search](#catalog-search)); `--catalogs` forces a reload. Each
+  row carries its `search_text`, and `0010`'s triggers index it as it is inserted. With
   `--local` they load only with `--catalogs`, so the local stack's seed stays fast and needs no
   LibreOffice.
 - D1 limits (<https://developers.cloudflare.com/d1/platform/limits/>): a statement holds at most
@@ -833,6 +890,45 @@ next run plans the same records. A current item that no longer holds the recorde
 dated copy fails the run instead of keeping the wrong text. The error codes and catalogs keep only
 their current records.
 
+### Related passages
+
+Each current passage carries the passage ids its own text links to, so an agent can follow a
+regla's references or go from a rejection code to the field's definition without a search. The
+ingestion reads them from the text, deterministically (`scripts/links.ts`, called by `buildCorpus`):
+no AI Search call and no embedding. D1 `passage_links` holds them, replaced with the passages in
+the same import; a link is written only when both its passages are among the records written, so
+no link names a passage D1 does not hold. `/v1/passages/:id`, `/v1/errors/:code`, their MCP tools
+and the entrypoint answer them as `related`.
+
+- **RMF reglas.** A regla ends with its references line, such as
+  `LIF 25, Trigésimo transitorio, LISR 18, RMF 9.1.18., 9.1.20.`. Each `RMF` list (its numbers
+  run on across line breaks, `…, RCFF 7, RMF` / `2.1.6., 2.2.6.`) links to `rmf-2026/regla-<n>.md`
+  for each number, in the line's order, once each. A number a capital follows starts a regla
+  (`Anexos de la RMF` / `1.4. Para…`), so it is not read. A number that is a Sección
+  (`RMF 2.8.3.`), a repealed regla, or the regla itself names no passage and links nothing. Links go
+  one way: a regla does not list the reglas that cite it.
+- **Error matrix and the Anexo 20 guide.** A row names its node as a path
+  (`cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado`) and its attribute. The node is found
+  among Part I's nodes (the CFDI's; Part II is the Retenciones CFDI) in the guide's order: the
+  path's first name at the last place the guide defines it (the comprobante's `Impuestos` follows
+  `Conceptos`, whose concept defines its own), each next name the first after the one before. The
+  row links to the attribute's passage (`nodo-receptor-domiciliofiscalreceptor`, `nodo-traslado-base-2`
+  for the comprobante's summary); else to the node's passage, when the row validates the node
+  itself (no attribute, or the node's name) or the node's passage names the attribute
+  (`InformacionGlobal`'s `Periodicidad, Meses y Año`). The guide passage links back to every row
+  that links to it, in the matrix's order.
+
+Counts on the current corpus (2026-10-28, `ingest --local`): 1,341 links. 540 of the 1,214
+reglas link to 1,101 reglas in all (at most 12 a regla); 12 numbers named no regla (Secciones
+such as `2.8.3`). 120 of the 129 codes match a guide passage, 109 by their attribute's own passage,
+and 60 guide passages link back. The 9 left: `CFDI40204` and `CFDI40205` (`TotalImpuestosTrasladados`,
+which the splitter leaves inside the `TotalImpuestosRetenidos` passage), `CFDI40206` to `CFDI40211`
+(the comprobante's `Retenciones`, which the splitter gives no node of its own) and `CFDI40999`
+(_Error no clasificado_). A better split of those passages would link them with no change here.
+
+The links reach production with the first ingestion after `0008` deploys; until then `related`
+is empty.
+
 ### Changes
 
 `GET /v1/changes?since=&until=&source=` (MCP `list_changes`, `listChanges` in `src/handlers.ts`,
@@ -880,6 +976,7 @@ full-text queries. D1 at this size stays inside the Workers Paid allowance.
 | Phase 0 ingestion             | ~0.3M tokens once                         | $0 (included) |
 | Phase 1 ingestion             | ~3–5M tokens once, small re-ingests after | $0–$1         |
 | of which the RMF              | 1,214 passages, 2.6 MB: ~0.9M tokens      | $0 (included) |
+| of which the CFF              | 337 passages, 0.9 MB: ~0.3M tokens        | $0 (included) |
 | Storage                       | well under 1 GB                           | $0            |
 | Queries, internal use only    | < 1,000                                   | $0            |
 | Queries, public at 10k/month  | 9,000 billable hybrid                     | ~$7           |
@@ -928,8 +1025,9 @@ Decisions:
 - **Keyword match mode `and`** (instance default, kept). `or` never scored better.
 - **Reranking threshold 0** (sent with every request, `RERANKING_THRESHOLD` in `src/search.ts`).
   The default reranker scores Spanish passages low: a correct first result scored 0.34, so the
-  default 0.4 returned no results at all for 4 questions. At 0, a search always returns `limit`
-  results; each carries its `rerankingScore` for the caller to weigh.
+  default 0.4 returned no results at all for 4 questions. At 0, AI Search always returns `limit`
+  results; each carries its `rerankingScore`, and the Worker drops those under 2% of the first
+  result's (the relative floor, [Query](#query)).
 
 The three misses at these settings: _"¿Qué UsoCFDI lleva el comprobante con complemento para
 recepción de pagos?"_ (rank 6) and _"¿Cuándo es obligatorio el tipo de cambio en un CFDI en
@@ -1097,11 +1195,23 @@ ranks above the expected passage can push it out of the top 3. Their expected pa
 they were, so the run compares with the ones before; read the misses of the first run with this in
 mind. The floor stays 155 of what are now 214 questions until that run sets it again.
 
+### The CFF (2026-10-28, not yet run)
+
+23 CFF questions added (237 in all), each expecting one article: the CFDI's requirements and
+cancellation (29, 29-A), domicilio fiscal and residence (10, 9), días inhábiles (12), razón de
+negocios (5-A), recargos (21), refunds and compensation (22, 23), the RFC and the accounting (27,
+28), the buzón tributario (17-K), the restricted CSD (17-H Bis), EFOS (69-B), the opinión de
+cumplimiento (32-D), the beneficiario controlador (32-B Quáter), prescription and caducidad (146,
+67), the 12-month audit limit (46-A), the recurso de revocación (121), defraudación fiscal (108)
+and the CFDI infractions (83, 84). Not run yet: `codice` holds no CFF passage until the corpus
+workflow ingests `main`. Run `eval --source cff` (23 queries) after that ingestion and record it
+here; the floor stays 155 until a full run sets it again.
+
 ## Infrastructure
 
 Created 2026-10-24 on the Jaantonio account; Phase 0 loaded the same day. Moved on 2026-10-27 to
 the Handle account (`473fbe436e39d8f3d33b6bb09afd3dd7`) as the Worker `codice-api`: the D1 database
-was copied with `wrangler d1 export` and re-imported (same rows; since `0009` an export first needs
+was copied with `wrangler d1 export` and re-imported (same rows; since `0010` an export first needs
 the full-text index dropped, see [Catalog search](#catalog-search)), the AI Search instance re-created
 with the settings above and filled by `ingest`. The Jaantonio Worker `codice` and its resources stay
 until Transitive's Agent stops binding it.
@@ -1264,9 +1374,12 @@ to match.
    loaded by the next corpus ingestion, then measured: see
    [Retrieval eval](#retrieval-eval), "Carta Porte and Comercio Exterior"). Left for them: their
    catalogs, error matrices and the Carta Porte questions PDF (see [Ingestion](#ingestion)); the
-   catalogs need the large-catalog load to take a second workbook. Next, one at a time and in the
-   same pattern (a source in `sources.json`, a splitter in `sections.ts`, ~20 questions, an eval
-   run): the CFF, the LISR and the LIVA.
+   catalogs need the large-catalog load to take a second workbook. The CFF (`cff`, 2026-10-28: 337
+   articles from the Cámara de Diputados' text, last reformed DOF 2026-04-09, and 23 questions; see
+   [Ingestion](#ingestion)); its eval run (`eval --source cff`) waits for the corpus workflow to
+   load it into `codice`. Next, one at a time and in the same pattern (a source in `sources.json`,
+   a splitter in `sections.ts`, ~20 questions, an eval run): the LISR and the LIVA, through
+   `lawArticles` and `federalLaw`.
 10. **API keys** (see [Auth](#auth)). The dashboard (`codice-app`) signs users in by email code
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
@@ -1282,7 +1395,7 @@ to match.
 
 12. **Catalog search** (done in code; see [Catalog search](#catalog-search)). `GET
 /v1/catalogs/:name?q=` and the MCP tool `search_catalog` find catalog keys by description from
-    D1's FTS5 index. `0008` and `0009` apply with the next `deploy:production`; the index then
+    D1's FTS5 index. `0009` and `0010` apply with the next `deploy:production`; the index then
     fills on the next ingestion, which rewrites the small catalogs and reloads the large ones
     because they have no search text yet (the Monday run, or `codice-corpus.yml` by hand). Until
     then a search answers no entries.

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "aaa3c096-7b59-4939-9290-40acf0661ca4",
+  "id": "cbd709aa-282b-4e66-997a-af12b330a5a0",
   "prevId": "ef48ddd5-dbea-4038-b160-bb8b7352488a",
   "tables": {
     "catalog_entries": {
@@ -33,13 +33,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "search_text": {
-          "name": "search_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "source_id": {
@@ -162,6 +155,61 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "passage_links": {
+      "name": "passage_links",
+      "columns": {
+        "passage_key": {
+          "name": "passage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "related_key": {
+          "name": "related_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "passage_links_passage_key_passages_key_fk": {
+          "name": "passage_links_passage_key_passages_key_fk",
+          "tableFrom": "passage_links",
+          "tableTo": "passages",
+          "columnsFrom": ["passage_key"],
+          "columnsTo": ["key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "passage_links_related_key_passages_key_fk": {
+          "name": "passage_links_related_key_passages_key_fk",
+          "tableFrom": "passage_links",
+          "tableTo": "passages",
+          "columnsFrom": ["related_key"],
+          "columnsTo": ["key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "passage_links_passage_key_related_key_pk": {
+          "columns": ["passage_key", "related_key"],
+          "name": "passage_links_passage_key_related_key_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

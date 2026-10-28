@@ -22,6 +22,7 @@ curl https://codice.io/v1/errors/CFDI40149 \
     "validation": "Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
     "message": "El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion.",
     "passageId": "matriz-de-errores-cfdi-40/cfdi40149.md",
+    "related": ["anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md"],
     "source": {
       "id": "matriz-de-errores-cfdi-40",
       "authority": "SAT",
@@ -33,15 +34,16 @@ curl https://codice.io/v1/errors/CFDI40149 \
 }
 ```
 
-| Campo        | Qué es                                              |
-| ------------ | --------------------------------------------------- |
-| `code`       | El código de error.                                 |
-| `node`       | El nodo del comprobante que se valida.              |
-| `attribute`  | El atributo que se valida.                          |
-| `validation` | La regla de validación, tal como la escribe el SAT. |
-| `message`    | El mensaje que devuelve el SAT, tal cual.           |
-| `passageId`  | El pasaje de la matriz, para leerlo o citarlo.      |
-| `source`     | La versión de la matriz de la que sale.             |
+| Campo        | Qué es                                                                        |
+| ------------ | ----------------------------------------------------------------------------- |
+| `code`       | El código de error.                                                           |
+| `node`       | El nodo del comprobante que se valida.                                        |
+| `attribute`  | El atributo que se valida.                                                    |
+| `validation` | La regla de validación, tal como la escribe el SAT.                           |
+| `message`    | El mensaje que devuelve el SAT, tal cual.                                     |
+| `passageId`  | El pasaje de la matriz, para leerlo o citarlo.                                |
+| `related`    | El pasaje de la guía de llenado que define el atributo, si la guía tiene uno. |
+| `source`     | La versión de la matriz de la que sale.                                       |
 
 Si el código no existe en la matriz, la respuesta es `404` con el código `error_code_not_found`.
 
@@ -72,7 +74,14 @@ Los resultados vienen en el orden en que los pediste. Cada uno trae el código q
 La matriz dice qué se validó, no por qué tu comprobante lo incumple. Un camino que funciona:
 
 1. **Consulta el código** (o todos los del rechazo a la vez, por MCP) para saber qué atributo y qué regla fallaron.
-2. **Busca el atributo en la guía de llenado** para saber qué valor espera el SAT:
+2. **Lee el atributo en la guía de llenado** para saber qué valor espera el SAT. `related` trae su pasaje, que lees en `/v1/passages/{id}`:
+
+   ```bash
+   curl https://codice.io/v1/passages/anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md \
+     -H "Authorization: Bearer $CODICE_KEY"
+   ```
+
+   Ese pasaje trae a su vez en `related` todos los códigos de la matriz que validan el atributo. Si `related` viene vacío (la guía no tiene un pasaje propio para ese atributo), búscalo:
 
    ```bash
    curl -G https://codice.io/v1/search \

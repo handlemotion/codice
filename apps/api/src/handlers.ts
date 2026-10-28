@@ -15,11 +15,13 @@ import {
   passageHeadings,
   passageRow,
   recordsDatabase,
+  relatedPassages,
   sourcesById,
   sourcesOn,
   validity,
 } from "./records";
 import {
+  aboveRerankingFloor,
   briefResult,
   parseAsOf,
   PASSAGE_KINDS,
@@ -116,9 +118,10 @@ export function searchFormat(value: string | undefined): SearchFormat {
 }
 
 /**
- * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
- * each result's source as it read that day. A search asked before on the same corpus answers from
- * the cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
+ * Searches the passages in force on `asOf`, superseded ones included, drops the results the
+ * reranker scored far below the first (`aboveRerankingFloor`), and adds the provenance of each
+ * result's source as it read that day. A search asked before on the same corpus answers from the
+ * cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
  * heading path and an excerpt after the cache, so both formats share one entry.
  */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
@@ -139,7 +142,8 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
       throw searchUnavailable("codice.search_failed", cause);
     }
   });
-  const results = searchResults(chunks);
+  // The cache keeps every chunk; the floor applies to each answer, cached or not.
+  const results = aboveRerankingFloor(searchResults(chunks));
   const query = {
     query: input.q,
     asOf: isoDate(input.asOf),
@@ -186,8 +190,9 @@ function searchUnavailable(event: string, cause: unknown) {
 }
 
 /**
- * One passage in full: its body as uploaded to AI Search, its metadata and its source, from D1.
- * A row the ingestion wrote before D1 kept bodies takes them from AI Search instead.
+ * One passage in full: its body as uploaded to AI Search, its metadata, the passages it links to
+ * and its source, from D1. A row the ingestion wrote before D1 kept bodies takes them from AI
+ * Search instead.
  */
 export async function readPassage(env: CodiceBindings, id: string) {
   const key = id.trim();
@@ -198,9 +203,10 @@ export async function readPassage(env: CodiceBindings, id: string) {
   const row = await passageRow(db, key);
   if (!row) throw new CodiceProblem(404, "passage_not_found", "Passage not found");
   // The source version the passage was last read from: a superseded one's, else the current one.
-  const [indexed, provenance] = await Promise.all([
+  const [indexed, provenance, related] = await Promise.all([
     row.body === null ? indexedPassage(env, key) : null,
     sourcesOn(db, [row.sourceId], row.validUntil),
+    relatedPassages(db, key),
   ]);
   const source = provenance.get(row.sourceId) ?? null;
   return {
@@ -212,6 +218,7 @@ export async function readPassage(env: CodiceBindings, id: string) {
       kind: row.kind,
       ...validity(row.validFrom, row.validUntil),
     }),
+    related,
     source,
   };
 }

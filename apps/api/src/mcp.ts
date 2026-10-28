@@ -28,7 +28,7 @@ export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key or by description. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages, each as its heading path and a verbatim excerpt (whole when `truncated` is false on both sides); `read_passage` returns one in full, with its source, by its passage id; `lookup_error` and `lookup_catalog` answer exact CFDI40xxx codes or catalog keys, up to 25 a call; `search_catalog` finds catalog keys by description (`servicios de consultoría` in c_ClaveProdServ); `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla, and the law they rest on: the Código Fiscal de la Federación (CFF), one passage an article, as the Cámara de Diputados publishes it; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key or by description. Results quote the text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages, each as its heading path and a verbatim excerpt (whole when `truncated` is false on both sides); `read_passage` returns one in full, with its source, by its passage id; `lookup_error` and `lookup_catalog` answer exact CFDI40xxx codes or catalog keys, up to 25 a call; `search_catalog` finds catalog keys by description (`servicios de consultoría` in c_ClaveProdServ); `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates. `search` leaves out passages its reranker scores far below the best one, so it can return fewer than `limit`; when it returns one or two passages, or none answers the question, search again with the SAT's own field and node names (`TipoRelacion`, `CfdiRelacionados`, `TipoDeComprobante`) or narrow it with `kind` or `source`, rather than reading the weak results as the rule.";
 
 export const SearchArguments = z.object({
   q: z
@@ -53,7 +53,7 @@ export const SearchArguments = z.object({
     .enum(PASSAGE_KINDS)
     .optional()
     .describe(
-      "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas.",
+      "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas; `ley` for the CFF's articles.",
     ),
   limit: z
     .number()
@@ -233,7 +233,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Search SAT rules",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF. Catalog keys are not searched; use `lookup_catalog` for a key and `search_catalog` to find one by description. Returns the best passages, each with its passage id, heading path, an excerpt cut verbatim from its text, validity dates and relevance score. An excerpt with `truncated.before` and `truncated.after` false is the whole passage; otherwise read the one that answers with `read_passage` before quoting it, or quote the excerpt with an ellipsis (…) where it is cut. `format: full` returns each passage's whole matched text and source instead.",
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF. Catalog keys are not searched; use `lookup_catalog` for a key and `search_catalog` to find one by description. Returns the best passages, each with its passage id, heading path, an excerpt cut verbatim from its text, validity dates and relevance score. An excerpt with `truncated.before` and `truncated.after` false is the whole passage; otherwise read the one that answers with `read_passage` before quoting it, or quote the excerpt with an ellipsis (…) where it is cut. `format: full` returns each passage's whole matched text and source instead. Passages scored far below the best are left out, so fewer than `limit` can come back: when few or none answer the question, rephrase with the SAT's field names (such as `TipoRelacion` or `CfdiRelacionados`) or narrow with `kind` or `source`.",
       inputSchema: McpSearchArguments,
     },
     (args) => search(env, { ...args, format: args.format ?? "brief" }),
@@ -244,7 +244,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Read a passage",
       description:
-        "Read one passage in full, verbatim, by the passage id a search result gives, with its heading, validity dates and source.",
+        "Read one passage in full, verbatim, by the passage id a search result gives, with its heading, validity dates, source and `related`: the passage ids its text links to (an RMF regla's referenced reglas, an error code's guide passage, a guide passage's error codes), each readable with `read_passage`.",
       inputSchema: ReadPassageArguments,
     },
     (args) => readPassage(env, args.id),
@@ -255,7 +255,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Look up CFDI error codes",
       description:
-        "Look up CFDI40xxx validation codes in the SAT's error matrix, up to 25 in one call: for each, the node and attribute it checks, the validation, the message, and its source. Returns `results` in the order asked, each the code with its row as `data`, or with `error` when the matrix does not hold it.",
+        "Look up CFDI40xxx validation codes in the SAT's error matrix, up to 25 in one call: for each, the node and attribute it checks, the validation, the message, its source, and in `related` the Anexo 20 passage that defines the attribute, for `read_passage`. Returns `results` in the order asked, each the code with its row as `data`, or with `error` when the matrix does not hold it.",
       inputSchema: LookupErrorArguments,
     },
     (args) => lookupErrors(env, args.codes),

@@ -8,6 +8,8 @@ import {
 import {
   catalogXsdDifferences,
   instructivoMarkdown,
+  lawLastReform,
+  lawMarkdown,
   parseCatalogSheet,
   parseCsv,
   parseErrorMatrix,
@@ -120,6 +122,7 @@ function syntheticLibrary() {
     "complemento-carta-porte-aereo.md": "# Carta Porte: Aéreo",
     "complemento-carta-porte-ferroviario.md": "# Carta Porte: Ferroviario",
     "complemento-comercio-exterior-guia-de-llenado.md": "# Comercio Exterior",
+    "codigo-fiscal-de-la-federacion.md": "# CFF\n\nArtículo 1o.- Las personas físicas.",
   };
   const sources = {
     anexo20: SOURCE,
@@ -132,6 +135,7 @@ function syntheticLibrary() {
     cartaPorteAereo: SOURCE,
     cartaPorteFerroviario: SOURCE,
     comercioExterior: SOURCE,
+    cff: SOURCE,
   } satisfies SatSourceManifest;
   return buildSatLibrary({
     markdown: (file) => files[file],
@@ -326,5 +330,32 @@ c_Aduana,Patente,Ejercicio,Cantidad,Fecha inicio de vigencia,Fecha fin de vigenc
       "",
       "CFDI de tipo ingreso con complemento Carta Porte",
     ]);
+  });
+
+  it("drop a law's page headers and footers, and read its last reform from the cover", () => {
+    const header = [
+      "CÓDIGO FISCAL DE LA FEDERACIÓN",
+      "CÁMARA DE DIPUTADOS DEL H. CONGRESO DE LA UNIÓN Última Reforma DOF 09-04-2026",
+      "Secretaría General",
+      "Secretaría de Servicios Parlamentarios",
+    ];
+    const converted = [
+      ...header,
+      "CÓDIGO FISCAL DE LA FEDERACIÓN",
+      "Última reforma publicada DOF 09-04-2026",
+      "Artículo 2o.- Las contribuciones se clasifican en impuestos, aportaciones de seguridad social,",
+      "1 de 377",
+      "",
+      ...header,
+      "contribuciones de mejoras y derechos.",
+    ].join("\n");
+    const markdown = lawMarkdown(converted);
+    expect(markdown.split("\n")).toEqual([
+      "CÓDIGO FISCAL DE LA FEDERACIÓN",
+      "Última reforma publicada DOF 09-04-2026",
+      "Artículo 2o.- Las contribuciones se clasifican en impuestos, aportaciones de seguridad social,",
+      "contribuciones de mejoras y derechos.",
+    ]);
+    expect(lawLastReform(markdown)).toBe("2026-04-09");
   });
 });

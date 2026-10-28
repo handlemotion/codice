@@ -155,3 +155,24 @@ export const passages = sqliteTable(
     check("passages_validity_check", sql`${table.validFrom} <= ${table.validUntil}`),
   ],
 );
+
+/**
+ * The related passages an agent can follow from a passage (SPEC.md, "Related passages"): the RMF
+ * reglas a regla's references line names, a matrix row's guide passage and a guide passage's
+ * codes. The ingestion reads them from the text and replaces them with the passages; both ends are
+ * passages D1 holds.
+ */
+export const passageLinks = sqliteTable(
+  "passage_links",
+  {
+    passageKey: text("passage_key")
+      .notNull()
+      .references(() => passages.key),
+    relatedKey: text("related_key")
+      .notNull()
+      .references(() => passages.key),
+    /** The order the passage's text gives its links in. */
+    position: integer("position").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.passageKey, table.relatedKey] })],
+);
