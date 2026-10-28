@@ -149,6 +149,9 @@ export const passages = sqliteTable(
   },
   (table) => [
     index("passages_source_idx").on(table.sourceId),
+    // The change feed (`passageChanges`) reads the texts that start or end in a window.
+    index("passages_valid_from_idx").on(table.validFrom),
+    index("passages_valid_until_idx").on(table.validUntil),
     check("passages_validity_check", sql`${table.validFrom} <= ${table.validUntil}`),
   ],
 );

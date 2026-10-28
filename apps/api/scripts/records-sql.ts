@@ -130,7 +130,7 @@ function nameList(names: readonly string[]) {
   return `(${names.map(sqlValue).join(", ")})`;
 }
 
-// `search_text` fills the full-text index `catalog_entries_fts` through its triggers (`0008`).
+// `search_text` fills the full-text index `catalog_entries_fts` through its triggers (`0009`).
 const CATALOG_COLUMNS = [
   "catalog",
   "key",

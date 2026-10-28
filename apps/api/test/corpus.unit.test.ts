@@ -17,6 +17,7 @@ import {
   settledRecords,
   versionedKey,
 } from "../scripts/corpus";
+import { questionsFor } from "../scripts/eval-questions";
 import { errorCodePassageId } from "../src/records";
 import { isoDate } from "../src/search";
 
@@ -33,13 +34,18 @@ describe("buildCorpus", () => {
     }
   });
 
-  it("splits both guides, the matrix and the RMF into passages with SAT metadata", () => {
+  it("splits the guides, the matrix, the RMF and the instructivos into passages with SAT metadata", () => {
     const sources = new Set(corpus.passages.map((passage) => passage.sourceId));
     expect([...sources]).toEqual([
       "anexo-20-guia-de-llenado",
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
       "rmf-2026",
+      "complemento-carta-porte-autotransporte",
+      "complemento-carta-porte-maritimo",
+      "complemento-carta-porte-aereo",
+      "complemento-carta-porte-ferroviario",
+      "complemento-comercio-exterior-guia-de-llenado",
     ]);
     for (const passage of corpus.passages) {
       expect(passage.metadata.authority).toBe("SAT");
@@ -119,6 +125,24 @@ describe("buildCorpus", () => {
     ).toEqual([]);
   });
 
+  it("quotes a Carta Porte field under its part and sections, as a definition", () => {
+    const passage = corpus.passages.find(
+      (candidate) =>
+        candidate.key ===
+        "complemento-carta-porte-maritimo/ingreso-transporte-maritimo-numautorizacionnaviero.md",
+    );
+    expect(passage?.heading).toBe(
+      "Instructivo de llenado del CFDI con complemento Carta Porte 3.1: Marítimo › CFDI de tipo ingreso con complemento Carta Porte › 2. Información del complemento Carta Porte › 2.4 Transporte Marítimo › Número de autorización naviero (NumAutorizacionNaviero)",
+    );
+    expect(passage?.body).toContain("• Número de autorización naviero (NumAutorizacionNaviero):");
+    expect(passage?.metadata).toEqual({
+      authority: "SAT",
+      kind: "guia",
+      valid_from: 20_240_802,
+      valid_until: 99_991_231,
+    });
+  });
+
   it("records every matrix code and catalog entry for D1", () => {
     expect(corpus.errorCodes.find((row) => row.code === "CFDI40149")).toMatchObject({
       node: "cfdi:Receptor",
@@ -134,6 +158,11 @@ describe("buildCorpus", () => {
       "matriz-de-errores-cfdi-40",
       "catalogos-cfdi-40",
       "rmf-2026",
+      "complemento-carta-porte-autotransporte",
+      "complemento-carta-porte-maritimo",
+      "complemento-carta-porte-aereo",
+      "complemento-carta-porte-ferroviario",
+      "complemento-comercio-exterior-guia-de-llenado",
     ]);
   });
 
@@ -142,6 +171,28 @@ describe("buildCorpus", () => {
     for (const row of corpus.errorCodes) {
       expect(keys).toContain(errorCodePassageId(row.sourceId, row.code));
     }
+  });
+});
+
+describe("questionsFor", () => {
+  const questions = [
+    { q: "RFC del receptor", expect: ["anexo-20-guia-de-llenado/nodo-receptor-rfc.md"] },
+    {
+      q: "Permiso SCT",
+      expect: [
+        "complemento-carta-porte-autotransporte/ingreso-autotransporte-permsct.md",
+        "complemento-carta-porte-maritimo/ingreso-transporte-maritimo-permsct.md",
+      ],
+    },
+  ];
+
+  it("keeps every question, or those that expect a passage of a source the prefix names", () => {
+    expect(questionsFor(questions, undefined)).toEqual(questions);
+    expect(questionsFor(questions, "complemento-carta-porte").map(({ q }) => q)).toEqual([
+      "Permiso SCT",
+    ]);
+    expect(questionsFor(questions, "complemento-carta-porte-maritimo")).toHaveLength(1);
+    expect(questionsFor(questions, "rmf-2026")).toEqual([]);
   });
 });
 

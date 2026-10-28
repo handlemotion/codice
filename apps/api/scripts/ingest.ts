@@ -314,7 +314,7 @@ function writeRecords(corpus: Corpus, plan: Pick<IngestionPlan, "records" | "sou
 /**
  * The large catalogs need loading when D1's catalog source hash is not the manifest's (a new
  * catCFDI, or a load that stopped part-way: it clears the hash first), one of them has no rows
- * (a first load), or none has search text (a load from before `0007`, which the description search
+ * (a first load), or none has search text (a load from before `0008`, which the description search
  * cannot find).
  */
 function largeCatalogsStale(source: SourceRow) {

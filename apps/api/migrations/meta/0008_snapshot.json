@@ -1,8 +1,8 @@
 {
-  "id": "f115bd20-2bd6-4ebe-9ab9-897c5de37b63",
-  "prevId": "a1f4ba6c-ea50-4328-a851-c57ecce0ebbe",
   "version": "6",
   "dialect": "sqlite",
+  "id": "aaa3c096-7b59-4939-9290-40acf0661ca4",
+  "prevId": "ef48ddd5-dbea-4038-b160-bb8b7352488a",
   "tables": {
     "catalog_entries": {
       "name": "catalog_entries",
@@ -81,11 +81,11 @@
         "catalog_entries_source_id_sources_id_fk": {
           "name": "catalog_entries_source_id_sources_id_fk",
           "tableFrom": "catalog_entries",
-          "columnsFrom": ["source_id"],
           "tableTo": "sources",
+          "columnsFrom": ["source_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -154,11 +154,11 @@
         "error_codes_source_id_sources_id_fk": {
           "name": "error_codes_source_id_sources_id_fk",
           "tableFrom": "error_codes",
-          "columnsFrom": ["source_id"],
           "tableTo": "sources",
+          "columnsFrom": ["source_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -231,17 +231,27 @@
           "name": "passages_source_idx",
           "columns": ["source_id"],
           "isUnique": false
+        },
+        "passages_valid_from_idx": {
+          "name": "passages_valid_from_idx",
+          "columns": ["valid_from"],
+          "isUnique": false
+        },
+        "passages_valid_until_idx": {
+          "name": "passages_valid_until_idx",
+          "columns": ["valid_until"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
         "passages_source_id_sources_id_fk": {
           "name": "passages_source_id_sources_id_fk",
           "tableFrom": "passages",
-          "columnsFrom": ["source_id"],
           "tableTo": "sources",
+          "columnsFrom": ["source_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -318,11 +328,11 @@
         "source_versions_source_id_sources_id_fk": {
           "name": "source_versions_source_id_sources_id_fk",
           "tableFrom": "source_versions",
-          "columnsFrom": ["source_id"],
           "tableTo": "sources",
+          "columnsFrom": ["source_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -426,9 +436,9 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
   },
   "internal": {
     "indexes": {

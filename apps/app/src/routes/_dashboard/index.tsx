@@ -45,6 +45,7 @@ const OPERATIONS: Record<string, string> = {
   lookup_catalog: "Consultar un catálogo",
   list_catalog: "Listar un catálogo",
   list_sources: "Listar las fuentes",
+  list_changes: "Listar los cambios",
   read_source: "Leer una fuente",
   chat: "Chat",
 };

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a1f4ba6c-ea50-4328-a851-c57ecce0ebbe",
+  "id": "ef48ddd5-dbea-4038-b160-bb8b7352488a",
   "prevId": "67fd1f88-2641-478a-910e-acf64f7d4bbe",
   "tables": {
     "catalog_entries": {
@@ -33,13 +33,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "search_text": {
-          "name": "search_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "source_id": {
@@ -230,6 +223,16 @@
         "passages_source_idx": {
           "name": "passages_source_idx",
           "columns": ["source_id"],
+          "isUnique": false
+        },
+        "passages_valid_from_idx": {
+          "name": "passages_valid_from_idx",
+          "columns": ["valid_from"],
+          "isUnique": false
+        },
+        "passages_valid_until_idx": {
+          "name": "passages_valid_until_idx",
+          "columns": ["valid_until"],
           "isUnique": false
         }
       },
