@@ -1,11 +1,13 @@
 import { env } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { catalogEntries, errorCodes, passages, sources, sourceVersions } from "../src/db/schema";
 import type { CodiceBindings } from "../src/env";
 import { app, CodiceKnowledge } from "../src/index";
+import { SOURCES_CACHE_MS } from "../src/records";
 
 /**
  * AI Search does not run locally, so these tests stand in a recorded `search()` and check the
@@ -242,7 +244,9 @@ describe("GET /v1/search", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("server-timing")).toMatch(/^total;dur=[\d.]+, search;dur=[\d.]+$/u);
+    expect(response.headers.get("server-timing")).toMatch(
+      /^total;dur=[\d.]+, cache;dur=[\d.]+, search;dur=[\d.]+$/u,
+    );
     expect(calls).toEqual([
       {
         messages: [{ role: "user", content: "código postal RFC genérico" }],
@@ -333,6 +337,99 @@ describe("GET /v1/search", () => {
 
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ code: "search_unavailable" });
+  });
+});
+
+describe("search cache", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** The same request id, so two answers compare byte for byte. */
+  const cachedRequest = (path: string, search: AiSearchInstance) =>
+    request(path, search, { "x-request-id": "cache-check" });
+
+  it("answers a repeated search from the cache with exactly the same body", async () => {
+    const calls: SearchCall[] = [];
+    const path = "/v1/search?q=receptor%20cache&asOf=2026-06-01&limit=2";
+    const first = await cachedRequest(path, fakeSearch([CHUNK], calls));
+    // Another AI Search answer: a hit never reaches it.
+    const second = await cachedRequest(
+      "/v1/search?q=%20receptor%20cache%20&asOf=2026-06-01&limit=2",
+      fakeSearch([{ ...CHUNK, text: "otro" }], calls),
+    );
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await second.text()).toBe(await first.text());
+    expect(calls).toHaveLength(1);
+    expect(second.headers.get("server-timing")).toMatch(/^total;dur=[\d.]+, cache;dur=[\d.]+$/u);
+  });
+
+  it("serves the same entry to the CodiceKnowledge entrypoint", async () => {
+    const calls: SearchCall[] = [];
+    await cachedRequest("/v1/search?q=rpc%20cache&asOf=2026-06-01", fakeSearch([CHUNK], calls));
+    const knowledge = new CodiceKnowledge(
+      {} as ExecutionContext,
+      {
+        ...bindings,
+        CODICE_SEARCH: fakeSearch([], calls),
+      } as never,
+    );
+
+    expect(await knowledge.search({ q: "rpc cache", asOf: "2026-06-01" })).toMatchObject({
+      ok: true,
+      data: { results: [{ passageId: PASSAGE_ID, quote: CHUNK.text }] },
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it.each([
+    ["asOf", "/v1/search?q=key%20cache&asOf=2026-06-02"],
+    ["limit", "/v1/search?q=key%20cache&asOf=2026-06-01&limit=3"],
+    ["source", "/v1/search?q=key%20cache&asOf=2026-06-01&source=matriz-de-errores-cfdi-40"],
+    ["kind", "/v1/search?q=key%20cache&asOf=2026-06-01&kind=anexo"],
+    ["question", "/v1/search?q=Key%20cache&asOf=2026-06-01"],
+  ])("misses for another %s", async (_, path) => {
+    await cachedRequest("/v1/search?q=key%20cache&asOf=2026-06-01", fakeSearch([CHUNK]));
+    const calls: SearchCall[] = [];
+    await cachedRequest(path, fakeSearch([CHUNK], calls));
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not keep a failed search", async () => {
+    const failing = {
+      search: async () => {
+        throw new Error("upstream");
+      },
+    } as unknown as AiSearchInstance;
+    const path = "/v1/search?q=failure%20cache&asOf=2026-06-01";
+
+    expect((await cachedRequest(path, failing)).status).toBe(502);
+    expect((await cachedRequest(path, fakeSearch([CHUNK]))).status).toBe(200);
+  });
+
+  it("misses once an ingestion changes the corpus and the isolate reads it again", async () => {
+    const calls: SearchCall[] = [];
+    const path = "/v1/search?q=corpus%20cache&asOf=2026-06-01";
+    const before = await cachedRequest(path, fakeSearch([CHUNK], calls));
+    await drizzle(bindings.CODICE_DATABASE!)
+      .update(passages)
+      .set({ sha256: "6".repeat(64) })
+      .where(eq(passages.key, PASSAGE_ID));
+
+    // Within SOURCES_CACHE_MS the isolate still holds the old version.
+    await cachedRequest(path, fakeSearch([CHUNK], calls));
+    expect(calls).toHaveLength(1);
+
+    vi.useFakeTimers({ now: Date.now() + SOURCES_CACHE_MS, toFake: ["Date"] });
+    const changed = { ...CHUNK, text: "Validación: texto nuevo." };
+    const after = await cachedRequest(path, fakeSearch([changed], calls));
+
+    expect(calls).toHaveLength(2);
+    expect(await after.json()).toMatchObject({ data: { results: [{ quote: changed.text }] } });
+    expect(await before.json()).toMatchObject({ data: { results: [{ quote: CHUNK.text }] } });
   });
 });
 
@@ -1006,11 +1103,7 @@ describe("/mcp", () => {
       fakeSearch([CHUNK], calls),
     );
 
-    expect(calls[0]?.ai_search_options?.retrieval).toMatchObject({
-      filters: { valid_from: { $lte: 20260601 }, valid_until: { $gte: 20260601 } },
-      max_num_results: 2,
-      return_on_failure: false,
-    });
+    // The tool answers over the stream, so read the body before the calls.
     expect(await json(response)).toMatchObject({
       result: {
         structuredContent: {
@@ -1018,6 +1111,11 @@ describe("/mcp", () => {
           results: [{ passageId: "matriz-de-errores-cfdi-40/cfdi40149.md", quote: CHUNK.text }],
         },
       },
+    });
+    expect(calls[0]?.ai_search_options?.retrieval).toMatchObject({
+      filters: { valid_from: { $lte: 20260601 }, valid_until: { $gte: 20260601 } },
+      max_num_results: 2,
+      return_on_failure: false,
     });
   });
 });

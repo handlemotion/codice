@@ -117,6 +117,31 @@ one warm-up call; times are curl's total, in ms.
 - The D1 routes do not show the sources cache or the replica session: the local D1 has no network
   round trip. Production's split shows in Sentry once traffic arrives.
 
+## Search cache, 2026-10-28
+
+`/v1/search` was ~99 % AI Search (`total;dur=3959, search;dur=3943`), so a repeated question now
+answers from the Cache API, keyed by the search input and the corpus version (SPEC.md, "Search
+cache"). Same setup as above; two questions, 5 calls each, `asOf` 2026-10-27; the Worker's
+`server-timing` `total`, in ms:
+
+| Question                                   | Before: run 1 | Before: runs 2–5           | After: run 1 (miss) | After: runs 2–5 (hit) |
+| ------------------------------------------ | ------------: | -------------------------- | ------------------: | --------------------- |
+| "¿Qué UsoCFDI lleva el comprobante con …?" |         6,748 | 2,708, 2,458, 1,511, 732   |               3,205 | 16, 14, 16, 15        |
+| `CFDI40149`                                |         4,153 | 2,778, 2,351, 1,300, 1,076 |               3,656 | 16, 18, 16, 18        |
+
+- Repeats: p50 1,931 ms before (eight calls), 16 ms after; a hit reads
+  `total;dur=16.0, cache;dur=2.0`, and curl's total was 19–26 ms. The rest of a hit is the key check
+  and the D1 provenance.
+- Each hit's `data` equalled its miss's; the `/mcp` `search` tool answered the same `data` from the
+  entry the route stored (34 ms).
+- AI Search's own similarity cache is on for the instance (`close_enough`, 48 h): a repeat over REST
+  read `cf-ai-search-cache: hit-exact` and took 623–727 ms, a miss 1,266–3,356 ms. That is why the
+  "before" repeats fall, and the floor a Worker-side hit removes.
+- A miss pays 7–21 ms for the cache lookup and store. The corpus version reads `sources` and the
+  1,734 passages' hashes once per isolate every 5 minutes.
+- 27 billed AI Search queries in all (12 through the Worker, 15 over REST probing the instance
+  cache); no eval run.
+
 ## Before optimizing: make the split visible
 
 Do this first, so each change below has a before and after:
@@ -165,6 +190,10 @@ spans above. None changes an answer.
    left after 1 and 2). Check the primary's region first. Drizzle's `drizzle()` (installed
    version) types its client as `D1Database`, so passing a session needs a cast and a test that
    `recordsDatabase` still runs every query through it.
+
+4. **Cache repeated searches** (done 2026-10-28, `src/search-cache.ts`; see "Search cache"). A
+   hit makes no AI Search call. Left: read the `cache` metric in production once `codice-api`
+   serves on a zone (the Cache API needs one).
 
 ## Reproduce
 

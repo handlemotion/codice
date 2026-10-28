@@ -32,11 +32,10 @@ target of `apps/edge`: every path that is not the API's, the site's `/` or `/_si
   Better Auth's server API with the request's cookies; the sign-in page uses the browser client.
 - D1 schema: `src/db/schema.ts`, Better Auth's tables as `npx auth@<version> generate` writes them.
   Then `db:generate`; never hand-write `migrations/`. `deploy:production` applies them remotely.
-- Secrets (`secrets.required`, synced from Doppler `codice` `prd`): `BETTER_AUTH_SECRET`. Google
-  and GitHub sign-in are optional (`socialProviders` in `src/server/auth.ts`): each turns on, and
-  its button shows on `/login`, once both its client id and secret are set. To turn them on, add
-  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` to
-  Doppler `prd` and to `secrets.required`, so the sync pushes them. Vars:
+- Secrets (`secrets.required`, synced from Doppler `codice` `prd`): `BETTER_AUTH_SECRET`,
+  `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+  `socialProviders` in `src/server/auth.ts` turns Google and GitHub sign-in on, and shows each
+  button on `/login`, only when both its client id and secret are set. Vars:
   `BETTER_AUTH_URL` (the public origin), `AUTH_EMAIL_FROM`. Locally, put them in `apps/app/.env`
   (git-ignored) with `BETTER_AUTH_URL=http://localhost:5173`; the local `EMAIL` binding prints
   each code to the dev server's output instead of sending it.

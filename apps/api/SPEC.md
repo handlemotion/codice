@@ -1,7 +1,8 @@
 # Códice: specification
 
 Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git build since the
-cutover on 2026-10-25, with no route or custom domain: Transitive's Agent reaches it through its
+cutover on 2026-10-25, with no route of its own: since 2026-10-28 the public host `codice.io` is a
+custom domain of the edge Worker `codice-edge`, and Transitive's Agent reaches it through its
 `CODICE` service binding. Phase 1 has begun with the RMF. The Worker serves the whole
 [HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind a team's API key and its per-key rate limit
@@ -160,6 +161,48 @@ The Worker maps each returned chunk to a result: `item.key` → passage id, `tex
 source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
 holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
+### Search cache
+
+`search()` (`src/handlers.ts`, the one path of `/v1/search`, `/mcp`, `POST /v1/chat` and the
+`CodiceKnowledge` entrypoint) keeps AI Search's chunks for a repeated search in the Cache API
+(`src/search-cache.ts`), so a hit makes no AI Search call; the provenance is still read from D1 each
+time. The key is the validated input `searchRequest` reads, `q` (trimmed), `asOf` (today in Mexico
+City when absent), `source`, `kind` and `limit`, plus the corpus version: a hash of every source's
+`sha256` and every passage's `sha256`, `kind` and validity in D1 (`corpusVersion`, `src/records.ts`),
+which the isolate rereads every `SOURCES_CACHE_MS` (5 minutes). The ingestion writes those rows
+after it uploads, and a re-split changes passages under the same source hash, so an ingestion
+misses within 5 minutes. An entry lives `SEARCH_CACHE_SECONDS` (1 hour), which bounds a result
+cached while AI Search still indexed an upload. The caller is not in the key: every key sees the
+same passages. A failed search is not kept. Entries are per data center.
+
+Chosen 2026-10-28 over two alternatives:
+
+- **AI Search's own cache** (`ai_search_options.cache`, instance `cache`): its similarity cache
+  matches prompts by MinHash and LSH; even `super_strict_match` is "near-identical matches only",
+  not an exact match, so a hit can carry another question's passages. On the instance (see
+  [Open questions](#open-questions)) a repeat read `cf-ai-search-cache: hit-exact` and still took
+  623–727 ms over REST, against 1,266–3,356 ms for a miss.
+- **Workers Caching** in front of an inner `fetch` entrypoint (tiered, collapses concurrent
+  requests): it caches only `fetch` invocations, so the entrypoint's RPC, `/mcp` and the chat would
+  each need a loopback `fetch`, and local Miniflare does not emulate it, so a hit could not be
+  shown before production.
+
+Local measurement on `pnpm dev:up` (the real instance), two questions asked 5 times each, `asOf`
+2026-10-27, times are the Worker's `server-timing` `total` in ms:
+
+| Question                                   | Before: run 1, runs 2–5           | After: run 1 (miss), runs 2–5 (hit) |
+| ------------------------------------------ | --------------------------------- | ----------------------------------- |
+| "¿Qué UsoCFDI lleva el comprobante con …?" | 6,748; 2,708, 2,458, 1,511, 732   | 3,205; 16, 14, 16, 15               |
+| `CFDI40149`                                | 4,153; 2,778, 2,351, 1,300, 1,076 | 3,656; 16, 18, 16, 18               |
+
+A hit's `server-timing` reads `total;dur=16.0, cache;dur=2.0` (no `search`), its `data` equal to
+the miss's, and `/mcp`'s `search` answered the same `data` from the entry in 34 ms. The cache costs a
+miss 7–21 ms (`cache`). Two real AI Search calls ten minutes apart differed only in one
+`keywordScore` (14.4379, then 14.4411): a hit holds one answer for up to an hour. The retrieval eval
+calls AI Search directly, so the cache never touches it; no instance setting changed and no eval
+ran. In production the Cache API needs the Worker to run on a zone: `codice-api` has no route yet
+(Go-live checklist), so check the `cache` metric once `codice.io` serves traffic.
+
 ## Records and provenance (D1)
 
 D1 database `codice`, binding `CODICE_DATABASE`, schema in Drizzle (`db:generate`, never
@@ -244,7 +287,8 @@ Responses use the repo envelope (`{ data, meta: { requestId } }`, `apiJson` in `
 errors are `application/problem+json`. Every response, including `/health` and `/ready`, carries
 `x-request-id`: the caller's when it is 1–128 characters, else a new UUID, and `server-timing`:
 `total` (the Worker's time to the response headers) and, when it called AI Search, `search` (the
-time spent in its calls, a Sentry span each; `src/timing.ts`). Every `/v1` route takes
+time spent in its calls, a Sentry span each; `src/timing.ts`), and, for a search, `cache` (the
+[search cache](#search-cache)'s reads and writes; a hit has no `search`). Every `/v1` route takes
 an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 
 | Method and path                                | Backed by                                                 |
@@ -553,7 +597,9 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   `eval --min-top3 155` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~170 AI Search queries.
+  runs on pull requests: each run spends ~170 AI Search queries. Job `alert` turns a failed run into
+  the GitHub issue "Códice corpus failed", with the failed step and the unfinished item keys, and
+  closes it on the next green run ([Monitoring and deploy](#monitoring-and-deploy)).
 - Indexing time, measured 2026-10-25 on a comparison instance with `codice`'s settings: the 1,734
   passages with the RMF uploaded in 6 minutes, and 1,733 had indexed 51 minutes after the upload
   began; one (`rmf-2026/regla-12.3.16.md`) stayed `running` past that. Such an item fails the
@@ -841,12 +887,21 @@ as `apps/providers` does. It runs only from the Cloudflare Git build of `main`.
 `sync-worker-secrets.yml` pushes `SENTRY_DSN` (and only that name) from Doppler `codice` `prd` to
 the Worker; it skips the Worker while the script or the secret does not exist.
 
+Alerts (`docs/operations/monitoring.md`): a failed run of `codice-corpus.yml` or
+`sync-worker-secrets.yml` opens or comments on a GitHub issue labelled `ops-alert`, assigned to the
+repository owner, naming the failed steps and, for the corpus, the items AI Search did not finish
+indexing; the next green run closes it (`scripts/ops/alert-issue.mjs`, no secret needed).
+`codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` every
+10 minutes with the site's key and alerts the same way on a non-200, an unexpected body or a call
+over 1, 8 or 1.5 seconds, against `https://codice.io` (a manual run can name another base URL).
+Sentry alert rules for errors
+and the `ai_search.search` p95 are proposed there and not created yet.
+
 ### Go-live checklist
 
 Since the cutover on 2026-10-25 (`docs/operations/cutover.md`) this repository builds and deploys
 the Worker, syncs its secret (`sync-worker-secrets.yml`) and refreshes the corpus
-(`codice-corpus.yml`). Steps 1 to 6 are done; step 7 waits on `codice.io`, which is not purchased.
-Each remaining step needs explicit approval.
+(`codice-corpus.yml`). Steps 1 to 7 are done (step 7 on 2026-10-28).
 
 Status 2026-10-25: the Cloudflare Git build of `trstv/codice` `main` (root `apps/api`, deploy
 command `pnpm run deploy:production`) deployed version `a6945917`, the active deployment. The
@@ -889,9 +944,12 @@ is unset. So the order is fixed:
    migrations step ran with none pending and the source maps uploaded. After each merge, verify
    with `cf builds list`, `cf workers versions list` and `cf workers deployments list`, and that the
    Sentry release for the commit has source maps.
-7. **Attach `codice.io`** (not purchased). Buy the domain and add its zone to the account, then a
-   PR with the custom domain route in `apps/api/wrangler.jsonc`. Verify
-   `GET https://codice.io/ready` → 200.
+7. **Attach `codice.io`** (done 2026-10-28). The zone is on the Handle account (active
+   2026-10-28 03:50 UTC) and the domain is a custom domain of `codice-edge`, attached from the
+   dashboard and declared in `apps/edge/wrangler.jsonc` so its deploys keep it; `codice-edge`
+   forwards `/v1`, `/mcp`, `/health` and `/ready` here. Verify `GET https://codice.io/ready` → 200;
+   `codice-synthetic.yml` repeats that check every 10 minutes
+   (`docs/operations/monitoring.md`).
 
 ## Rollout
 
@@ -900,7 +958,7 @@ is unset. So the order is fixed:
    deployed 2026-10-25).
 3. The Agent calls Códice through a service binding and deletes its bundled search (done).
 4. Register the Cloudflare Git build (done 2026-10-25, from this repository) and attach
-   `codice.io` (not purchased; needs explicit approval).
+   `codice.io` (done 2026-10-28, on `codice-edge`).
 5. Phases 1 and 2 of the corpus; public launch.
 
 ## Next steps
@@ -923,8 +981,8 @@ to match.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (from D1 since `0006`), `GET /v1/sources`
    and `/v1/sources/:id`, and the MCP tools `read_passage`, `lookup_error`, `lookup_catalog` and
    `list_sources`.
-4. **Deploy** (done 2026-10-25 from this repository's Git build). Left: attach `codice.io` once
-   it is purchased (Go-live checklist, step 7; explicit approval).
+4. **Deploy** (done 2026-10-25 from this repository's Git build); `codice.io` attached to
+   `codice-edge` on 2026-10-28 (Go-live checklist, step 7).
 5. **Agent switch-over** (Rollout 3, done): the Agent calls `CodiceKnowledge` through its `CODICE`
    service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
    (`sections.ts`) live here, in `scripts/`.
@@ -955,7 +1013,7 @@ to match.
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
     `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
-    Email Sending for `codice.io`, the OAuth apps. Next: usage per key on the overview, and member
+    Email Sending for `codice.io`. Next: usage per key on the overview, and member
     roles beyond the owner.
 11. **MCP over OAuth** (done in code, see [MCP authorization](#mcp-authorization)). MCP clients
     connect with the URL alone, by Client ID Metadata Document or Dynamic Client Registration,
@@ -965,5 +1023,9 @@ to match.
 
 ## Open questions
 
+- The instance's similarity cache is on (`cache: true`, `cache_threshold: close_enough`, `cache_ttl`
+  48 hours, read 2026-10-28). It can answer a similar question with another question's passages;
+  turning it off, or `super_strict_match` per request, needs an eval run. The
+  [search cache](#search-cache) already serves exact repeats.
 - Legal review of republishing government texts (LFDA art. 14 fr. VIII) and the disclaimer wording.
 - IMPI trademark search for "Códice".
