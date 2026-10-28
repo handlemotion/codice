@@ -8,150 +8,138 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as LlmsFullDottxtRouteImport } from './routes/llms-full[.]txt'
-import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
-import { Route as Char91_siteChar93ChatRouteImport } from './routes/[_site]/chat'
-import { Route as Char91_siteChar93SearchRouteImport } from './routes/[_site]/search'
-import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as LlmsFullDottxtRouteImport } from "./routes/llms-full[.]txt";
+import { Route as LlmsDottxtRouteImport } from "./routes/llms[.]txt";
+import { Route as Char91_siteChar93ChatRouteImport } from "./routes/[_site]/chat";
+import { Route as Char91_siteChar93SearchRouteImport } from "./routes/[_site]/search";
+import { Route as DocsSplatRouteImport } from "./routes/docs/$";
 
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
-  id: '/llms-full.txt',
-  path: '/llms-full.txt',
+  id: "/llms-full.txt",
+  path: "/llms-full.txt",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
-  id: '/llms.txt',
-  path: '/llms.txt',
+  id: "/llms.txt",
+  path: "/llms.txt",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const Char91_siteChar93ChatRoute = Char91_siteChar93ChatRouteImport.update({
-  id: '/_site/chat',
-  path: '/_site/chat',
+  id: "/_site/chat",
+  path: "/_site/chat",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const Char91_siteChar93SearchRoute = Char91_siteChar93SearchRouteImport.update({
-  id: '/_site/search',
-  path: '/_site/search',
+  id: "/_site/search",
+  path: "/_site/search",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const DocsSplatRoute = DocsSplatRouteImport.update({
-  id: '/docs/$',
-  path: '/docs/$',
+  id: "/docs/$",
+  path: "/docs/$",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/llms-full.txt': typeof LlmsFullDottxtRoute
-  '/llms.txt': typeof LlmsDottxtRoute
-  '/_site/chat': typeof Char91_siteChar93ChatRoute
-  '/_site/search': typeof Char91_siteChar93SearchRoute
-  '/docs/$': typeof DocsSplatRoute
+  "/": typeof IndexRoute;
+  "/llms-full.txt": typeof LlmsFullDottxtRoute;
+  "/llms.txt": typeof LlmsDottxtRoute;
+  "/_site/chat": typeof Char91_siteChar93ChatRoute;
+  "/_site/search": typeof Char91_siteChar93SearchRoute;
+  "/docs/$": typeof DocsSplatRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/llms-full.txt': typeof LlmsFullDottxtRoute
-  '/llms.txt': typeof LlmsDottxtRoute
-  '/_site/chat': typeof Char91_siteChar93ChatRoute
-  '/_site/search': typeof Char91_siteChar93SearchRoute
-  '/docs/$': typeof DocsSplatRoute
+  "/": typeof IndexRoute;
+  "/llms-full.txt": typeof LlmsFullDottxtRoute;
+  "/llms.txt": typeof LlmsDottxtRoute;
+  "/_site/chat": typeof Char91_siteChar93ChatRoute;
+  "/_site/search": typeof Char91_siteChar93SearchRoute;
+  "/docs/$": typeof DocsSplatRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/llms-full.txt': typeof LlmsFullDottxtRoute
-  '/llms.txt': typeof LlmsDottxtRoute
-  '/_site/chat': typeof Char91_siteChar93ChatRoute
-  '/_site/search': typeof Char91_siteChar93SearchRoute
-  '/docs/$': typeof DocsSplatRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/llms-full.txt": typeof LlmsFullDottxtRoute;
+  "/llms.txt": typeof LlmsDottxtRoute;
+  "/_site/chat": typeof Char91_siteChar93ChatRoute;
+  "/_site/search": typeof Char91_siteChar93SearchRoute;
+  "/docs/$": typeof DocsSplatRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/llms-full.txt'
-    | '/llms.txt'
-    | '/_site/chat'
-    | '/_site/search'
-    | '/docs/$'
-  fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/llms-full.txt'
-    | '/llms.txt'
-    | '/_site/chat'
-    | '/_site/search'
-    | '/docs/$'
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: "/" | "/llms-full.txt" | "/llms.txt" | "/_site/chat" | "/_site/search" | "/docs/$";
+  fileRoutesByTo: FileRoutesByTo;
+  to: "/" | "/llms-full.txt" | "/llms.txt" | "/_site/chat" | "/_site/search" | "/docs/$";
   id:
-    | '__root__'
-    | '/'
-    | '/llms-full.txt'
-    | '/llms.txt'
-    | '/_site/chat'
-    | '/_site/search'
-    | '/docs/$'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/"
+    | "/llms-full.txt"
+    | "/llms.txt"
+    | "/_site/chat"
+    | "/_site/search"
+    | "/docs/$";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute
-  LlmsDottxtRoute: typeof LlmsDottxtRoute
-  Char91_siteChar93ChatRoute: typeof Char91_siteChar93ChatRoute
-  Char91_siteChar93SearchRoute: typeof Char91_siteChar93SearchRoute
-  DocsSplatRoute: typeof DocsSplatRoute
+  IndexRoute: typeof IndexRoute;
+  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute;
+  LlmsDottxtRoute: typeof LlmsDottxtRoute;
+  Char91_siteChar93ChatRoute: typeof Char91_siteChar93ChatRoute;
+  Char91_siteChar93SearchRoute: typeof Char91_siteChar93SearchRoute;
+  DocsSplatRoute: typeof DocsSplatRoute;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/llms-full.txt': {
-      id: '/llms-full.txt'
-      path: '/llms-full.txt'
-      fullPath: '/llms-full.txt'
-      preLoaderRoute: typeof LlmsFullDottxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/llms.txt': {
-      id: '/llms.txt'
-      path: '/llms.txt'
-      fullPath: '/llms.txt'
-      preLoaderRoute: typeof LlmsDottxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_site/chat': {
-      id: '/_site/chat'
-      path: '/_site/chat'
-      fullPath: '/_site/chat'
-      preLoaderRoute: typeof Char91_siteChar93ChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_site/search': {
-      id: '/_site/search'
-      path: '/_site/search'
-      fullPath: '/_site/search'
-      preLoaderRoute: typeof Char91_siteChar93SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs/$': {
-      id: '/docs/$'
-      path: '/docs/$'
-      fullPath: '/docs/$'
-      preLoaderRoute: typeof DocsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/llms-full.txt": {
+      id: "/llms-full.txt";
+      path: "/llms-full.txt";
+      fullPath: "/llms-full.txt";
+      preLoaderRoute: typeof LlmsFullDottxtRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/llms.txt": {
+      id: "/llms.txt";
+      path: "/llms.txt";
+      fullPath: "/llms.txt";
+      preLoaderRoute: typeof LlmsDottxtRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_site/chat": {
+      id: "/_site/chat";
+      path: "/_site/chat";
+      fullPath: "/_site/chat";
+      preLoaderRoute: typeof Char91_siteChar93ChatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_site/search": {
+      id: "/_site/search";
+      path: "/_site/search";
+      fullPath: "/_site/search";
+      preLoaderRoute: typeof Char91_siteChar93SearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/$": {
+      id: "/docs/$";
+      path: "/docs/$";
+      fullPath: "/docs/$";
+      preLoaderRoute: typeof DocsSplatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -162,16 +150,16 @@ const rootRouteChildren: RootRouteChildren = {
   Char91_siteChar93ChatRoute: Char91_siteChar93ChatRoute,
   Char91_siteChar93SearchRoute: Char91_siteChar93SearchRoute,
   DocsSplatRoute: DocsSplatRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();
 
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
+import type { getRouter } from "./router.tsx";
+import type { createStart } from "@tanstack/react-start";
+declare module "@tanstack/react-start" {
   interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
+    ssr: true;
+    router: Awaited<ReturnType<typeof getRouter>>;
   }
 }
