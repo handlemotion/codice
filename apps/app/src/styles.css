@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @source "./**/*.{ts,tsx}";
 
@@ -87,45 +88,4 @@ a[class*="rounded-[2px]"],
 button,
 kbd {
   text-box: trim-both cap alphabetic;
-}
-
-/* Tooltips fade in from their side (shadcn's entrance without tw-animate-css). */
-@media (prefers-reduced-motion: no-preference) {
-  .tooltip-content[data-state="delayed-open"],
-  .tooltip-content[data-state="instant-open"] {
-    animation: tooltip-in 120ms ease-out;
-  }
-}
-
-@keyframes tooltip-in {
-  from {
-    opacity: 0;
-    transform: translateX(-2px);
-  }
-}
-
-/* Dialogs and menus fade (and dialogs settle) in (shadcn's entrance without tw-animate-css). */
-@media (prefers-reduced-motion: no-preference) {
-  .dialog-overlay[data-state="open"] {
-    animation: dialog-fade 150ms ease-out;
-  }
-  .dropdown-content[data-state="open"] {
-    animation: dialog-fade 120ms ease-out;
-  }
-  .dialog-content[data-state="open"] {
-    animation: dialog-in 150ms ease-out;
-  }
-}
-
-@keyframes dialog-fade {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes dialog-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.98);
-  }
 }

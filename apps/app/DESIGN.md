@@ -48,6 +48,10 @@ This file records only where the dashboard adds to it or departs from it. Values
   restyled like the tooltip: an island with a `line` border (the dialog on a dimmed ground, a 16px
   title, the cross at the top right; menu items 32px, a `fg`/8 well on focus). Dialogs only create
   something ("Nueva clave", "Crear un equipo").
+  They, the menus and the tooltip open and close with shadcn's own `tw-animate-css` classes (a fade
+  and a 95% zoom from the center; menus and tooltips also slide 8px from their side), never
+  hand-written keyframes: Tailwind v4's `translate-*` is the `translate` property, so a keyframe on
+  `transform` adds to it and the dialog slid in from the top left.
 - **Buttons**: 32px in forms; 28px with 10px sides (`*_SMALL`) for a page header's actions and a
   row's confirmation, where `DANGER_SMALL` (red) confirms a removal ("Revocar", "Desconectar").
 - **Groups (Uso)**: `Group` in `ui.tsx`, an island whose first row is its name, then its rows,
