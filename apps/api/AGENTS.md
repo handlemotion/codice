@@ -14,8 +14,8 @@ the behavior changes.
   Search and D1, including the RMF (Phase 1's first source, one passage a regla). Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
   build of this repository's `main` deploys the Worker `codice-api` on the Handle account (root `apps/api`, deploy command
   `pnpm run deploy:production`; SPEC.md, "Go-live checklist"), and `codice-corpus.yml` and
-  `sync-worker-secrets.yml` run from here. No route or custom domain yet, and `codice.io` is not
-  purchased; attaching it needs explicit approval.
+  `sync-worker-secrets.yml` run from here. No route of its own: since 2026-10-28 `codice.io` is a custom domain of the edge Worker
+  `codice-edge`, which forwards `/v1`, `/mcp`, `/health` and `/ready` here.
 - Search is AI Search's: never add chunking, embedding or ranking code here. Change the instance's
   settings only with a retrieval eval run (`pnpm --filter @codice/api eval`) recorded
   in SPEC.md.

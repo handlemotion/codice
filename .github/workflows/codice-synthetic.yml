@@ -1,14 +1,13 @@
 # Códice synthetic check: calls the production API the way a client does, every 10 minutes
 # (scripts/ops/synthetic-check.mjs; docs/operations/monitoring.md, "Synthetic check").
 #
-# It checks `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` against the repository
-# variable CODICE_BASE_URL with the site's key (CODICE_SITE_API_KEY in Doppler `codice` `prd`,
+# It checks `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` on https://codice.io
+# (the edge Worker's custom domain) with the site's key (CODICE_SITE_API_KEY in Doppler `codice` `prd`,
 # read through the corpus job's OIDC identity) and fails on a non-200, an unexpected body or a
 # response over the check's limit. A failure opens or updates the issue "Códice synthetic check
 # failed" (at most one comment an hour while it keeps failing); a passing run closes it.
 #
-# Off until CODICE_BASE_URL is set: Códice has no public host yet (no route, `workers.dev` off,
-# `codice.io` not purchased), so the scheduled run skips. A manual run can name a base URL.
+# A manual run can name another base URL.
 # Each run spends one AI Search query (about 4,300 a month at this cadence).
 name: Códice synthetic check
 
@@ -18,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: Base URL to check instead of the CODICE_BASE_URL variable
+        description: Base URL to check instead of https://codice.io
         required: false
         type: string
 
@@ -32,7 +31,7 @@ permissions:
 jobs:
   check:
     name: Check
-    if: github.ref == 'refs/heads/main' && (inputs.base_url || vars.CODICE_BASE_URL)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -70,7 +69,7 @@ jobs:
       - name: Check the API
         id: check
         env:
-          CODICE_BASE_URL: ${{ inputs.base_url || vars.CODICE_BASE_URL }}
+          CODICE_BASE_URL: ${{ inputs.base_url || 'https://codice.io' }}
         run: |
           set -uo pipefail
           # Only the one secret, masked; never the whole config.

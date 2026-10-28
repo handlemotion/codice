@@ -8,7 +8,7 @@ while indexing) and nobody noticed for two days.
 | ------------------------------ | ---------------------------------------- | -------------------------------------------- | --------------------------------------------------- |
 | Corpus run fails               | `alert` job of `codice-corpus.yml`       | GitHub issue "Códice corpus failed"          | Live once merged                                    |
 | Worker secret sync fails       | `alert` job of `sync-worker-secrets.yml` | GitHub issue "Worker secret sync failed"     | Live once merged                                    |
-| API down, wrong or slow        | `codice-synthetic.yml`, every 10 minutes | GitHub issue "Códice synthetic check failed" | Off: no public host (see "Synthetic check")         |
+| API down, wrong or slow        | `codice-synthetic.yml`, every 10 minutes | GitHub issue "Códice synthetic check failed" | Live once merged, on `https://codice.io`            |
 | Errors and 5xx in `codice-api` | Sentry rules (proposed below)            | Sentry notification                          | Not created: needs the owner's OK and Sentry access |
 | AI Search latency              | Sentry rule on `ai_search.search` spans  | Sentry notification                          | Not created: as above                               |
 
@@ -67,26 +67,13 @@ billing starts on 2026-11-01, and it uses up the free 1,000 the weekly eval woul
 in (SPEC.md, "Cost"). Actions minutes are free: the repository is public. GitHub disables a
 public repository's schedules after 60 days without activity.
 
-### What turns it on
+### Host
 
-Verified 2026-10-28 with the Cloudflare API on the Handle account: `codice-api` and `codice-edge`
-both have `workers.dev` off (`/workers/scripts/<name>/subdomain` → `enabled: false`), and no custom
-domain or zone serves either (`/workers/domains` lists none; the account's zones do not include
-`codice.io`). So nothing reaches the API from outside, and the scheduled job skips: its `check` job
-runs only when the repository variable `CODICE_BASE_URL` is set (or a manual run gives
-`base_url`).
-
-To turn it on, the owner picks a public host for `codice-edge` (each needs explicit approval):
-
-1. `codice.io`: buy it, add the zone, then the route PR (SPEC.md, "Go-live checklist", step 7).
-2. Sooner: a custom domain on a zone Handle already has, such as `codice.handlemotion.com`, on
-   `codice-edge` (`apps/edge/AGENTS.md`, "Domains", allows only `codice.io` there today, so the
-   rule changes with it).
-3. Or `workers_dev: true` on `codice-edge`, which gives
-   `https://codice-edge.<subdomain>.workers.dev`.
-
-Then set the variable (Settings → Secrets and variables → Actions → Variables), for example
-`CODICE_BASE_URL=https://codice.io`, and run "Códice synthetic check" by hand once.
+The check calls `https://codice.io`, the custom domain of the edge Worker `codice-edge` (zone on the
+Handle account, active 2026-10-28 03:50 UTC; `/workers/domains` lists `codice.io` → `codice-edge`,
+`production`), which forwards `/ready`, `/v1` and `/mcp` to `codice-api`. A manual run can name
+another base URL (input `base_url`). Before the domain, nothing reached the API from outside:
+`workers.dev` is off on both Workers.
 
 Evidence 2026-10-28, against the local Worker (`pnpm dev:up`, real AI Search instance, a local
 dashboard key):

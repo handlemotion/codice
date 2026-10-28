@@ -1,7 +1,8 @@
 # Códice: specification
 
 Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git build since the
-cutover on 2026-10-25, with no route or custom domain: Transitive's Agent reaches it through its
+cutover on 2026-10-25, with no route of its own: since 2026-10-28 the public host `codice.io` is a
+custom domain of the edge Worker `codice-edge`, and Transitive's Agent reaches it through its
 `CODICE` service binding. Phase 1 has begun with the RMF. The Worker serves the whole
 [HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind a team's API key and its per-key rate limit
@@ -793,16 +794,15 @@ repository owner, naming the failed steps and, for the corpus, the items AI Sear
 indexing; the next green run closes it (`scripts/ops/alert-issue.mjs`, no secret needed).
 `codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` every
 10 minutes with the site's key and alerts the same way on a non-200, an unexpected body or a call
-over 1, 8 or 1.5 seconds; it stays off until the repository variable `CODICE_BASE_URL` names a
-public host, which does not exist yet (Go-live checklist, step 7). Sentry alert rules for errors
+over 1, 8 or 1.5 seconds, against `https://codice.io` (a manual run can name another base URL).
+Sentry alert rules for errors
 and the `ai_search.search` p95 are proposed there and not created yet.
 
 ### Go-live checklist
 
 Since the cutover on 2026-10-25 (`docs/operations/cutover.md`) this repository builds and deploys
 the Worker, syncs its secret (`sync-worker-secrets.yml`) and refreshes the corpus
-(`codice-corpus.yml`). Steps 1 to 6 are done; step 7 waits on `codice.io`, which is not purchased.
-Each remaining step needs explicit approval.
+(`codice-corpus.yml`). Steps 1 to 7 are done (step 7 on 2026-10-28).
 
 Status 2026-10-25: the Cloudflare Git build of `trstv/codice` `main` (root `apps/api`, deploy
 command `pnpm run deploy:production`) deployed version `a6945917`, the active deployment. The
@@ -845,9 +845,12 @@ is unset. So the order is fixed:
    migrations step ran with none pending and the source maps uploaded. After each merge, verify
    with `cf builds list`, `cf workers versions list` and `cf workers deployments list`, and that the
    Sentry release for the commit has source maps.
-7. **Attach `codice.io`** (not purchased). Buy the domain and add its zone to the account, then a
-   PR with the custom domain route in `apps/api/wrangler.jsonc`. Verify
-   `GET https://codice.io/ready` → 200.
+7. **Attach `codice.io`** (done 2026-10-28). The zone is on the Handle account (active
+   2026-10-28 03:50 UTC) and the domain is a custom domain of `codice-edge`, attached from the
+   dashboard and declared in `apps/edge/wrangler.jsonc` so its deploys keep it; `codice-edge`
+   forwards `/v1`, `/mcp`, `/health` and `/ready` here. Verify `GET https://codice.io/ready` → 200;
+   `codice-synthetic.yml` repeats that check every 10 minutes
+   (`docs/operations/monitoring.md`).
 
 ## Rollout
 
@@ -856,7 +859,7 @@ is unset. So the order is fixed:
    deployed 2026-10-25).
 3. The Agent calls Códice through a service binding and deletes its bundled search (done).
 4. Register the Cloudflare Git build (done 2026-10-25, from this repository) and attach
-   `codice.io` (not purchased; needs explicit approval).
+   `codice.io` (done 2026-10-28, on `codice-edge`).
 5. Phases 1 and 2 of the corpus; public launch.
 
 ## Next steps
@@ -879,8 +882,8 @@ to match.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (from D1 since `0006`), `GET /v1/sources`
    and `/v1/sources/:id`, and the MCP tools `read_passage`, `lookup_error`, `lookup_catalog` and
    `list_sources`.
-4. **Deploy** (done 2026-10-25 from this repository's Git build). Left: attach `codice.io` once
-   it is purchased (Go-live checklist, step 7; explicit approval).
+4. **Deploy** (done 2026-10-25 from this repository's Git build); `codice.io` attached to
+   `codice-edge` on 2026-10-28 (Go-live checklist, step 7).
 5. **Agent switch-over** (Rollout 3, done): the Agent calls `CodiceKnowledge` through its `CODICE`
    service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
    (`sections.ts`) live here, in `scripts/`.
