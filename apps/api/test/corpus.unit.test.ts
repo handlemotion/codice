@@ -14,6 +14,7 @@ import {
   type Passage,
   type PassageRecord,
   type SourceRow,
+  settledRecords,
   versionedKey,
 } from "../scripts/corpus";
 import { errorCodePassageId } from "../src/records";
@@ -527,5 +528,68 @@ describe("stuckItem", () => {
     for (const status of ["queued", "running", "completed", "skipped"]) {
       expect(stuckItem(item(status, null))).toBe(false);
     }
+  });
+});
+
+describe("settledRecords", () => {
+  const V1 = 20250101;
+  const V2 = 20260301;
+  const record = (key: string, body: string, validFrom = V1, validUntil = 99_991_231) => ({
+    key,
+    sourceId: "a",
+    heading: "A",
+    sha256: body,
+    body,
+    kind: "regla",
+    validFrom,
+    validUntil,
+  });
+  const byKey = (...records: ReturnType<typeof record>[]) =>
+    new Map(records.map((entry) => [entry.key, entry]));
+
+  it("writes every record when every item indexed", () => {
+    const records = [record("a/x.md", "new", V2), record("a/x.20250101.md", "old", V1, 20260228)];
+
+    expect(settledRecords(records, byKey(record("a/x.md", "old")), new Set())).toEqual(records);
+  });
+
+  it("records what indexed and leaves out a new passage that did not", () => {
+    const records = [record("a/ok.md", "1"), record("a/stuck.md", "2")];
+
+    expect(settledRecords(records, new Map(), new Set(["a/stuck.md"]))).toEqual([
+      record("a/ok.md", "1"),
+    ]);
+  });
+
+  it("keeps a stuck changed passage's earlier record and drops the copy made from it", () => {
+    const earlier = record("a/x.md", "old", V1);
+    const records = [record("a/x.md", "new", V2), record("a/x.20250101.md", "old", V1, 20260228)];
+
+    // As a run that stopped before D1 leaves it: the next run supersedes the old text again.
+    expect(settledRecords(records, byKey(earlier), new Set(["a/x.md"]))).toEqual([earlier]);
+  });
+
+  it("writes a superseded copy even when its own item is stuck", () => {
+    const copy = record("a/x.20250101.md", "old", V1, 20260228);
+    const records = [record("a/x.md", "new", V2), copy];
+
+    expect(
+      settledRecords(records, byKey(record("a/x.md", "old")), new Set(["a/x.20250101.md"])),
+    ).toEqual(records);
+  });
+
+  it("keeps a superseded record an earlier run wrote when its current passage is reverted", () => {
+    const kept = record("a/x.20240101.md", "older", 20240101, 20241231);
+    const earlier = record("a/x.md", "old", V1);
+    const records = [
+      record("a/x.md", "new", V2),
+      record("a/x.20250101.md", "old", V1, 20260228),
+      kept,
+    ];
+
+    expect(settledRecords(records, byKey(earlier, kept), new Set(["a/x.md"]))).toEqual([
+      earlier,
+      kept,
+    ]);
   });
 });

@@ -353,6 +353,39 @@ export function versionedKey(key: string, validFrom: number) {
   return key.replace(/\.md$/u, `.${validFrom}.md`);
 }
 
+/**
+ * The D1 records to write when some items did not finish indexing (stuck, or still indexing when
+ * the wait ran out), so a run records what it did index instead of nothing. An unfinished current
+ * passage keeps the record an earlier run wrote, or none, so the next run uploads it again; a
+ * superseded copy this run made from that record is left out with it, as a run that stopped before
+ * D1 would leave it. Every other record is written, superseded ones included: their text would
+ * otherwise be lost, and the next run repairs a stuck copy from D1's record.
+ */
+export function settledRecords(
+  records: readonly PassageRecord[],
+  recorded: ReadonlyMap<string, PassageRecord>,
+  unfinished: ReadonlySet<string>,
+): PassageRecord[] {
+  const reverted = new Map<string, PassageRecord | undefined>();
+  for (const record of records) {
+    if (record.validUntil === IN_FORCE_UNTIL && unfinished.has(record.key)) {
+      reverted.set(record.key, recorded.get(record.key));
+    }
+  }
+  const madeFromReverted = new Set(
+    [...reverted.values()].flatMap((earlier) =>
+      earlier ? [versionedKey(earlier.key, earlier.validFrom)] : [],
+    ),
+  );
+  return records.flatMap((record) => {
+    if (reverted.has(record.key)) {
+      const earlier = reverted.get(record.key);
+      return earlier ? [earlier] : [];
+    }
+    return madeFromReverted.has(record.key) && !recorded.has(record.key) ? [] : [record];
+  });
+}
+
 /** The day before a `YYYYMMDD` date: the last day a version applies when the next starts on it. */
 export function dayBefore(date: number) {
   const day = new Date(Date.parse(isoDate(date)) - 86_400_000);

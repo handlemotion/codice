@@ -419,8 +419,12 @@ fetch source → sha256 → unchanged? stop
   plan counts each item id once and a skipped item is handled on the next run. `--dry-run` prints
   the plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
   before D1, until AI Search has indexed every item (none queued, running or outdated). It does not
-  wait for stuck items: once only they are left, it fails the run and names each by key, and the
-  next run repairs them. `--instance <name>` loads a comparison instance for an eval of
+  wait for stuck items, and stops waiting after 120 minutes. Then it still writes D1 for what did
+  index (`settledRecords` in `scripts/corpus.ts`): an unfinished current passage keeps its earlier
+  record, or none, and drops a dated copy made from it in this run; superseded records are always
+  written. It then fails the run, naming each unfinished item, and the next run uploads only those
+  again. Before 2026-10-28 a single stuck item stopped the whole D1 write, so each retry uploaded
+  every changed passage again (1,214 RMF reglas on 2026-10-27) and met new stuck items. `--instance <name>` loads a comparison instance for an eval of
   other settings: every passage it lacks, no D1 and no catalogs. A change to the splitter changes
   passage keys, and with them the Agent's citations: prove the corpus with
   `test/corpus.unit.test.ts` and `test/sections.unit.test.ts` first.
