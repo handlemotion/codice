@@ -61,13 +61,13 @@ one, so a Worker with secrets must not get preview builds: `codice-api`, `codice
 `codice-site` must have them off. If the sync
 fails with `10215` anyway, retry the latest `main` build, then run the sync again.
 
-It runs daily, on demand (plan by default), on a push to `main` that changes an
+It runs weekly (Mondays), on demand (plan by default), on a push to `main` that changes an
 `apps/*/wrangler.jsonc` (so a merge that declares a new secret syncs it), and on
 `repository_dispatch` `doppler-config-changed`.
 For the dispatch, the Doppler webhook on `codice` `prd` must target this repository
 (`POST https://api.github.com/repos/handlemotion/codice/dispatches`, body
 `{"event_type":"doppler-config-changed"}`, a GitHub token with Contents write); until it does, the
-daily run picks a change up within a day.
+weekly run picks a change up within a week; run it by hand to sync sooner.
 
 ## Corpus workflow identity
 

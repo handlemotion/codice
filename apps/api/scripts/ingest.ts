@@ -12,6 +12,8 @@
  *                                                           --local, load them at all (~3 minutes, needs soffice)
  *   pnpm --filter @codice/api ingest --wait      wait until AI Search has indexed every item before writing D1;
  *                                                           fail, naming them, once only stuck items are left
+ *   pnpm --filter @codice/api ingest --wait --wait-minutes 10
+ *       stop waiting sooner (120 by default) and record what indexed; the next run records the rest
  *   pnpm --filter @codice/api ingest --instance codice-bge-m3
  *       load a comparison instance (an eval of other settings): upload every passage it lacks;
  *       D1 and the large catalogs stay as they are
@@ -68,6 +70,7 @@ const { values } = parseArgs({
     local: { type: "boolean", default: false },
     catalogs: { type: "boolean", default: false },
     wait: { type: "boolean", default: false },
+    "wait-minutes": { type: "string", default: "120" },
     instance: { type: "string", default: INSTANCE },
   },
 });
@@ -75,6 +78,8 @@ const dryRun = values["dry-run"];
 const local = values.local;
 const forceCatalogs = values.catalogs;
 const wait = values.wait;
+const waitMinutes = Number(values["wait-minutes"]);
+if (!(waitMinutes > 0)) throw new Error("--wait-minutes takes a number of minutes above 0");
 /** D1 records what the instance `codice` holds; a comparison instance has no records. */
 const comparison = values.instance !== INSTANCE;
 const ITEMS = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/${values.instance}/items`;
@@ -82,7 +87,6 @@ const ITEMS = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-se
  * Indexing ~500 passages took about 30 minutes, and the 1,734 passages with the RMF about 50
  * (SPEC.md, "Ingestion").
  */
-const WAIT_LIMIT_MS = 120 * 60 * 1000;
 const POLL_MS = 30 * 1000;
 /** AI Search's `item_not_found`. */
 const ITEM_NOT_FOUND = 7041;
@@ -237,11 +241,12 @@ async function remove(id: string) {
 /**
  * Waits until no item is queued, running or outdated (needs re-indexing), so a search sees every
  * passage, and returns the items that did not finish: the stuck ones (`stuckItem`), which never
- * will, and at the time limit those still indexing. The run records the rest and then fails, naming
- * them; the next run deletes and uploads them again.
+ * will, and at `--wait-minutes` those still indexing. The run records the rest. Stuck items fail
+ * it, and the next run deletes and uploads them again; items still indexing do not, and the next
+ * run records them once they hold their passage (`heldPassages`).
  */
-async function waitForIndexing(): Promise<RemoteItem[]> {
-  const deadline = Date.now() + WAIT_LIMIT_MS;
+async function waitForIndexing(): Promise<{ stuck: RemoteItem[]; indexing: RemoteItem[] }> {
+  const deadline = Date.now() + waitMinutes * 60 * 1000;
   for (;;) {
     const [queued, running, outdated, failed] = await Promise.all([
       countItems("queued"),
@@ -252,15 +257,24 @@ async function waitForIndexing(): Promise<RemoteItem[]> {
     const stuck = [...outdated, ...failed].filter(stuckItem);
     const pending = queued + running + outdated.length - outdated.filter(stuckItem).length;
     if (pending === 0) {
+      // `codice-corpus.yml` reads this line: the eval runs only on a fully indexed instance.
       if (stuck.length === 0) console.log("AI Search: every item indexed");
-      return stuck;
+      return { stuck, indexing: [] };
     }
     if (Date.now() > deadline) {
       const [queuedItems, runningItems] = await Promise.all([
         listItems("queued"),
         listItems("running"),
       ]);
-      return [...queuedItems, ...runningItems, ...outdated, ...failed];
+      const indexing = [
+        ...queuedItems,
+        ...runningItems,
+        ...outdated.filter((item) => !stuckItem(item)),
+      ];
+      console.log(
+        `AI Search: ${indexing.length} items still indexing after ${waitMinutes} minutes; the next run records them`,
+      );
+      return { stuck, indexing };
     }
     console.log(`AI Search: ${pending} items indexing, ${stuck.length} stuck`);
     await new Promise((done) => setTimeout(done, POLL_MS));
@@ -482,13 +496,14 @@ async function main() {
   await each(uploads, upload);
   await each(plan.remove, (item) => remove(item.id));
   if (comparison) {
-    if (wait) failUnfinished(await waitForIndexing());
+    if (wait) failUnfinished((await waitForIndexing()).stuck);
     return;
   }
   await loadLargeCatalogs(corpus, manifest);
-  // Before D1: a passage that did not finish indexing keeps its old record, so the next run uploads
+  // Before D1: a passage that did not finish indexing keeps its old record, so the next run checks
   // it again (and its eval still runs), while everything that did index is recorded.
-  const unfinished = wait ? await waitForIndexing() : [];
+  const { stuck, indexing } = wait ? await waitForIndexing() : { stuck: [], indexing: [] };
+  const unfinished = [...stuck, ...indexing];
   // A superseded record D1 kept before it held bodies takes the text just copied from AI Search.
   const copied = new Map(copies.map((copy) => [copy.key, copy]));
   const records = plan.records.map((record) => {
@@ -501,14 +516,14 @@ async function main() {
     ...plan,
     records: settledRecords(records, recorded, new Set(unfinished.map((item) => item.key))),
   });
-  failUnfinished(unfinished);
+  failUnfinished(stuck);
 }
 
-function failUnfinished(unfinished: readonly RemoteItem[]) {
-  if (unfinished.length === 0) return;
-  const keys = unfinished.map((item) => `\n  ${item.key} (${item.status})`).join("");
+function failUnfinished(stuck: readonly RemoteItem[]) {
+  if (stuck.length === 0) return;
+  const keys = stuck.map((item) => `\n  ${item.key} (${item.status})`).join("");
   throw new Error(
-    `AI Search: ${unfinished.length} items did not finish indexing; the next run uploads them again:${keys}`,
+    `AI Search: ${stuck.length} items did not finish indexing; the next run uploads them again:${keys}`,
   );
 }
 

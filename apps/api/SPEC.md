@@ -724,11 +724,12 @@ fetch source → sha256 → unchanged? stop
   plan counts each item id once and a skipped item is handled on the next run. `--dry-run` prints
   the plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
   before D1, until AI Search has indexed every item (none queued, running or outdated). It does not
-  wait for stuck items, and stops waiting after 120 minutes. Then it still writes D1 for what did
+  wait for stuck items, and stops waiting after `--wait-minutes` (120 by default; the corpus
+  workflow passes 10). Then it still writes D1 for what did
   index (`settledRecords` in `scripts/corpus.ts`): an unfinished current passage keeps its earlier
   record, or none, and drops a dated copy made from it in this run; superseded records are always
-  written. It then fails the run, naming each unfinished item. Those items keep indexing after the
-  run, so the next run first downloads each passage to upload whose item is not stuck and has its
+  written. Stuck items fail the run, named; items still indexing do not. They keep indexing after
+  the run, so the next run first downloads each passage to upload whose item is not stuck and has its
   validity (`heldCandidates`), and records instead of uploading one whose text has the passage's
   hash: uploading it again would queue it again. On 2026-10-28 a run that stopped after 120 minutes
   left 442 RMF reglas unrecorded; all had indexed with the current text within hours. Requests back
@@ -845,9 +846,10 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   published new files it regenerates `docs/sat-md` and opens a pull request from
   `codice/sat-md-refresh` (one at a time; it waits while that PR is open), then dispatches the
   required checks onto it, since a PR opened with `GITHUB_TOKEN` starts no workflows. Job `ingest`
-  ingests `main`'s `docs/sat-md` with `--wait` (until AI Search has indexed every item, at most
-  120 minutes; the job's limit is 150), then runs
-  `eval --min-top3 155` when a passage was uploaded or deleted, or when a manual run asks for it
+  ingests `main`'s `docs/sat-md` with `--wait --wait-minutes 10` (the job's limit is 30): AI Search
+  indexes about 6 items a minute, so waiting out a large change would bill hours of Actions minutes
+  on this private repository; the run records what indexed and the next one the rest. It then runs
+  `eval --min-top3 155` when a passage changed and every item has indexed, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
   runs on pull requests: each run spends ~215 AI Search queries. Job `alert` turns a failed run into
@@ -1256,8 +1258,8 @@ Alerts (`docs/operations/monitoring.md`): a failed run of `codice-corpus.yml` or
 `sync-worker-secrets.yml` opens or comments on a GitHub issue labelled `ops-alert`, assigned to the
 repository owner, naming the failed steps and, for the corpus, the items AI Search did not finish
 indexing; the next green run closes it (`scripts/ops/alert-issue.mjs`, no secret needed).
-`codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` every
-10 minutes with the site's key and alerts the same way on a non-200, an unexpected body or a call
+`codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` when
+started by hand (its 10-minute schedule billed ~4,300 Actions minutes a month) with the site's key and alerts the same way on a non-200, an unexpected body or a call
 over 1, 8 or 1.5 seconds, against `https://codice.io` (a manual run can name another base URL).
 In Sentry, the alert "codice-api:
 new or regressed issue" emails on every new, regressed or reappeared issue and on the monitors for
@@ -1314,7 +1316,7 @@ is unset. So the order is fixed:
    2026-10-28 03:50 UTC) and the domain is a custom domain of `codice-edge`, attached from the
    dashboard and declared in `apps/edge/wrangler.jsonc` so its deploys keep it; `codice-edge`
    forwards `/v1`, `/mcp`, `/health` and `/ready` here. Verify `GET https://codice.io/ready` → 200;
-   `codice-synthetic.yml` repeats that check every 10 minutes
+   `codice-synthetic.yml` repeats that check on demand
    (`docs/operations/monitoring.md`).
 
 ## Rollout
