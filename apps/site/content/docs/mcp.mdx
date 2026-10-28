@@ -9,9 +9,33 @@ Sin Códice, un asistente responde de memoria: puede citar una regla que ya camb
 
 ## Conexión
 
-El servidor está en `https://codice.io/mcp` y necesita tu clave en el encabezado `Authorization`. Crea una en [Claves](/keys).
+El servidor está en `https://codice.io/mcp`. Agrégalo a tu asistente con esa dirección y nada más: la primera vez, el asistente abre Códice en tu navegador, entras con tu cuenta y apruebas la conexión. No hay claves que copiar.
+
+### Claude, ChatGPT y otros asistentes con conectores
+
+Agrega un conector personalizado con la dirección `https://codice.io/mcp` y sigue el inicio de sesión.
 
 ### Cursor, VS Code y otros clientes con archivo JSON
+
+```json
+{
+  "mcpServers": {
+    "codice": { "url": "https://codice.io/mcp" }
+  }
+}
+```
+
+### Claude Code
+
+```bash
+claude mcp add --transport http codice https://codice.io/mcp
+```
+
+Luego, en Claude Code, abre `/mcp` y elige Códice para iniciar sesión.
+
+### Con una clave
+
+Si tu cliente no inicia sesión por OAuth, o lo conectas desde un servidor sin navegador, manda una clave de tu equipo en el encabezado `Authorization`. Crea una en [Claves](/keys).
 
 ```json
 {
@@ -24,16 +48,9 @@ El servidor está en `https://codice.io/mcp` y necesita tu clave en el encabezad
 }
 ```
 
-### Claude Code
+### Desconectar un asistente
 
-```bash
-claude mcp add --transport http codice https://codice.io/mcp \
-  --header "Authorization: Bearer cdc_…"
-```
-
-### Otros asistentes
-
-Cualquier cliente MCP que hable HTTP y permita mandar un encabezado sirve: usa la misma dirección y el mismo encabezado. Si tu asistente no permite encabezados, conecta Códice por la [API](/docs/http) desde tu propio servidor.
+Cada asistente que apruebas queda conectado hasta que lo desconectes desde tu panel en Códice. Al desconectarlo, deja de tener acceso en menos de un minuto.
 
 ## Herramientas
 
@@ -64,4 +81,4 @@ Cada herramienta devuelve el mismo `data` que la ruta de la API, como contenido 
 
 ## Límites
 
-Las consultas por MCP cuentan contra el mismo límite que la API: 60 por minuto por clave. Un asistente puede hacer varias consultas por pregunta, así que usa una clave aparte para él.
+Conectado con tu cuenta, tus asistentes comparten un límite de 60 consultas por minuto. Con una clave, las consultas por MCP cuentan contra el mismo límite que la API: 60 por minuto por clave. Un asistente puede hacer varias consultas por pregunta, así que usa una clave aparte para él.

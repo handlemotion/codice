@@ -105,7 +105,8 @@ describe("/ready", () => {
 });
 
 describe("API keys", () => {
-  const KEYED = ["/v1/search?q=CFDI40149", "/v1/sources", "/mcp"];
+  // `/mcp` takes the same keys; without one it answers with its OAuth challenge (below).
+  const KEYED = ["/v1/search?q=CFDI40149", "/v1/sources"];
 
   async function expectUnauthorized(response: Response) {
     expect(response.status).toBe(401);
@@ -152,6 +153,25 @@ describe("API keys", () => {
     expect(await response.json()).toMatchObject({ data: { sources: [] } });
   });
 
+  it.each([
+    ["an unknown bearer key", { authorization: "Bearer cdc_unknown" }],
+    ["an unknown x-api-key", { "x-api-key": "cdc_unknown" }],
+  ])("refuses %s on /mcp with the key challenge", async (_, headers) => {
+    const response = await SELF.fetch("https://codice.test/mcp", {
+      headers: { "x-request-id": "auth-check", ...headers },
+    });
+
+    await expectUnauthorized(response);
+  });
+
+  it("refuses an OAuth access token on /v1, which is not its resource", async () => {
+    const response = await SELF.fetch("https://codice.test/v1/sources", {
+      headers: { "x-request-id": "auth-check", authorization: "Bearer at_test_v1" },
+    });
+
+    await expectUnauthorized(response);
+  });
+
   it("refuses with 500 when the accounts binding is missing", async () => {
     const response = await fetchWith(
       "/v1/sources",
@@ -164,6 +184,81 @@ describe("API keys", () => {
 
   it.each(["/", "/health", "/ready"])("leaves %s open", async (path) => {
     const response = await SELF.fetch(`https://codice.test${path}`);
+
+    expect(response.status).toBe(200);
+  });
+});
+
+describe("MCP authorization", () => {
+  const METADATA = "https://codice.test/.well-known/oauth-protected-resource/mcp";
+  const CHALLENGE = `Bearer realm="codice", resource_metadata="${METADATA}", scope="codice:read"`;
+  const mcpCall = (headers: Record<string, string>) =>
+    SELF.fetch("https://codice.test/mcp", {
+      method: "POST",
+      headers: {
+        "x-request-id": "mcp-auth",
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        ...headers,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+
+  it.each([METADATA, "https://codice.test/.well-known/oauth-protected-resource"])(
+    "publishes /mcp's protected resource metadata at %s",
+    async (url) => {
+      const response = await SELF.fetch(url);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe("*");
+      expect(await response.json()).toEqual({
+        resource: "https://codice.test/mcp",
+        authorization_servers: ["https://codice.test/api/auth"],
+        scopes_supported: ["codice:read"],
+        bearer_methods_supported: ["header"],
+        resource_name: "Códice",
+        resource_documentation: "https://codice.test/docs",
+      });
+    },
+  );
+
+  it("answers /mcp without a credential with the challenge that starts OAuth", async () => {
+    const response = await mcpCall({});
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(CHALLENGE);
+    expect(await response.json()).toMatchObject({ status: 401, code: "unauthorized" });
+  });
+
+  it.each([
+    ["an unknown access token", "Bearer at_unknown"],
+    ["a key without the cdc_ prefix", "Bearer test_valid"],
+  ])("refuses %s as an invalid token", async (_, authorization) => {
+    const response = await mcpCall({ authorization });
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(`${CHALLENGE}, error="invalid_token"`);
+  });
+
+  it("serves a valid access token", async () => {
+    const response = await mcpCall({ authorization: "Bearer at_test_tools" });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('"tools"');
+  });
+
+  it("refuses a token without the scope with insufficient_scope", async () => {
+    const response = await mcpCall({ authorization: "Bearer at_noscope_tools" });
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("www-authenticate")).toBe(
+      `${CHALLENGE}, error="insufficient_scope"`,
+    );
+    expect(await response.json()).toMatchObject({ status: 403, code: "insufficient_scope" });
+  });
+
+  it("still serves an API key", async () => {
+    const response = await mcpCall({ authorization: "Bearer cdc_test_mcpkey" });
 
     expect(response.status).toBe(200);
   });
@@ -204,6 +299,18 @@ describe("per-key rate limit", () => {
       false,
       true,
     ]);
+  });
+
+  it("limits /mcp per OAuth user, whichever token they send", async () => {
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const response = await SELF.fetch("https://codice.test/mcp", {
+        headers: { authorization: "Bearer at_test_limited" },
+      });
+      statuses.push(response.status);
+    }
+
+    expect(statuses.map((status) => status === 429)).toEqual([false, false, false, true]);
   });
 
   it("counts a key the same in either header", async () => {

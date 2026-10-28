@@ -135,25 +135,3 @@ export const revokeKey = createServerFn({ method: "POST" })
     await auth().api.deleteApiKey({ headers: getRequestHeaders(), body: { keyId } });
     await forgetLastUse(env.API_KEYS, keyId);
   });
-
-/** An MCP client (Claude, ChatGPT, Cursor…) the user let into a team through OAuth. */
-export interface ClientRow {
-  id: string;
-  name: string;
-  connectedAt: string;
-  lastUsedAt: string | null;
-}
-
-/**
- * The team's MCP clients. A stub until MCP OAuth lands: the backend fills this in with the
- * team's grants, newest first, and `disconnectClient` revokes one.
- */
-export const listClients = createServerFn({ method: "GET" })
-  .validator((organizationId: string) => organizationId)
-  .handler(async (): Promise<ClientRow[]> => []);
-
-export const disconnectClient = createServerFn({ method: "POST" })
-  .validator((clientId: string) => clientId)
-  .handler(async (): Promise<void> => {
-    throw new Error("MCP OAuth is not wired yet");
-  });

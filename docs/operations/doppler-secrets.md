@@ -7,33 +7,33 @@ another project. Cloudflare cannot narrow Workers Scripts or D1 permissions to o
 database, so a per-project token still reaches the whole account; keeping one token per project
 and purpose is what limits a leak to Códice and lets it be revoked on its own.
 
-| Config | Secret                            | Cloudflare token (Handle) | Permissions                 | Used by                                 |
-| ------ | --------------------------------- | ------------------------- | --------------------------- | --------------------------------------- |
-| `dev`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search-dev`    | AI Search Run, Read         | `dev`, `eval` (cannot change the index) |
-| `prd`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search`        | AI Search Write (Edit), Run | `ingest`                                |
-| `prd`  | `CODICE_D1_TOKEN`                 | `codice-d1`               | D1 Edit                     | `ingest` (`wrangler d1 execute`)        |
-| `prd`  | `SENTRY_DSN`                      | –                         | –                           | Worker `codice-api`                     |
-| `prd`  | `ANTHROPIC_API_KEY`               | –                         | –                           | Worker `codice-api` (`POST /v1/chat`)   |
-| `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | `codice-worker-secrets`   | Workers Scripts Edit        | `sync-worker-secrets.yml`               |
-| `prd`  | `BETTER_AUTH_SECRET`              | –                         | –                           | Worker `codice-app` (signs sessions)    |
-| `prd`  | `GOOGLE_CLIENT_ID`                | –                         | –                           | Not set yet: `codice-app` (Google)      |
-| `prd`  | `GOOGLE_CLIENT_SECRET`            | –                         | –                           | Not set yet: `codice-app` (Google)      |
-| `prd`  | `GITHUB_CLIENT_ID`                | –                         | –                           | Not set yet: `codice-app` (GitHub)      |
-| `prd`  | `GITHUB_CLIENT_SECRET`            | –                         | –                           | Not set yet: `codice-app` (GitHub)      |
-| `prd`  | `CODICE_SITE_API_KEY`             | –                         | –                           | Worker `codice-site` (demo chat's key)  |
+| Config | Secret                            | Cloudflare token (Handle) | Permissions                 | Used by                                                        |
+| ------ | --------------------------------- | ------------------------- | --------------------------- | -------------------------------------------------------------- |
+| `dev`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search-dev`    | AI Search Run, Read         | `dev`, `eval` (cannot change the index)                        |
+| `prd`  | `CODICE_AI_SEARCH_TOKEN`          | `codice-ai-search`        | AI Search Write (Edit), Run | `ingest`                                                       |
+| `prd`  | `CODICE_D1_TOKEN`                 | `codice-d1`               | D1 Edit                     | `ingest` (`wrangler d1 execute`)                               |
+| `prd`  | `SENTRY_DSN`                      | –                         | –                           | Worker `codice-api`                                            |
+| `prd`  | `ANTHROPIC_API_KEY`               | –                         | –                           | Worker `codice-api` (`POST /v1/chat`)                          |
+| `prd`  | `CLOUDFLARE_WORKER_SECRETS_TOKEN` | `codice-worker-secrets`   | Workers Scripts Edit        | `sync-worker-secrets.yml`                                      |
+| `prd`  | `BETTER_AUTH_SECRET`              | –                         | –                           | Worker `codice-app` (signs sessions)                           |
+| `prd`  | `GOOGLE_CLIENT_ID`                | –                         | –                           | Worker `codice-app` (Google sign-in)                           |
+| `prd`  | `GOOGLE_CLIENT_SECRET`            | –                         | –                           | Worker `codice-app` (Google sign-in)                           |
+| `prd`  | `GITHUB_CLIENT_ID`                | –                         | –                           | Worker `codice-app` (GitHub sign-in)                           |
+| `prd`  | `GITHUB_CLIENT_SECRET`            | –                         | –                           | Worker `codice-app` (GitHub sign-in)                           |
+| `prd`  | `CODICE_SITE_API_KEY`             | –                         | –                           | Worker `codice-site` (demo chat's key), `codice-synthetic.yml` |
 
 `BETTER_AUTH_SECRET` is a random value of at least 32 characters (`openssl rand -base64 32`);
-rotating it signs every user out. Google and GitHub sign-in are off until their OAuth apps exist:
-the Google OAuth client and the GitHub OAuth app take the callbacks
-`https://codice.io/api/auth/callback/google` and `https://codice.io/api/auth/callback/github`;
-then add their four values here and their names to `secrets.required` in `apps/app/wrangler.jsonc`
-(`apps/app/AGENTS.md`). `CODICE_SITE_API_KEY` is a `cdc_` key of the team `Códice site`
-(`codice-site` in D1 `codice-accounts`); revoking it stops the demo chat until a new one is synced.
+rotating it signs every user out. The Google OAuth client and the GitHub OAuth app take the
+callbacks `https://codice.io/api/auth/callback/google` and
+`https://codice.io/api/auth/callback/github`. `CODICE_SITE_API_KEY` is a `cdc_` key of the team
+`Códice site` (`codice-site` in D1 `codice-accounts`); revoking it stops the demo chat until a new
+one is synced.
 
 ## Worker secret sync
 
 Each Worker declares its secrets in its `wrangler.jsonc` (`secrets.required`): `codice-api`
-(`ANTHROPIC_API_KEY`, `SENTRY_DSN`), `codice-app` (`BETTER_AUTH_SECRET`) and `codice-site`
+(`ANTHROPIC_API_KEY`, `SENTRY_DSN`), `codice-app` (`BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`,
+`GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and `codice-site`
 (`CODICE_SITE_API_KEY`). `.github/workflows/sync-worker-secrets.yml` runs
 `scripts/secrets/sync-worker-secrets.mjs`, which reads every `apps/*/wrangler.jsonc` and pushes to
 each Worker only the names it declares, so the ingestion tokens and the sync's own token never reach
@@ -82,6 +82,9 @@ token, so GitHub holds no long-lived Doppler secret. One-time setup
    `handlemotion-codice-main`; the old `gh oidc` identity with the `trstv` subject is unused and
    can be deleted).
 2. Pin its ID in the workflow's `DOPPLER_IDENTITY_ID` (an ID, not a secret).
+
+`.github/workflows/codice-synthetic.yml` signs in with the same identity and reads only
+`CODICE_SITE_API_KEY` from `prd` (`doppler secrets get`, masked; `monitoring.md`).
 
 GitHub writes the subject with the organization's and repository's numeric IDs, and Doppler
 compares it exactly: an identity set to the plain `repo:handlemotion/codice:…` form fails with

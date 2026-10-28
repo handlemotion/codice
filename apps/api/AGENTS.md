@@ -14,8 +14,8 @@ the behavior changes.
   Search and D1, including the RMF (Phase 1's first source, one passage a regla). Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
   build of this repository's `main` deploys the Worker `codice-api` on the Handle account (root `apps/api`, deploy command
   `pnpm run deploy:production`; SPEC.md, "Go-live checklist"), and `codice-corpus.yml` and
-  `sync-worker-secrets.yml` run from here. No route or custom domain yet, and `codice.io` is not
-  purchased; attaching it needs explicit approval.
+  `sync-worker-secrets.yml` run from here. No route of its own: since 2026-10-28 `codice.io` is a custom domain of the edge Worker
+  `codice-edge`, which forwards `/v1`, `/mcp`, `/health` and `/ready` here.
 - Search is AI Search's: never add chunking, embedding or ranking code here. Change the instance's
   settings only with a retrieval eval run (`pnpm --filter @codice/api eval`) recorded
   in SPEC.md.
@@ -27,10 +27,12 @@ the behavior changes.
 - D1 schema is Drizzle in `src/db/schema.ts`; change it, then `db:generate`. Never hand-write
   `migrations/`, and never run `db:migrate:remote` yourself: it runs in `deploy:production`.
 - Every response carries `x-request-id`. `/v1` bodies use `apiJson` (`src/http.ts`), errors use
-  `problem` (throw `CodiceProblem` from a handler). `/v1/*` and `/mcp/*` require a team's API key,
-  verified by `codice-app` over the `ACCOUNTS` binding, then pass `CODICE_PUBLIC_RATE_LIMITER`
-  keyed by the key id (SPEC.md, "Auth", "Rate limiting"). Tests stub `ACCOUNTS` with
-  `test/accounts-stub.js`: any `cdc_test_<id>` key is valid.
+  `problem` (throw `CodiceProblem` from a handler). `/v1/*` requires a team's API key and `/mcp/*`
+  an OAuth access token or a key, both verified by `codice-app` over the `ACCOUNTS` binding, then
+  pass `CODICE_PUBLIC_RATE_LIMITER` keyed by the key id or the OAuth user (SPEC.md, "Auth", "MCP
+  authorization", "Rate limiting"). `/.well-known/oauth-protected-resource` (and `/mcp` under it)
+  is `/mcp`'s OAuth metadata. Tests stub `ACCOUNTS` with `test/accounts-stub.js`: any
+  `cdc_test_<id>` key is valid, and so is any `at_test_<user>` access token.
 - `wrangler dev` reaches the real AI Search instance (`"remote": true`): a local search is a real,
   billed query. Tests use a local binding and never prove retrieval.
 - Local run: `pnpm dev:up` starts Códice on `https://codice.localhost`, applies the local

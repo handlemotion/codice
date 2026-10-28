@@ -36,9 +36,12 @@ This file records only where the dashboard adds to it or departs from it. Values
   the line, `/` focuses it; "Nueva conversación" starts over.
 - **Claves** (`/keys`): a new key (shown once, with copy), the team's keys (revoke asks in place,
   no dialog), and "Conectar": the API and MCP URLs and the header to copy.
-- **Clientes** (`/clients`): the MCP clients connected to the team through OAuth, each
-  disconnected in place, and the MCP URL to connect another. The data is a stub
-  (`listClients`, `disconnectClient` in `src/server/functions.ts`) until MCP OAuth lands.
+- **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected
+  in place, and the MCP URL to connect another.
 - **Cuenta** (`/account`): profile (name editable), the team's members, the user's other teams to
   switch to, and preferences (theme, sign out).
-- **Entrar** (`/login`): the mark and one island with the email code and the social buttons.
+- **Entrar** (`/login`) and **Conectar** (`/consent`): no card and no rail. One narrow column on
+  the ground: the mark on an electric tile, a bold title with one `muted` line, then full-width
+  40px fields and buttons. Fields and secondary buttons take the island's look (white by day, a
+  hairline at night); the primary is electric. Sign-in is the email code, then "o" and the
+  Google and GitHub buttons with their logos in `fg`.

@@ -2,19 +2,16 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Copyable, GHOST, ORIGIN, PRIMARY, Page, Section, dateFormat } from "../../components/ui";
-import { disconnectClient, listClients } from "../../server/functions";
+import { disconnectConnectedClient, getConnectedClients } from "../../server/oauth-functions";
 
 export const Route = createFileRoute("/_dashboard/clients")({
   head: () => ({ meta: [{ title: "Clientes · Códice" }] }),
-  loader: async ({ context }) => {
-    const team = context.dashboard.team;
-    return { team, clients: team ? await listClients({ data: team.id }) : [] };
-  },
+  loader: async () => ({ clients: await getConnectedClients() }),
   component: Clients,
 });
 
 function Clients() {
-  const { team, clients } = Route.useLoaderData();
+  const { clients } = Route.useLoaderData();
   const router = useRouter();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +21,7 @@ function Clients() {
     setBusy(true);
     setError(null);
     try {
-      await disconnectClient({ data: clientId });
+      await disconnectConnectedClient({ data: clientId });
       setConfirming(null);
       await router.invalidate();
     } catch {
@@ -36,23 +33,23 @@ function Clients() {
 
   return (
     <Page title="Clientes">
-      <Section note={team?.name} title="Conectados">
+      <Section title="Conectados">
         {clients.length === 0 ? (
           <p className="text-muted">Ningún asistente está conectado.</p>
         ) : (
           <ul className="-my-3 flex flex-col divide-y divide-edge">
             {clients.map((client) => (
-              <li className="flex items-center justify-between gap-4 py-3" key={client.id}>
+              <li className="flex items-center justify-between gap-4 py-3" key={client.clientId}>
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate">{client.name}</span>
                   <span className="truncate text-[13px] text-muted">
                     Conectado el {dateFormat.format(new Date(client.connectedAt))}
-                    {client.lastUsedAt
-                      ? ` · Usado el ${dateFormat.format(new Date(client.lastUsedAt))}`
+                    {client.lastActiveAt
+                      ? ` · Activo el ${dateFormat.format(new Date(client.lastActiveAt))}`
                       : " · Sin usar"}
                   </span>
                 </div>
-                {confirming === client.id ? (
+                {confirming === client.clientId ? (
                   <span className="flex shrink-0 items-center gap-3">
                     <button className={GHOST} onClick={() => setConfirming(null)} type="button">
                       Cancelar
@@ -60,7 +57,7 @@ function Clients() {
                     <button
                       className={PRIMARY}
                       disabled={busy}
-                      onClick={() => void disconnect(client.id)}
+                      onClick={() => void disconnect(client.clientId)}
                       type="button"
                     >
                       Desconectar
@@ -70,7 +67,7 @@ function Clients() {
                   <button
                     className={GHOST}
                     disabled={busy}
-                    onClick={() => setConfirming(client.id)}
+                    onClick={() => setConfirming(client.clientId)}
                     type="button"
                   >
                     Desconectar

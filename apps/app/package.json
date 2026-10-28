@@ -17,7 +17,10 @@
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.14",
+    "@better-auth/cimd": "1.7.14",
     "@better-auth/core": "1.7.14",
+    "@better-auth/mcp": "1.7.14",
+    "@better-auth/oauth-provider": "1.7.14",
     "@central-icons-react/square-outlined-radius-0-stroke-1.5": "1.2.22",
     "@codice/contracts": "workspace:*",
     "@radix-ui/react-tooltip": "1.4.1",
@@ -28,6 +31,7 @@
     "@tanstack/react-start": "1.168.48",
     "better-auth": "1.7.14",
     "drizzle-orm": "^0.45.2",
+    "jose": "6.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "streamdown": "2.5.0",

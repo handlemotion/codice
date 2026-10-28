@@ -1,9 +1,9 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
-import { authClient } from "../auth-client";
+import { authClient, inAuthorization } from "../auth-client";
 import { Mark } from "../brand/mark";
-import { FIELD, ISLAND, PRIMARY, SECONDARY } from "../components/ui";
+import { GHOST, PRIMARY, SECONDARY } from "../components/ui";
 import type { SocialProvider } from "../server/auth";
 import { getDashboard, getSignInProviders } from "../server/functions";
 
@@ -16,11 +16,42 @@ export const Route = createFileRoute("/login")({
   component: Login,
 });
 
-const PROVIDER_LABELS: Record<SocialProvider, string> = {
-  google: "Continuar con Google",
-  github: "Continuar con GitHub",
+// On the ground, with no card: white by day, a hairline at night, like an island.
+const FIELD =
+  "h-10 w-full rounded-[2px] border border-edge bg-island px-3 outline-none placeholder:text-muted focus:border-fg disabled:text-muted";
+const WIDE = "h-10 w-full text-[14px]";
+
+function GoogleLogo() {
+  return (
+    <svg aria-hidden className="size-4" viewBox="0 0 24 24">
+      <path
+        d="M21.35 11.1H12v3.2h5.35c-.5 2.4-2.6 3.9-5.35 3.9a6.2 6.2 0 1 1 0-12.4c1.55 0 2.95.55 4.05 1.5l2.4-2.4A9.6 9.6 0 0 0 12 2.4a9.6 9.6 0 1 0 0 19.2c5.55 0 9.6-3.9 9.6-9.6 0-.65-.1-1.3-.25-1.9Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function GitHubLogo() {
+  return (
+    <svg aria-hidden className="size-4" viewBox="0 0 24 24">
+      <path
+        d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.58 9.58 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+const PROVIDERS: Record<SocialProvider, { label: string; Logo: () => React.JSX.Element }> = {
+  google: { label: "Continuar con Google", Logo: GoogleLogo },
+  github: { label: "Continuar con GitHub", Logo: GitHubLogo },
 };
 
+/**
+ * Sign-in: the mark, a title and its line, then the email code and the social buttons straight on
+ * the ground, in one narrow column. During an MCP client's authorization it resumes it.
+ */
 function Login() {
   const { providers } = Route.useLoaderData();
   const navigate = useNavigate();
@@ -53,7 +84,9 @@ function Login() {
       () => authClient.signIn.emailOtp({ email, otp }),
       "El código no es válido o ya venció.",
     );
-    if (ok) await navigate({ to: "/" });
+    // During an MCP client's authorization, the sign-in answers with the next step (consent
+    // or the client's redirect) and the auth client follows it.
+    if (ok && !inAuthorization()) await navigate({ to: "/" });
   }
 
   function social(provider: SocialProvider) {
@@ -63,27 +96,35 @@ function Login() {
     );
   }
 
+  function restart() {
+    setSent(false);
+    setOtp("");
+    setError(null);
+  }
+
   return (
-    <main className="mx-auto flex min-h-svh max-w-[24rem] flex-col justify-center gap-6 px-4 py-16">
-      <a aria-label="Sitio de Códice" className="flex w-fit items-center gap-2.5" href="/?site">
-        <Mark className="size-5" strokeWidth={1.5} />
-        <span className="[text-box:trim-both_cap_alphabetic]">Códice</span>
-      </a>
-      <div className={`${ISLAND} flex flex-col gap-4 p-6`}>
-        <h1 className="font-bold">Entrar</h1>
+    <main className="mx-auto flex min-h-svh w-full max-w-[22rem] flex-col justify-center gap-8 px-4 py-16">
+      <div className="flex flex-col gap-5">
+        <a
+          aria-label="Sitio de Códice"
+          className="grid size-10 place-items-center rounded-[4px] bg-electric text-white"
+          href="/?site"
+        >
+          <Mark className="size-6" radius={9} strokeWidth={1.5} />
+        </a>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-[20px] leading-snug font-bold">Entrar a Códice</h1>
+          <p className="text-muted">
+            {sent
+              ? `Enviamos un código de 6 dígitos a ${email}. Vence en 10 minutos.`
+              : "El contexto fiscal de México para tus agentes."}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
         <form className="flex flex-col gap-2" onSubmit={submit}>
-          <input
-            aria-label="Correo"
-            autoComplete="email"
-            className={FIELD}
-            disabled={sent}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="tu@empresa.com"
-            required
-            type="email"
-            value={email}
-          />
-          {sent && (
+          {sent ? (
             <input
               aria-label="Código"
               autoComplete="one-time-code"
@@ -91,38 +132,63 @@ function Login() {
               className={`${FIELD} font-mono tracking-[0.3em]`}
               inputMode="numeric"
               maxLength={6}
-              onChange={(event) => setOtp(event.target.value)}
+              onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
               placeholder="000000"
               required
               value={otp}
             />
+          ) : (
+            <input
+              aria-label="Correo"
+              autoComplete="email"
+              autoFocus
+              className={FIELD}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="tu@empresa.com"
+              required
+              type="email"
+              value={email}
+            />
           )}
-          <button className={PRIMARY} disabled={busy} type="submit">
-            {sent ? "Entrar" : "Enviarme un código"}
+          {error && <p className="text-[13px] text-muted">{error}</p>}
+          <button className={`${PRIMARY} ${WIDE}`} disabled={busy} type="submit">
+            {sent ? "Entrar" : "Continuar con correo"}
           </button>
         </form>
-        {sent && (
-          <p className="text-[13px] text-muted">
-            Enviamos un código a {email}. Vence en 10 minutos.
-          </p>
+
+        {!sent && providers.length > 0 && (
+          <>
+            <div aria-hidden className="flex items-center gap-3 text-[13px] text-muted">
+              <span className="h-px flex-1 bg-edge" />o<span className="h-px flex-1 bg-edge" />
+            </div>
+            {providers.map((provider) => {
+              const { label, Logo } = PROVIDERS[provider];
+              return (
+                <button
+                  className={`${SECONDARY} ${WIDE} border-edge bg-island`}
+                  disabled={busy}
+                  key={provider}
+                  onClick={() => social(provider)}
+                  type="button"
+                >
+                  <Logo />
+                  {label}
+                </button>
+              );
+            })}
+          </>
         )}
-        {providers.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {providers.map((provider) => (
-              <button
-                className={SECONDARY}
-                disabled={busy}
-                key={provider}
-                onClick={() => social(provider)}
-                type="button"
-              >
-                {PROVIDER_LABELS[provider]}
-              </button>
-            ))}
-          </div>
-        )}
-        {error && <p className="text-[13px] text-muted">{error}</p>}
       </div>
+
+      <p className="text-[13px] text-muted">
+        {sent ? (
+          <button className={GHOST} onClick={restart} type="button">
+            Usar otro correo
+          </button>
+        ) : (
+          "Si es tu primera vez, entrar crea tu cuenta."
+        )}
+      </p>
     </main>
   );
 }

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as DashboardRouteImport } from "./routes/_dashboard";
+import { Route as ConsentRouteImport } from "./routes/consent";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as DashboardIndexRouteImport } from "./routes/_dashboard/index";
 import { Route as DashboardAccountRouteImport } from "./routes/_dashboard/account";
@@ -20,6 +21,11 @@ import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
 
 const DashboardRoute = DashboardRouteImport.update({
   id: "/_dashboard",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ConsentRoute = ConsentRouteImport.update({
+  id: "/consent",
+  path: "/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
 const LoginRoute = LoginRouteImport.update({
@@ -60,6 +66,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof DashboardIndexRoute;
+  "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
   "/account": typeof DashboardAccountRoute;
   "/clients": typeof DashboardClientsRoute;
@@ -68,6 +75,7 @@ export interface FileRoutesByFullPath {
   "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRoutesByTo {
+  "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
   "/account": typeof DashboardAccountRoute;
   "/clients": typeof DashboardClientsRoute;
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_dashboard": typeof DashboardRouteWithChildren;
+  "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
   "/_dashboard/account": typeof DashboardAccountRoute;
   "/_dashboard/clients": typeof DashboardClientsRoute;
@@ -89,12 +98,21 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/login" | "/account" | "/clients" | "/keys" | "/api/chat" | "/api/auth/$";
+  fullPaths:
+    | "/"
+    | "/consent"
+    | "/login"
+    | "/account"
+    | "/clients"
+    | "/keys"
+    | "/api/chat"
+    | "/api/auth/$";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/login" | "/account" | "/clients" | "/keys" | "/api/chat" | "/" | "/api/auth/$";
+  to: "/consent" | "/login" | "/account" | "/clients" | "/keys" | "/api/chat" | "/" | "/api/auth/$";
   id:
     | "__root__"
     | "/_dashboard"
+    | "/consent"
     | "/login"
     | "/_dashboard/account"
     | "/_dashboard/clients"
@@ -106,6 +124,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren;
+  ConsentRoute: typeof ConsentRoute;
   LoginRoute: typeof LoginRoute;
   ApiChatRoute: typeof ApiChatRoute;
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute;
@@ -118,6 +137,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof DashboardRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/consent": {
+      id: "/consent";
+      path: "/consent";
+      fullPath: "/consent";
+      preLoaderRoute: typeof ConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/login": {
@@ -190,6 +216,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(DashboardRout
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  ConsentRoute: ConsentRoute,
   LoginRoute: LoginRoute,
   ApiChatRoute: ApiChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

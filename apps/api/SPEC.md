@@ -1,7 +1,8 @@
 # Códice: specification
 
 Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git build since the
-cutover on 2026-10-25, with no route or custom domain: Transitive's Agent reaches it through its
+cutover on 2026-10-25, with no route of its own: since 2026-10-28 the public host `codice.io` is a
+custom domain of the edge Worker `codice-edge`, and Transitive's Agent reaches it through its
 `CODICE` service binding. Phase 1 has begun with the RMF. The Worker serves the whole
 [HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind a team's API key and its per-key rate limit
@@ -364,8 +365,9 @@ Each is a thin call to the same handler as `/v1` and returns its `data` as `stru
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
 status } }`, the problem's code and status. `lookup_catalog`'s optional `where` object
 (`{ c_CodigoPostal: "01000" }`) is the route's column filters. All are annotated read-only and idempotent. Built with `createMcpHandler` from the `agents` package, as in
-`apps/mcp`. Read-only; it takes the same API key as `/v1` (`Authorization: Bearer cdc_…`, which
-MCP clients send) and shares the key's rate limit.
+`apps/mcp`. Read-only. MCP clients connect with OAuth ([MCP authorization](#mcp-authorization));
+a team's API key (`Authorization: Bearer cdc_…` or `x-api-key`) still works, and shares the key's
+rate limit with `/v1`.
 
 ### Chat
 
@@ -412,7 +414,8 @@ that one named a law article that no tool had returned ("artículo 29-A del CFF"
 
 `/v1/*` and `/mcp/*` pass the Workers rate-limit binding `CODICE_PUBLIC_RATE_LIMITER` (namespace
 `1601`, 60 requests per 60 seconds), keyed per API key by its id (`key:<keyId>`), after the key is
-verified. Over the limit: `429` problem+json, code `rate_limited`, `retry-after: 60`. `/`,
+verified, and on `/mcp` per user signed in through OAuth (`user:<userId>`), shared by all of that
+user's MCP clients. Over the limit: `429` problem+json, code `rate_limited`, `retry-after: 60`. `/`,
 `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) are not limited. A refused
 key never reaches the limiter, so a request without a valid key costs no limit and no query.
 
@@ -428,12 +431,66 @@ the dashboard (`apps/app`, `/keys`):
   where Better Auth's api-key plugin keeps the hashed keys, never D1, and records the key's last use
   at most once a minute per isolate.
 - Missing, unknown, revoked or expired → `401` problem+json, code `unauthorized`, with
-  `www-authenticate: Bearer realm="codice"`. A binding failure is a `500`.
+  `www-authenticate: Bearer realm="codice"`. A binding failure is a `500`. `/mcp` without a
+  credential answers with its OAuth challenge instead ([MCP authorization](#mcp-authorization)).
 - `/`, `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) stay open.
 - A revoked key can still pass for up to a minute: KV caches a read at each location for 60 seconds.
 - Keys belong to a team (a Better Auth organization); each new user gets a personal team. Only a
   team's owner can create and revoke its keys. Accounts, sessions and teams are in D1
   `codice-accounts`, bound to `codice-app` only.
+
+### MCP authorization
+
+`/mcp` is an OAuth 2.1 protected resource under the MCP authorization spec, revision 2026-07-28
+(<https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization>): an MCP client
+gets only the URL `https://codice.io/mcp`, and the user signs in and approves it in the browser.
+`codice-app` is the authorization server (Better Auth 1.7.14: `mcp()` from `@better-auth/mcp`,
+`cimd()` from `@better-auth/cimd`, `jwt()`; `apps/app/src/server/auth.ts`); `codice-api` is the
+resource server.
+
+- **Discovery.** `/mcp` without a credential → `401` with
+  `www-authenticate: Bearer realm="codice", resource_metadata="https://codice.io/.well-known/oauth-protected-resource/mcp", scope="codice:read"`.
+  That URL (and the root `/.well-known/oauth-protected-resource`, which clients try next) is the
+  protected resource metadata (RFC 9728), served by `codice-api` (the edge routes the prefix to
+  it): `resource` `https://codice.io/mcp`, `authorization_servers` `["https://codice.io/api/auth"]`,
+  `scopes_supported` `["codice:read"]`, `bearer_methods_supported` `["header"]`. Both values come
+  from `codice-app` (`CodiceAccounts.mcpAuthorization()`), so the Workers cannot disagree. The
+  authorization server's metadata (RFC 8414) is at
+  `/.well-known/oauth-authorization-server/api/auth` (`codice-app` hands it to Better Auth): PKCE
+  `S256` only, `client_id_metadata_document_supported: true`, `iss` in the authorization response
+  (RFC 9207), scopes `codice:read` and `offline_access`, grants `authorization_code` and
+  `refresh_token` only.
+- **Client registration.** Client ID Metadata Documents (the spec's preferred way): the
+  `client_id` is the HTTPS URL of the client's metadata, fetched by `codice-app` under the
+  `mcp-2026-07-28` profile (`src/server/client-metadata-fetch.ts`: HTTPS GET only, no redirects;
+  `cimd()` refuses non-public hosts; `global_fetch_strictly_public` keeps it off the account's own
+  zones and Workers). Dynamic Client Registration (RFC 7591), deprecated by the spec, stays on,
+  without authentication as MCP clients need, for the clients that have not moved yet; a loopback
+  redirect needs `application_type: "native"`. A registered client gets nothing without the
+  user's consent.
+- **Sign-in and consent.** `/api/auth/oauth2/authorize` sends a signed-out user to `/login`
+  (signing in resumes the authorization: the browser client sends the signed query as
+  `oauth_query`) and a signed-in one to `/consent`, which shows the client's name, its scopes,
+  the host it returns to, and a warning for a loopback-only client. Approval is stored per user
+  and client (`oauth_consent`).
+- **Tokens.** The access token is an EdDSA JWT (`typ` `at+jwt`) for 1 hour, `aud` the `/mcp`
+  resource (the client must send RFC 8707 `resource`), `sub` the user, `azp` the client. With
+  `offline_access`, which MCP clients add because the authorization server lists it, a refresh
+  token comes too, rotated on each use (a 30-second reuse window for retries). Tables: `jwks`,
+  `oauth_*` in D1 `codice-accounts`.
+- **Verification.** `/mcp` sends a bearer that does not start with `cdc_` to
+  `CodiceAccounts.verifyAccessToken`: signature against the `jwt()` keys (read from D1 once per
+  isolate, again for an unknown key id at most every 30 seconds), issuer, audience, expiry,
+  `typ`, no DPoP binding (`cnf`; `/mcp` does not check DPoP proofs), and no disconnect since it was
+  issued. Invalid → `401` with the challenge and `error="invalid_token"`. Valid without
+  `codice:read` → `403` problem+json `insufficient_scope` with `error="insufficient_scope"`. `/v1`
+  never takes these tokens: they are for `/mcp` only.
+- **Connected clients.** A user's consents are their connected MCP clients
+  (`listConnectedClients` in `apps/app/src/server/connected-clients.ts`, as the server function
+  `getConnectedClients`): name, URL, scopes, when connected, when it last got a token.
+  Disconnecting (`disconnectConnectedClient`) deletes the consent and the client's refresh and
+  access tokens, and writes a KV mark that refuses the JWTs it already holds, so access ends
+  within a minute (KV's cache).
 
 Why not AI Search's own public endpoint, which also serves `/mcp`: it exposes one `search` tool and
 cannot apply the validity filter by default, so a client could get a repealed rule, and it cannot
@@ -540,7 +597,9 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   `eval --min-top3 155` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~170 AI Search queries.
+  runs on pull requests: each run spends ~170 AI Search queries. Job `alert` turns a failed run into
+  the GitHub issue "Códice corpus failed", with the failed step and the unfinished item keys, and
+  closes it on the next green run ([Monitoring and deploy](#monitoring-and-deploy)).
 - Indexing time, measured 2026-10-25 on a comparison instance with `codice`'s settings: the 1,734
   passages with the RMF uploaded in 6 minutes, and 1,733 had indexed 51 minutes after the upload
   began; one (`rmf-2026/regla-12.3.16.md`) stayed `running` past that. Such an item fails the
@@ -828,12 +887,21 @@ as `apps/providers` does. It runs only from the Cloudflare Git build of `main`.
 `sync-worker-secrets.yml` pushes `SENTRY_DSN` (and only that name) from Doppler `codice` `prd` to
 the Worker; it skips the Worker while the script or the secret does not exist.
 
+Alerts (`docs/operations/monitoring.md`): a failed run of `codice-corpus.yml` or
+`sync-worker-secrets.yml` opens or comments on a GitHub issue labelled `ops-alert`, assigned to the
+repository owner, naming the failed steps and, for the corpus, the items AI Search did not finish
+indexing; the next green run closes it (`scripts/ops/alert-issue.mjs`, no secret needed).
+`codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` every
+10 minutes with the site's key and alerts the same way on a non-200, an unexpected body or a call
+over 1, 8 or 1.5 seconds, against `https://codice.io` (a manual run can name another base URL).
+Sentry alert rules for errors
+and the `ai_search.search` p95 are proposed there and not created yet.
+
 ### Go-live checklist
 
 Since the cutover on 2026-10-25 (`docs/operations/cutover.md`) this repository builds and deploys
 the Worker, syncs its secret (`sync-worker-secrets.yml`) and refreshes the corpus
-(`codice-corpus.yml`). Steps 1 to 6 are done; step 7 waits on `codice.io`, which is not purchased.
-Each remaining step needs explicit approval.
+(`codice-corpus.yml`). Steps 1 to 7 are done (step 7 on 2026-10-28).
 
 Status 2026-10-25: the Cloudflare Git build of `trstv/codice` `main` (root `apps/api`, deploy
 command `pnpm run deploy:production`) deployed version `a6945917`, the active deployment. The
@@ -876,9 +944,12 @@ is unset. So the order is fixed:
    migrations step ran with none pending and the source maps uploaded. After each merge, verify
    with `cf builds list`, `cf workers versions list` and `cf workers deployments list`, and that the
    Sentry release for the commit has source maps.
-7. **Attach `codice.io`** (not purchased). Buy the domain and add its zone to the account, then a
-   PR with the custom domain route in `apps/api/wrangler.jsonc`. Verify
-   `GET https://codice.io/ready` → 200.
+7. **Attach `codice.io`** (done 2026-10-28). The zone is on the Handle account (active
+   2026-10-28 03:50 UTC) and the domain is a custom domain of `codice-edge`, attached from the
+   dashboard and declared in `apps/edge/wrangler.jsonc` so its deploys keep it; `codice-edge`
+   forwards `/v1`, `/mcp`, `/health` and `/ready` here. Verify `GET https://codice.io/ready` → 200;
+   `codice-synthetic.yml` repeats that check every 10 minutes
+   (`docs/operations/monitoring.md`).
 
 ## Rollout
 
@@ -887,7 +958,7 @@ is unset. So the order is fixed:
    deployed 2026-10-25).
 3. The Agent calls Códice through a service binding and deletes its bundled search (done).
 4. Register the Cloudflare Git build (done 2026-10-25, from this repository) and attach
-   `codice.io` (not purchased; needs explicit approval).
+   `codice.io` (done 2026-10-28, on `codice-edge`).
 5. Phases 1 and 2 of the corpus; public launch.
 
 ## Next steps
@@ -910,8 +981,8 @@ to match.
 3. **The rest of the API** (done). `GET /v1/passages/:id` (from D1 since `0006`), `GET /v1/sources`
    and `/v1/sources/:id`, and the MCP tools `read_passage`, `lookup_error`, `lookup_catalog` and
    `list_sources`.
-4. **Deploy** (done 2026-10-25 from this repository's Git build). Left: attach `codice.io` once
-   it is purchased (Go-live checklist, step 7; explicit approval).
+4. **Deploy** (done 2026-10-25 from this repository's Git build); `codice.io` attached to
+   `codice-edge` on 2026-10-28 (Go-live checklist, step 7).
 5. **Agent switch-over** (Rollout 3, done): the Agent calls `CodiceKnowledge` through its `CODICE`
    service binding and no longer bundles `docs/sat-md`. `sat:knowledge` and the passage splitter
    (`sections.ts`) live here, in `scripts/`.
@@ -942,8 +1013,13 @@ to match.
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
     `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
-    Email Sending for `codice.io`, the OAuth apps. Next: usage per key on the overview, and member
+    Email Sending for `codice.io`. Next: usage per key on the overview, and member
     roles beyond the owner.
+11. **MCP over OAuth** (done in code, see [MCP authorization](#mcp-authorization)). MCP clients
+    connect with the URL alone, by Client ID Metadata Document or Dynamic Client Registration,
+    and the user's connected clients are listed and disconnected through `codice-app`'s server
+    functions. Proved locally end to end with the MCP TypeScript SDK 2.0 and Chromium, by DCR and
+    with Claude's published metadata document. Next: the dashboard page that lists them.
 
 ## Open questions
 

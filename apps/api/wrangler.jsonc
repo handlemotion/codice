@@ -6,8 +6,8 @@
   "minify": true,
   "compatibility_date": "2026-08-14",
   "compatibility_flags": ["nodejs_compat"],
-  // No route or custom domain yet: codice.io is attached only with explicit approval. See
-  // SPEC.md, "Go-live checklist".
+  // No route of its own: `codice.io` belongs to `codice-edge`, which forwards `/v1`, `/mcp`,
+  // `/health` and `/ready` here. See SPEC.md, "Go-live checklist".
   "workers_dev": false,
   "version_metadata": {
     "binding": "CF_VERSION_METADATA",
