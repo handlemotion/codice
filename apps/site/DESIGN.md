@@ -103,9 +103,9 @@ marks turning while Códice answers), and the favicon.
 ### First screen: the chat, alone
 
 - A fixed height (`85svh`, at least 560px), so a conversation scrolls inside it.
-- The hero title (the page's `h1`, 20px, one sentence) starts on the
-  bar's left edge, under the mark; the composer sits under it (max 36rem wide), over the wave
-  field. No section label, no dividers.
+- The hero title (the page's `h1`, 20px, two lines on desktop) and the chat under it (max 38rem)
+  start on the sections' text column (48%, the line of the bar's links), a little above the
+  middle, over the wave field; on phones they start under the bar. No section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
   page's links (Producto, Documentación, Precios), 48px apart, with no fill and drawn with
   `mix-blend-mode: difference` so they stay readable over whatever scrolls under them, start on the text

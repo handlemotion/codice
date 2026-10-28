@@ -15,22 +15,15 @@ const NAV_LINKS = [
  * becomes its ground); elsewhere `grounded` gives it the page's ground and a bottom hairline.
  * Narrow, it is the mark and the links side by side on the left; from 1280px the mark carries the
  * name and the links move to the text column's edge (48%), in line with the home's sections.
- * `brand={false}` hides the mark from 1024px up, where the home's hero title takes its place.
  */
-export function SiteBar({
-  brand = true,
-  grounded = false,
-}: {
-  brand?: boolean;
-  grounded?: boolean;
-}) {
+export function SiteBar({ grounded = false }: { grounded?: boolean }) {
   return (
     <div
       className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center gap-6 px-4 sm:px-6 ${grounded ? "border-b border-line bg-ink" : ""}`}
     >
       <a
         aria-label="Códice, inicio"
-        className={`pointer-events-auto flex h-7 shrink-0 items-center gap-2.5 transition-opacity duration-300 ${brand ? "" : "lg:pointer-events-none lg:opacity-0"}`}
+        className="pointer-events-auto flex h-7 shrink-0 items-center gap-2.5"
         href="/"
       >
         <Mark className="size-4" strokeWidth={1.5} />

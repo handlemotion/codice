@@ -1,18 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { Ask } from "../ask";
 import { SiteBar } from "../components/site-bar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { Mark, MarkField } from "../brand/mark";
 
-// `?hero=columna` is a layout under comparison: the hero on the sections' text column instead of
-// under the bar's brand.
-export const Route = createFileRoute("/")({
-  component: Home,
-  validateSearch: (search: Record<string, unknown>): { hero?: "columna" } =>
-    search.hero === "columna" ? { hero: "columna" } : {},
-});
+export const Route = createFileRoute("/")({ component: Home });
 
 // The page is a ruled sheet: a margin column for the section's name and a text column that
 // starts just right of center, like a note written in a codex's outer margin. Every cell keeps
@@ -56,7 +50,7 @@ const STRIP = "h-[60px] -top-4 sm:h-[76px] sm:-top-6";
  * sticks under the top bar; as it slides up beneath the bar its content fades out, so what stays
  * is its fill and bottom border, the bar's ground from then on.
  */
-function Strip({ onStuck }: { onStuck: (stuck: boolean) => void }) {
+function Strip() {
   const content = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const strip = content.current?.parentElement;
@@ -73,7 +67,6 @@ function Strip({ onStuck }: { onStuck: (stuck: boolean) => void }) {
         content.current.style.opacity = String(visible);
         content.current.style.visibility = visible === 0 ? "hidden" : "visible";
       }
-      onStuck(visible === 0);
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -86,7 +79,7 @@ function Strip({ onStuck }: { onStuck: (stuck: boolean) => void }) {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [onStuck]);
+  }, []);
 
   return (
     <section
@@ -125,33 +118,27 @@ const LINK = "underline decoration-line underline-offset-4 hover:decoration-fg";
 
 // The dashboard lives on the same host; `/login` and `/keys` are its routes (apps/edge).
 function Home() {
-  // On desktop the hero's title sits where the bar's brand is; the brand comes back once the
-  // logo strip is under the bar and gives it its ground.
-  const [grounded, setGrounded] = useState(false);
-  const column = Route.useSearch().hero === "columna";
   return (
     <div className="min-h-dvh text-[14px] leading-[1.7]">
       {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
           marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
           border become its ground (see `Strip`). */}
-      <SiteBar brand={column || grounded} />
+      <SiteBar />
 
       {/* The first screen, over a field of marks rolling corner to corner like a wave: the title
-          on the bar's left edge, under the mark, and the chat below it. A fixed height, so a
-          conversation scrolls inside it and docks its composer at the bottom. */}
-      <header
-        className={`relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 ${column ? "lg:justify-center lg:pb-[12vh] lg:pl-[calc(48%+24px)]" : "lg:pt-3"}`}
-      >
+          and the chat on the sections' text column (48%), a little above the middle; on phones,
+          under the bar. A fixed height, so a conversation scrolls inside it. */}
+      <header className="relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 lg:justify-center lg:pb-[12vh] lg:pl-[calc(48%+24px)]">
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
         <div
-          className={`relative flex min-h-0 w-full max-w-[30rem] flex-1 flex-col ${column ? "lg:max-h-[440px]" : ""}`}
+          className="relative flex min-h-0 w-full max-w-[38rem] flex-1 flex-col lg:max-h-[440px]"
           id="preguntar"
         >
           <Ask />
         </div>
       </header>
 
-      <Strip onStuck={setGrounded} />
+      <Strip />
 
       <main className="relative">
         <Section id="que-es" title="Qué es">
