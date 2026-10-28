@@ -77,11 +77,11 @@ records, not prose: they go to D1, not to search.
 
 ## Corpus
 
-| Phase | Sources                                                                                                                                                                                                                                   |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.                                                                 |
-| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements (their filling guides in `docs/sat-md` since 2026-10-28). |
-| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                                                                             |
+| Phase | Sources                                                                                                                                                                                                                                                   |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.                                                                                 |
+| 1     | CFF (loaded: `cff`), LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements (their filling guides in `docs/sat-md` since 2026-10-28). |
+| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                                                                                             |
 
 The AI Search website crawler only crawls domains we own, so SAT and DOF pages are fetched by our
 ingestion and uploaded as items (`.html` items are converted to Markdown by AI Search).
@@ -115,7 +115,9 @@ the Phase 0 passages (520 since the parser change).
   section, anchored by its short path: `nodo-receptor-usocfdi`, `apendice-6-pregunta-6`,
   `apendice-8-3` for the third part of an appendix), and
   `matriz-de-errores-cfdi-40` (one item a code, such as `cfdi40149`). Phase 1: `rmf-2026`, one
-  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)). A passage
+  item a regla, anchored by its number (`regla-2.7.1.21`; see [Ingestion](#ingestion)), and `cff`,
+  one item an article, anchored by its number (`articulo-29-a`, `articulo-17-h-bis`, `articulo-1`
+  for `Artículo 1o.`). A passage
   whose text a newer one replaced keeps its text under `<source>/<anchor>.<valid_from>.md`
   (`rmf-2026/regla-2.7.1.21.20251228.md`; see [Versions](#versions)).
 - **Body:** the passage's verbatim Markdown, preceded by its heading path.
@@ -133,7 +135,8 @@ range filter never meets a missing value. The Items API takes metadata values as
 these two as numbers, as the instance's schema types them. A guide or matrix passage's
 `valid_from` is its source's publication date; a regla of the RMF has its own: the DOF date of the
 version the SAT's compilation holds (`20251228` for the RMF as published, `20260709` for a regla the
-Primera RMRMF changed or added). An unchanged passage keeps the `valid_from` of the first version
+Primera RMRMF changed or added). An article of the CFF has the law's last reform (`20260409`), with
+`authority` `Congreso` and `kind` `ley`. An unchanged passage keeps the `valid_from` of the first version
 that held its text. `valid_until` is `99991231` while in force, and the day before the text that
 replaced it starts once superseded ([Versions](#versions)).
 
@@ -683,6 +686,22 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   c_ClavePedimento, …), their error matrices (`Matriz_Errores_CCP_V31.xls`,
   `Matriz_de_Errores_CCE_v2.0.xls`) and the Carta Porte questions
   (`Preguntas_frecuentes_CartaPorte_31.pdf`); see [Next steps](#next-steps).
+- The CFF (Phase 1), and the laws after it: `sat:knowledge` downloads the law's text in force from
+  the Cámara de Diputados' "Leyes Federales Vigentes" page
+  (<https://www.diputados.gob.mx/LeyesBiblio/index.htm>; the CFF at `pdf/CFF.pdf`, a fixed URL a
+  reform replaces) and converts it with MarkItDown, leaving out the page headers (the law's name,
+  the Cámara, its two secretariats) and the `12 de 377` footers. Its `publishedAt` is the last
+  reform its cover names (`Última reforma publicada DOF 09-04-2026`). The Cámara's text is a
+  compilation, like the SAT's RMF: the DOF publication is what has legal effect. The splitter
+  (`lawArticles`) cuts one passage an article, from `Artículo 29-A.` through the Cámara's reform
+  notes below it (`Párrafo adicionado DOF 12-11-2021`) to the next article, heading or editorial
+  note (`Nota: Por Decreto…`), labelled by its `TITULO`, `CAPITULO` and `Sección` and their names.
+  An article must come after the one before it in the numbering (`29`, `29 Bis`, `29-A`,
+  `29-A Bis`), so a reference that wrapped to a line start (`Artículo 192 de este Código.`) starts
+  nothing. A repealed article (`Artículo 29-B. (Se deroga).`) has no passage, nor do the decree
+  above the first `TITULO` and the transitorios. Every article is valid from the law's last
+  reform, not its own: the Cámara notes only the reforms since 2021, so an article without a note
+  may still have changed in 2014. Of its 421 articles, 84 are repealed: 337 passages (3,389 in the corpus with the 3,052 above).
 - The large catalogs skip `docs/sat-md`: the ingestion downloads the catCFDI file
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
@@ -814,6 +833,7 @@ full-text queries. D1 at this size stays inside the Workers Paid allowance.
 | Phase 0 ingestion             | ~0.3M tokens once                         | $0 (included) |
 | Phase 1 ingestion             | ~3–5M tokens once, small re-ingests after | $0–$1         |
 | of which the RMF              | 1,214 passages, 2.6 MB: ~0.9M tokens      | $0 (included) |
+| of which the CFF              | 337 passages, 0.9 MB: ~0.3M tokens        | $0 (included) |
 | Storage                       | well under 1 GB                           | $0            |
 | Queries, internal use only    | < 1,000                                   | $0            |
 | Queries, public at 10k/month  | 9,000 billable hybrid                     | ~$7           |
@@ -1031,6 +1051,18 @@ ranks above the expected passage can push it out of the top 3. Their expected pa
 they were, so the run compares with the ones before; read the misses of the first run with this in
 mind. The floor stays 155 of what are now 214 questions until that run sets it again.
 
+### The CFF (2026-10-28, not yet run)
+
+23 CFF questions added (237 in all), each expecting one article: the CFDI's requirements and
+cancellation (29, 29-A), domicilio fiscal and residence (10, 9), días inhábiles (12), razón de
+negocios (5-A), recargos (21), refunds and compensation (22, 23), the RFC and the accounting (27,
+28), the buzón tributario (17-K), the restricted CSD (17-H Bis), EFOS (69-B), the opinión de
+cumplimiento (32-D), the beneficiario controlador (32-B Quáter), prescription and caducidad (146,
+67), the 12-month audit limit (46-A), the recurso de revocación (121), defraudación fiscal (108)
+and the CFDI infractions (83, 84). Not run yet: `codice` holds no CFF passage until the corpus
+workflow ingests `main`. Run `eval --source cff` (23 queries) after that ingestion and record it
+here; the floor stays 155 until a full run sets it again.
+
 ## Infrastructure
 
 Created 2026-10-24 on the Jaantonio account; Phase 0 loaded the same day. Moved on 2026-10-27 to
@@ -1197,9 +1229,12 @@ to match.
    loaded by the next corpus ingestion, then measured: see
    [Retrieval eval](#retrieval-eval), "Carta Porte and Comercio Exterior"). Left for them: their
    catalogs, error matrices and the Carta Porte questions PDF (see [Ingestion](#ingestion)); the
-   catalogs need the large-catalog load to take a second workbook. Next, one at a time and in the
-   same pattern (a source in `sources.json`, a splitter in `sections.ts`, ~20 questions, an eval
-   run): the CFF, the LISR and the LIVA.
+   catalogs need the large-catalog load to take a second workbook. The CFF (`cff`, 2026-10-28: 337
+   articles from the Cámara de Diputados' text, last reformed DOF 2026-04-09, and 23 questions; see
+   [Ingestion](#ingestion)); its eval run (`eval --source cff`) waits for the corpus workflow to
+   load it into `codice`. Next, one at a time and in the same pattern (a source in `sources.json`,
+   a splitter in `sections.ts`, ~20 questions, an eval run): the LISR and the LIVA, through
+   `lawArticles` and `federalLaw`.
 10. **API keys** (see [Auth](#auth)). The dashboard (`codice-app`) signs users in by email code
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV

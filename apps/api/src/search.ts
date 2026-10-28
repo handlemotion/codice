@@ -15,7 +15,7 @@ export const SEARCH_LIMIT_DEFAULT = 5;
  * eval scores best (SPEC.md, "Retrieval eval"). Each result still carries its reranking score.
  */
 export const RERANKING_THRESHOLD = 0;
-/** The passage kinds (SPEC.md, "Items"); the corpus holds `guia` (the filling guides), `anexo` and `regla` (the RMF). */
+/** The passage kinds (SPEC.md, "Items"); the corpus holds `guia` (the filling guides), `anexo`, `regla` (the RMF) and `ley` (the CFF). */
 export const PASSAGE_KINDS = ["ley", "reglamento", "regla", "anexo", "guia", "criterio"] as const;
 /** AI Search returns at most 50 results. */
 export const SEARCH_LIMIT_MAX = 50;

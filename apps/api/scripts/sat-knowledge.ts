@@ -1,7 +1,8 @@
 /**
  * Regenerates Códice's SAT corpus in `docs/sat-md` from the SAT's published files (the Phase 0
  * Anexo 20 files; the current RMF as the SAT compiles it; the current Carta Porte instructivos, one
- * a mode of transport; the Comercio Exterior guide) and records each file's version in
+ * a mode of transport; the Comercio Exterior guide), and the federal laws in force as the Cámara de
+ * Diputados publishes them (the CFF), and records each file's version in
  * `docs/sat-md/sources.json`.
  *
  *   pnpm --filter @codice/api sat:knowledge            regenerate what changed
@@ -32,6 +33,8 @@ import {
 import {
   catalogXsdDifferences,
   instructivoMarkdown,
+  lawLastReform,
+  lawMarkdown,
   parseCatalogSheet,
   parseErrorMatrix,
   provenanceHeader,
@@ -59,6 +62,11 @@ const CARTA_PORTE_PAGE =
 const COMERCIO_EXTERIOR_PAGE =
   "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_comercio_exterior.htm";
 const COMERCIO_EXTERIOR_FILE = "complemento-comercio-exterior-guia-de-llenado.md";
+/**
+ * The Cámara de Diputados' "Leyes Federales Vigentes" (`index.htm`): each federal law's text in
+ * force, at a fixed URL a reform replaces, with the Cámara's note on each reformed part.
+ */
+const LEYES_FEDERALES = "https://www.diputados.gob.mx/LeyesBiblio";
 
 type Manifest = Record<SatSourceId, SatSource & { readonly outputs: readonly string[] }>;
 
@@ -204,6 +212,30 @@ function rmfCompilation(src: SatSource, path: string) {
   return [write(RMF_FILE, `${title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`)];
 }
 
+/**
+ * A federal law in force, from the Cámara de Diputados' PDF without its page headers and footers,
+ * dated by the last reform its cover names (`Última reforma publicada DOF 09-04-2026`).
+ */
+function federalLaw(url: string, bytes: Uint8Array, path: string) {
+  const info = run("pdfinfo", [path]);
+  const pages = /^Pages:\s+(\d+)/mu.exec(info)?.[1] ?? "?";
+  const markdown = lawMarkdown(run("markitdown", [path]));
+  const src = source(url, bytes, lawLastReform(markdown));
+  const header = provenanceHeader({
+    source: src,
+    format: `PDF, ${pages} pages, the Cámara de Diputados' text in force, last reformed DOF ${src.publishedAt}; the page headers and footers are left out`,
+    publisher: "the Cámara de Diputados'",
+  });
+  const title = "# Código Fiscal de la Federación (texto vigente)";
+  const outputs = [
+    write(
+      "codigo-fiscal-de-la-federacion.md",
+      `${title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`,
+    ),
+  ];
+  return { ...src, outputs };
+}
+
 /** The PDF's own modification date, ISO; the guides carry no date in their file names. */
 function pdfDate(path: string) {
   const info = run("pdfinfo", ["-isodates", path]);
@@ -234,6 +266,7 @@ async function main() {
     cartaPorteAereo: instructivos.cartaPorteAereo.url,
     cartaPorteFerroviario: instructivos.cartaPorteFerroviario.url,
     comercioExterior: linked(comercioExteriorPage, /Guia_complemento_Comercio_Exterior\.pdf/u),
+    cff: `${LEYES_FEDERALES}/pdf/CFF.pdf`,
   };
   const previous = (
     existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : {}
@@ -251,6 +284,11 @@ async function main() {
     console.log(`${same ? "unchanged" : "CHANGED  "} ${id} ${url} ${hash}`);
     if (!same) changed += 1;
     if (args.has("--check") || (same && !args.has("--force"))) continue;
+    if (id === "cff") {
+      manifest[id] = federalLaw(url, bytes, path);
+      written.push(...manifest[id].outputs);
+      continue;
+    }
     const pdf = url.endsWith(".pdf");
     const src = source(url, bytes, pdf ? pdfDate(path) : fileNameDate(url));
     let outputs: string[];
@@ -309,7 +347,7 @@ async function main() {
   write("sources.json", `${JSON.stringify(manifest, null, 2)}\n`);
   // From the repository root, where oxfmt finds the repository's formatting settings. Twice: the
   // guides' broken PDF tables settle only on the second pass. The RMF, the Carta Porte
-  // instructivos and the Comercio Exterior guide are in `ignorePatterns`: their numbered lines
+  // instructivos, the Comercio Exterior guide and the CFF are in `ignorePatterns`: their numbered lines
   // (`1. Contraseña…`, `13. ¿Qué debo…`) read as Markdown lists, which oxfmt renumbers.
   const formatted = [...written, "sources.json"].map((file) => join(OUT, file));
   for (let pass = 0; pass < 2; pass += 1) {
