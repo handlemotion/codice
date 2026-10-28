@@ -5,8 +5,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-15",
   "compatibility_flags": ["nodejs_compat"],
-  // Will own `codice.io` as a custom domain once its zone is in the Handle account; until then the
-  // Worker has no route. AGENTS.md, "Domains".
+  // Owns `codice.io` as a custom domain (zone on the Handle account since 2026-10-28). AGENTS.md,
+  // "Domains".
+  "routes": [{ "pattern": "codice.io", "custom_domain": true }],
   "workers_dev": false,
   "preview_urls": false,
   "placement": { "mode": "smart" },

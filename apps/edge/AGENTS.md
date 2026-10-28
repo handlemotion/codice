@@ -22,10 +22,10 @@ forwards the unmodified request through a service binding.
 
 ## Domains
 
-This Worker will own `codice.io` as a custom domain. The zone is not in the Handle account yet, so
-`wrangler.jsonc` has no `routes`: a custom domain on a missing zone fails the deploy. Once the zone
-exists, a PR adds `"routes": [{ "pattern": "codice.io", "custom_domain": true }]` here and
-`dashboard.codice.io` to `apps/app`. No other Worker may list `codice.io` in its `routes`: a Worker
+This Worker owns `codice.io` as a custom domain: the zone has been on the Handle account since
+2026-10-28, when the domain was attached from the dashboard, and `wrangler.jsonc` declares it
+(`"routes": [{ "pattern": "codice.io", "custom_domain": true }]`) so each deploy keeps it.
+`dashboard.codice.io` on `apps/app` is not attached yet. No other Worker may list `codice.io` in its `routes`: a Worker
 that declares a custom domain re-claims it on its next deploy.
 
 ## Commands
