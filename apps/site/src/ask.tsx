@@ -130,16 +130,49 @@ function splitSources(text: string, live: boolean): { body: string; sources: Sou
   return { body: lines.slice(0, start).join("\n").trimEnd(), sources };
 }
 
+// What Códice is doing, by the tool it runs (the API's tools, apps/api/src/chat.ts).
+const STEPS: Record<string, string> = {
+  search: "Buscando en las reglas",
+  read_passage: "Leyendo el pasaje",
+  lookup_error: "Consultando la matriz de errores",
+  lookup_catalog: "Consultando el catálogo",
+  list_sources: "Revisando las fuentes",
+};
+
+/** The step Códice is on: the tool it runs now, reading what tools returned, or thinking. */
+function step(parts: readonly Part[]): { label: string; tool: boolean } {
+  // A call with no part after it yet is the one running.
+  const tail = parts.at(-1);
+  if (tail?.type === "tool-call" && tail.state !== "error") {
+    return { label: STEPS[tail.name] ?? "Consultando", tool: true };
+  }
+  if (parts.some((part) => part.type === "tool-call")) {
+    return { label: "Leyendo los resultados", tool: false };
+  }
+  return { label: "Pensando", tool: false };
+}
+
 /**
- * Códice's three shapes, turning while it works: twice the page's pace while it only thinks. No
- * words beside them, so the row keeps one size from the first token to the last.
+ * Códice's three shapes, turning while it works (twice the page's pace while it only thinks),
+ * and the step it is on in small shimmering text. One fixed-height, single-line row: a label
+ * that changes never moves what is around it.
  */
-function Working({ tool }: { tool: boolean }) {
+function Working({ parts }: { parts: readonly Part[] }) {
+  const { label, tool } = step(parts);
   return (
-    <span aria-label="Respondiendo" className="flex gap-1.5" role="status">
-      {[0, 1, 2].map((step) => (
-        <Mark className="size-3.5" key={step} speed={tool ? 1 : 2} step={step} strokeWidth={1.5} />
-      ))}
+    <span className="flex h-4 items-center gap-2" role="status">
+      <span aria-hidden className="flex shrink-0 gap-1.5">
+        {[0, 1, 2].map((index) => (
+          <Mark
+            className="size-3.5"
+            key={index}
+            speed={tool ? 1 : 2}
+            step={index}
+            strokeWidth={1.5}
+          />
+        ))}
+      </span>
+      <span className="shimmer truncate text-[12px] leading-4 text-muted">{label}</span>
     </span>
   );
 }
@@ -158,21 +191,21 @@ const Answer = memo(function Answer({
   failed: boolean;
 }) {
   const reveal = useStreamedReveal(textOf(parts), live);
-  const { body } = splitSources(reveal.text, live);
-  // The tool Códice is running now, if any: a call with no part after it yet.
+  // Still revealing counts as live: a half-shown "Fuente:" line has no whole link yet, and shown as
+  // text it would jump away once its pills appear.
+  const { body } = splitSources(reveal.text, live || reveal.revealing);
+  // The step shows in the answer's place until its first words, which take that place; after
+  // words, only while a tool runs, under them. Either way it comes and goes at the bottom.
   const tail = parts.at(-1);
-  const running =
-    live && tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
-      ? tail
-      : undefined;
+  const working = live && (!body || tail?.type === "tool-call");
   return (
     <div className="flex flex-col gap-3">
-      {live && <Working tool={Boolean(running)} />}
       {body && (
         <Streamdown className={ANSWER} isAnimating={reveal.revealing}>
           {body}
         </Streamdown>
       )}
+      {working && <Working parts={parts} />}
       {failed && <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>}
     </div>
   );
@@ -273,7 +306,9 @@ export function Ask() {
 
       <div aria-label="Conversación con Códice" className="flex flex-col gap-6" role="log">
         {messages.map((message, index) => (
-          <div className="message-in" key={message.id}>
+          // The answer does not rise in: it takes the place of the pending row, which already
+          // did, so the step's row stays where it is.
+          <div className={message.role === "user" ? "message-in" : undefined} key={message.id}>
             {message.role === "user" ? (
               <Bubble>{textOf(message.parts)}</Bubble>
             ) : (
@@ -289,7 +324,7 @@ export function Ask() {
         ))}
         {pending && (
           <div className="message-in mt-4">
-            <Working tool={false} />
+            <Working parts={[]} />
           </div>
         )}
         {error && !isLoading && last?.role === "user" && (

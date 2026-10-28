@@ -210,9 +210,15 @@ Entrar → Obtener clave so the blue one sits in the corner.
 - **The visitor's question** is a right-aligned bubble: `bg-line` while typed, `bg-electric` with
   white text once sent, 4px radius, at most 85% of the thread.
 - **Códice's turn** starts 40px under the question (the thread's other gaps are 24px): three
-  small marks (one step apart) turn while it works, with no status text beside them, so the row
-  never changes size; they turn at twice the pace while it only thinks, and at the page's pace
-  while a tool runs. The answer streams in as markdown in plain `fg` text; inline code is the
+  small marks (one step apart) turn while it works, with the step beside them in 12px `muted`
+  text that shimmers (`tw-shimmer`): "Pensando", then the tool running ("Buscando en las
+  reglas", "Leyendo el pasaje", "Consultando la matriz de errores", "Consultando el catálogo",
+  "Revisando las fuentes"), then "Leyendo los resultados". The marks turn at twice the pace while
+  it only thinks, and at the page's pace while a tool runs. The row is one 16px line, so a new
+  label never moves anything; it sits where the answer starts, and the answer's first words take
+  its place (after words, it shows under them only while a tool runs). The answer does not rise
+  in: it replaces the pending row in place. A finished answer still revealing keeps its
+  `Fuente:` line hidden, so the line never flashes as text before its pills. The answer streams in as markdown in plain `fg` text; inline code is the
   mono at 12px on an `electric` tint (15%), its text `electric` mixed 45% toward `fg` so it holds
   contrast on either theme. The API
   ends it with a `Fuente:` block; the chat takes it out of the text and shows each linked

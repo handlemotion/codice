@@ -463,6 +463,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      tw-shimmer:
+        specifier: 0.4.14
+        version: 0.4.14(tailwindcss@4.3.3)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -5928,6 +5931,11 @@ packages:
   turbo@2.10.13:
     resolution: {integrity: sha512-69MkPbjk+G8oyC7pC2DeBk0rPdbLz51wuH5eAT0Q4BVJkzq/b1XM4kUUidsARbmDjwIELSJwd1ezITULY9kWNw==}
     hasBin: true
+
+  tw-shimmer@0.4.14:
+    resolution: {integrity: sha512-Df4Mhpxa/b/YYvwCxhe6M/C0pZ1bYxFkAUrMjgmRO2vimu+QYi1gNHxV+9ZNTMpBtLJHEq9p6zuSzC7wiPeYYA==}
+    peerDependencies:
+      tailwindcss: '>=4.0.0-0'
 
   type-is@2.1.0:
     resolution: {integrity: sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA==}
@@ -11630,6 +11638,10 @@ snapshots:
       '@turbo/linux-arm64': 2.10.13
       '@turbo/windows-64': 2.10.13
       '@turbo/windows-arm64': 2.10.13
+
+  tw-shimmer@0.4.14(tailwindcss@4.3.3):
+    dependencies:
+      tailwindcss: 4.3.3
 
   type-is@2.1.0:
     dependencies:
