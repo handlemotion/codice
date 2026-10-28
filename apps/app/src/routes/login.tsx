@@ -103,7 +103,7 @@ function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[20rem] flex-col justify-center gap-6 px-4 py-16">
+    <main className="mx-auto flex min-h-svh w-full max-w-[24rem] flex-col justify-center gap-6 px-4 pt-16 pb-[18svh]">
       <div className="flex flex-col gap-3">
         <a aria-label="Sitio de Códice" className="w-fit" href="/?site">
           <Mark className="size-6" radius={9} strokeWidth={1.5} />
@@ -152,6 +152,13 @@ function Login() {
             </button>
           </p>
         ) : (
+          providers.length > 0 && (
+            <div aria-hidden className="my-1 flex items-center gap-3 text-[13px] text-muted">
+              <span className="h-px flex-1 bg-line" />o<span className="h-px flex-1 bg-line" />
+            </div>
+          )
+        )}
+        {!sent &&
           providers.map((provider) => {
             const { label, Logo } = PROVIDERS[provider];
             return (
@@ -166,8 +173,7 @@ function Login() {
                 {label}
               </button>
             );
-          })
-        )}
+          })}
         {error && <p className="text-[13px] text-muted">{error}</p>}
       </div>
     </main>

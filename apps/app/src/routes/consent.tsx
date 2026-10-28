@@ -29,7 +29,7 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 const COLUMN =
-  "mx-auto flex min-h-svh w-full max-w-[20rem] flex-col justify-center gap-6 px-4 py-16";
+  "mx-auto flex min-h-svh w-full max-w-[24rem] flex-col justify-center gap-6 px-4 pt-16 pb-[18svh]";
 const WIDE = "flex-1";
 
 function Tile() {
