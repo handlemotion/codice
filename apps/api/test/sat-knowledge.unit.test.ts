@@ -7,6 +7,8 @@ import {
 } from "../scripts/sat-documents";
 import {
   catalogXsdDifferences,
+  lawLastReform,
+  lawMarkdown,
   parseCatalogSheet,
   parseCsv,
   parseErrorMatrix,
@@ -114,6 +116,7 @@ function syntheticLibrary() {
     "matriz-de-errores-cfdi-4.0.md": renderErrorMatrix(matrix),
     "catalogos-cfdi-4.0.md": renderCatalogs(catalogs),
     "resolucion-miscelanea-fiscal-2026.md": "# RMF\n\n2.1.1. Para los efectos del CFF.",
+    "codigo-fiscal-de-la-federacion.md": "# CFF\n\nArtículo 1o.- Las personas físicas.",
   };
   const sources = {
     anexo20: SOURCE,
@@ -121,6 +124,7 @@ function syntheticLibrary() {
     matrix: matrix.source,
     catalogs: SOURCE,
     rmf: SOURCE,
+    cff: SOURCE,
   } satisfies SatSourceManifest;
   return buildSatLibrary({
     markdown: (file) => files[file],
@@ -280,5 +284,32 @@ c_Aduana,Patente,Ejercicio,Cantidad,Fecha inicio de vigencia,Fecha fin de vigenc
       "",
       "siguiente:",
     ]);
+  });
+
+  it("drop a law's page headers and footers, and read its last reform from the cover", () => {
+    const header = [
+      "CÓDIGO FISCAL DE LA FEDERACIÓN",
+      "CÁMARA DE DIPUTADOS DEL H. CONGRESO DE LA UNIÓN Última Reforma DOF 09-04-2026",
+      "Secretaría General",
+      "Secretaría de Servicios Parlamentarios",
+    ];
+    const converted = [
+      ...header,
+      "CÓDIGO FISCAL DE LA FEDERACIÓN",
+      "Última reforma publicada DOF 09-04-2026",
+      "Artículo 2o.- Las contribuciones se clasifican en impuestos, aportaciones de seguridad social,",
+      "1 de 377",
+      "",
+      ...header,
+      "contribuciones de mejoras y derechos.",
+    ].join("\n");
+    const markdown = lawMarkdown(converted);
+    expect(markdown.split("\n")).toEqual([
+      "CÓDIGO FISCAL DE LA FEDERACIÓN",
+      "Última reforma publicada DOF 09-04-2026",
+      "Artículo 2o.- Las contribuciones se clasifican en impuestos, aportaciones de seguridad social,",
+      "contribuciones de mejoras y derechos.",
+    ]);
+    expect(lawLastReform(markdown)).toBe("2026-04-09");
   });
 });

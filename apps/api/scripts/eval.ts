@@ -11,6 +11,8 @@
  *   pnpm --filter @codice/api eval --out run.json  also write every rank to a file
  *   pnpm --filter @codice/api eval --min-top3 47   exit 1 when fewer questions pass
  *   pnpm --filter @codice/api eval --instance codice-bge-m3   a comparison instance
+ *   pnpm --filter @codice/api eval --source cff    only the questions that expect a passage of
+ *                                                  one source, such as a source just added
  *
  * Runs under Doppler `codice` `dev`, whose `CODICE_AI_SEARCH_TOKEN` has AI Search Run and Read only;
  * without it, `CLOUDFLARE_API_TOKEN`. About 170 queries a run. Each query is timed, and the
@@ -38,6 +40,7 @@ const { values } = parseArgs({
     out: { type: "string" },
     "min-top3": { type: "string" },
     instance: { type: "string", default: "codice" },
+    source: { type: "string" },
   },
 });
 const INSTANCE_URL = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai-search/namespaces/default/instances/${values.instance}`;
@@ -86,9 +89,14 @@ async function api<T>(path: string, init: RequestInit = {}) {
 }
 
 async function main() {
-  const questions = JSON.parse(
-    readFileSync(join(APP, "scripts/eval-questions.json"), "utf8"),
-  ) as Question[];
+  const questions = (
+    JSON.parse(readFileSync(join(APP, "scripts/eval-questions.json"), "utf8")) as Question[]
+  ).filter(
+    (question) =>
+      values.source === undefined ||
+      question.expect.some((key) => key.startsWith(`${values.source}/`)),
+  );
+  if (questions.length === 0) throw new Error(`No question expects a passage of ${values.source}`);
   const corpus = buildCorpus({
     read: (file) => readFileSync(join(APP, "../../docs/sat-md", file), "utf8"),
   });
@@ -109,6 +117,7 @@ async function main() {
   }>("");
   const config = {
     instance: values.instance,
+    source: values.source ?? null,
     embeddingModel: instance.embedding_model,
     chunkSize: instance.chunk_size,
     keywordTokenizer: instance.indexing_options?.keyword_tokenizer ?? "porter",

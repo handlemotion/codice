@@ -37,7 +37,7 @@ export const CHAT_MAX_ITERATIONS = 6;
 export const CHAT_MAX_BODY_BYTES = 64 * 1024;
 export const CHAT_MAX_MESSAGES = 24;
 
-const SYSTEM_PROMPT = `Eres el asistente de Códice en su sitio web. Códice es un índice de las reglas publicadas por el SAT (Servicio de Administración Tributaria de México): la Guía de llenado del CFDI 4.0 (Anexo 20), la guía del complemento de pagos (Pagos 2.0), la matriz de errores de validación CFDI40xxx, los catálogos del CFDI (c_UsoCFDI, c_RegimenFiscal, c_FormaPago…) y la Resolución Miscelánea Fiscal (RMF). Los desarrolladores lo consultan por una API HTTP (\`/v1\`) y por MCP (\`/mcp\`).
+const SYSTEM_PROMPT = `Eres el asistente de Códice en su sitio web. Códice es un índice de las reglas publicadas por el SAT (Servicio de Administración Tributaria de México): la Guía de llenado del CFDI 4.0 (Anexo 20), la guía del complemento de pagos (Pagos 2.0), la matriz de errores de validación CFDI40xxx, los catálogos del CFDI (c_UsoCFDI, c_RegimenFiscal, c_FormaPago…) la Resolución Miscelánea Fiscal (RMF) y, de la Cámara de Diputados, el Código Fiscal de la Federación (CFF) vigente. Los desarrolladores lo consultan por una API HTTP (\`/v1\`) y por MCP (\`/mcp\`).
 
 Tu trabajo es responder preguntas sobre esas reglas como lo haría una persona que las conoce bien: directo, claro y breve.
 
@@ -75,7 +75,7 @@ function chatTools(env: CodiceBindings) {
     toolDefinition({
       name: "search",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF (catalog keys are not searched: use lookup_catalog). Returns passages quoted verbatim, each with its passage id, heading, source title and URL, validity dates and relevance score.",
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF (catalog keys are not searched: use lookup_catalog). Returns passages quoted verbatim, each with its passage id, heading, source title and URL, validity dates and relevance score.",
       inputSchema: SearchArguments,
     }).server(run((args: z.output<typeof SearchArguments>) => search(env, args))),
     toolDefinition({

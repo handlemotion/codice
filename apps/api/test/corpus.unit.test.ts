@@ -33,16 +33,17 @@ describe("buildCorpus", () => {
     }
   });
 
-  it("splits both guides, the matrix and the RMF into passages with SAT metadata", () => {
+  it("splits both guides, the matrix, the RMF and the CFF into passages with their metadata", () => {
     const sources = new Set(corpus.passages.map((passage) => passage.sourceId));
     expect([...sources]).toEqual([
       "anexo-20-guia-de-llenado",
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
       "rmf-2026",
+      "cff",
     ]);
     for (const passage of corpus.passages) {
-      expect(passage.metadata.authority).toBe("SAT");
+      expect(passage.metadata.authority).toBe(passage.sourceId === "cff" ? "Congreso" : "SAT");
       expect(passage.metadata.valid_until).toBe(99_991_231);
       expect(passage.metadata.valid_from).toBeGreaterThan(20_220_000);
     }
@@ -103,6 +104,30 @@ describe("buildCorpus", () => {
     );
   });
 
+  it("quotes an article of the CFF under its heading path, valid from the law's last reform", () => {
+    const article = corpus.passages.find((candidate) => candidate.key === "cff/articulo-29-a.md");
+    expect(article?.body).toMatch(
+      /^# Código Fiscal de la Federación \(texto vigente\) › TITULO SEGUNDO\. .* › CAPITULO UNICO › Artículo 29-A\n\nArtículo 29-A\. Los comprobantes fiscales digitales/u,
+    );
+    expect(article?.metadata).toEqual({
+      authority: "Congreso",
+      kind: "ley",
+      valid_from: 20_260_409,
+      valid_until: 99_991_231,
+    });
+    const keys = corpus.passages.map((candidate) => candidate.key);
+    expect(keys).toContain("cff/articulo-1.md");
+    expect(keys).toContain("cff/articulo-17-h-bis.md");
+    expect(keys).toContain("cff/articulo-20-bis.md");
+    expect(keys).not.toContain("cff/articulo-29-b.md");
+    expect(corpus.sources.find((source) => source.id === "cff")).toMatchObject({
+      authority: "Congreso",
+      url: "https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf",
+      publishedAt: "2026-04-09",
+      validFrom: 20_260_409,
+    });
+  });
+
   it("labels a guide passage by its node, and has every passage the eval expects", () => {
     const passage = corpus.passages.find(
       (candidate) => candidate.key === "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md",
@@ -134,6 +159,7 @@ describe("buildCorpus", () => {
       "matriz-de-errores-cfdi-40",
       "catalogos-cfdi-40",
       "rmf-2026",
+      "cff",
     ]);
   });
 

@@ -5,10 +5,10 @@ for agents and search. **Check these before assuming a fiscal rule** (what a rec
 what a `CFDI40xxx` error means, how a payment complement is filled). This repo once cited the wrong `CFDI40xxx` code for a rule
 from memory; these files are the SAT's text.
 
-Generated from the SAT's [Anexo 20 page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm)
-and its RMF page by `pnpm --filter @codice/api sat:knowledge`. Every file here except this README is
+Generated from the SAT's [Anexo 20 page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm),
+its RMF page and the Cámara de Diputados' [Leyes Federales Vigentes](https://www.diputados.gob.mx/LeyesBiblio/index.htm) by `pnpm --filter @codice/api sat:knowledge`. Every file here except this README is
 generated: never edit one by hand. Códice (`apps/api`) ingests them for search, and the Agent
-reads them from Códice. [`sources.json`](./sources.json) records each SAT file's URL,
+reads them from Códice. [`sources.json`](./sources.json) records each file's URL,
 SHA-256, publication date, and retrieval date, and each Markdown file starts with the same
 provenance.
 
@@ -19,6 +19,7 @@ provenance.
 | Validation matrix: every `CFDI40xxx` code, the rule behind it, and its message, one node a section | [`matriz-de-errores-cfdi-4.0.md`](./matriz-de-errores-cfdi-4.0.md), [`.json`](./matriz-de-errores-cfdi-4.0.json) |
 | Catalogs (catCFDI): c_RegimenFiscal, c_UsoCFDI, c_FormaPago, c_Moneda, c_Pais, c_TasaOCuota, …     | [`catalogos-cfdi-4.0.md`](./catalogos-cfdi-4.0.md), [`.json`](./catalogos-cfdi-4.0.json)                         |
 | Resolución Miscelánea Fiscal 2026 (RMF): every regla, as the SAT compiles it with its amendments   | [`resolucion-miscelanea-fiscal-2026.md`](./resolucion-miscelanea-fiscal-2026.md)                                 |
+| Código Fiscal de la Federación (CFF): every article in force, as the Cámara de Diputados publishes | [`codigo-fiscal-de-la-federacion.md`](./codigo-fiscal-de-la-federacion.md)                                       |
 
 The RMF comes from the SAT's [RMF and RGCE page](https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/normatividad_rmf_rgce2026.html):
 `sat:knowledge` takes the latest compiled RMF it links (`Compilado_…`), the only file with each
@@ -28,6 +29,13 @@ The compilation is informative: the SAT's own note says the DOF publication is w
 effect. It lags the DOF: an amendment published after it (the Segunda RMRMF of 1 October 2026,
 reglas 9.4.4 and 11.7.3) is in the next compilation. The page footers are left out, and the file is
 not formatted (oxfmt would renumber its numbered lines as Markdown lists).
+
+The CFF comes from the Cámara de Diputados' [Leyes Federales Vigentes](https://www.diputados.gob.mx/LeyesBiblio/index.htm)
+page (`pdf/CFF.pdf`), its text in force after the last reform the cover names (`Última reforma
+publicada DOF 09-04-2026`), which `sources.json` records as its `publishedAt`. The Cámara notes each
+part a reform changed since 2021 below it (`Párrafo reformado DOF 12-11-2021`). Like the SAT's
+compilation, it is informative: the DOF publication has legal effect. The page headers and footers
+are left out, and the file is not formatted, as for the RMF.
 
 Not included: the large catalogs (c_ClaveProdServ, c_ClaveUnidad, c_CodigoPostal, c_Colonia,
 c_Localidad, c_Municipio, c_NumPedimentoAduana, c_PatenteAduanal). Códice loads them into its D1

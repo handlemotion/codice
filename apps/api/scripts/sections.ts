@@ -539,3 +539,110 @@ function cut(markdown: string, from: number, to: number) {
   parts.push([start, to]);
   return parts;
 }
+
+export type LawArticle = {
+  /** `29-A`, `17-H Bis`, `1` (for `1o.`): the anchor is built from it. */
+  readonly number: string;
+  /** The heading path, such as `TITULO SEGUNDO. De los Derechos… › CAPITULO UNICO › Artículo 29-A`. */
+  readonly label: string;
+  /** The law's text, verbatim, with the Cámara's reform notes (`Párrafo reformado DOF …`). */
+  readonly text: string;
+};
+
+/** `TITULO PRIMERO`, `CAPITULO II`, `CAPÍTULO ÚNICO`, `Sección Primera`: a whole line. */
+const LAW_HEADINGS = [
+  /^T[IÍ]TULO [A-ZÁÉÍÓÚ]+$/u,
+  /^CAP[IÍ]TULO (?:[IVXL]+|[UÚ]NICO)$/u,
+  /^Sección [A-ZÁÉÍÓÚ][a-záéíóú]+$/u,
+];
+/**
+ * `Artículo 1o.- Las…`, `Artículo 4o.-A.- Los…`, `Artículo 12. En…`, `Artículo 17-H Bis. …`,
+ * `Artículo 20-Bis. …`, `Artículo 29-B. (Se deroga).`: the article's number and the period or dash after it. A reference
+ * that wrapped to a line start (`Artículo 21 de este Código`) has neither.
+ */
+const ARTICLE =
+  /^(Artículo (\d+)o?\.?(?:-([A-Z]))?(?:[- ](Bis|Ter|Quáter|Quinquies|Sexies))?)(?:\.-?|-)\s+(?=[A-ZÁÉÍÓÚÑ¿“"(])/u;
+const ARTICLE_SUFFIXES = ["", "Bis", "Ter", "Quáter", "Quinquies", "Sexies"];
+/** `(Se deroga).`, `(Derogado).`, `Se deroga.` */
+const ARTICLE_REPEALED = /^\(?(?:Se deroga|Derogado)\)?\.?$/u;
+/** The Cámara's editorial note above a heading (`Nota: Por Decreto DOF 09-12-2019 se adicionó…`). */
+const LAW_NOTE = /^Nota: /u;
+
+/**
+ * Splits a federal law, as `sat:knowledge` converts the Cámara de Diputados' text, into one
+ * passage an article.
+ *
+ * - The body runs from the first `TITULO` to the law's own `TRANSITORIOS`; the decree above it and
+ *   the transitorios of the law and its reforms are not articles and have no passage.
+ * - A heading is a whole line (`TITULO SEGUNDO`, `CAPITULO I`, `Sección Primera`), with its name on
+ *   the next line when it has one (`De los Derechos y Obligaciones de los Contribuyentes`).
+ * - An article starts at its number (`Artículo 29-A.`), numbered after the article before it, so a
+ *   reference that wrapped to a line start starts nothing. It runs, with the Cámara's reform notes
+ *   below it (`Artículo reformado DOF 12-11-2021`), to the next article, heading or note.
+ * - A repealed article (`Artículo 29-B. (Se deroga).`) has no passage.
+ */
+export function lawArticles(markdown: string): LawArticle[] {
+  const lines = markdown.split("\n");
+  const offsets: number[] = [];
+  lines.reduce((offset, line) => {
+    offsets.push(offset);
+    return offset + line.length + 1;
+  }, 0);
+  const at = (line: number) => offsets[line] ?? markdown.length;
+  const level = (text: string) => LAW_HEADINGS.findIndex((pattern) => pattern.test(text));
+
+  const first = lines.findIndex((line) => level(line.trim()) === 0);
+  const last = lines.findIndex((line, index) => index > first && line.trim() === "TRANSITORIOS");
+  if (first === -1 || last === -1) throw new Error("The law has no TITULO or no TRANSITORIOS");
+
+  type Start = { readonly line: number; readonly number: string; readonly label: string };
+  const starts: Start[] = [];
+  const boundaries: number[] = [last];
+  const path: string[] = [];
+  let previous: number[] = [];
+  for (let line = first; line < last; line += 1) {
+    const text = lines[line]!.trim();
+    const depth = level(text);
+    if (depth !== -1) {
+      const next = lines[line + 1]?.trim() ?? "";
+      const named = next !== "" && level(next) === -1 && !ARTICLE.test(next);
+      path.splice(depth, Infinity, named ? `${text}. ${next}` : text);
+      boundaries.push(line);
+      if (named) line += 1;
+      continue;
+    }
+    if (LAW_NOTE.test(text)) {
+      boundaries.push(line);
+      continue;
+    }
+    const article = ARTICLE.exec(text);
+    if (!article) continue;
+    const letter = article[3] ?? "";
+    const suffix = article[4] ?? "";
+    const order = [
+      Number(article[2]),
+      letter ? letter.charCodeAt(0) : 0,
+      ARTICLE_SUFFIXES.indexOf(suffix),
+    ];
+    const later = order.findIndex((part, index) => part !== previous[index]);
+    if (later === -1 || order[later]! < (previous[later] ?? -1)) continue;
+    previous = order;
+    boundaries.push(line);
+    if (ARTICLE_REPEALED.test(text.slice(article[0].length).trim())) continue;
+    starts.push({
+      line,
+      number: [article[2], letter && `-${letter}`, suffix && ` ${suffix}`].join(""),
+      label: [...path, article[1]].join(" › "),
+    });
+  }
+
+  boundaries.sort((left, right) => left - right);
+  return starts.map((start) => {
+    const end = boundaries.find((boundary) => boundary > start.line) ?? last;
+    return {
+      number: start.number,
+      label: start.label,
+      text: markdown.slice(at(start.line), at(end)),
+    };
+  });
+}

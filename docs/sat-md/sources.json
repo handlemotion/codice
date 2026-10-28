@@ -33,5 +33,12 @@
     "publishedAt": "2026-07-16",
     "retrievedAt": "2026-10-25",
     "outputs": ["resolucion-miscelanea-fiscal-2026.md"]
+  },
+  "cff": {
+    "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf",
+    "sha256": "be7427b20d3552775ab42018f8f87578078770095bf8cf46322c25e36ee3aa7d",
+    "publishedAt": "2026-04-09",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["codigo-fiscal-de-la-federacion.md"]
   }
 }

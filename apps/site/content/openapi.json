@@ -61,7 +61,7 @@
             "name": "source",
             "in": "query",
             "required": false,
-            "description": "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` or `rmf-2026`.",
+            "description": "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40`, `rmf-2026` or `cff`.",
             "schema": {
               "type": "string"
             }
@@ -70,7 +70,7 @@
             "name": "kind",
             "in": "query",
             "required": false,
-            "description": "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas.",
+            "description": "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas; `ley` for the CFF's articles.",
             "schema": {
               "type": "string",
               "enum": ["ley", "reglamento", "regla", "anexo", "guia", "criterio"]

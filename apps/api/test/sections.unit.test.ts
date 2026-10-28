@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { compactSatMarkdown } from "../scripts/sat-documents";
 import {
   guideSections,
+  lawArticles,
   nameVocabulary,
   rmfReglas,
   SECTION_MAX_CHARS,
@@ -337,5 +338,105 @@ describe("rmfReglas over the SAT's compiled RMF", () => {
     );
     expect(regla.text).toMatch(/^Expedición de comprobantes en operaciones con el público/u);
     expect(regla.text).toMatch(/\nCFF 29, 29-A, .*RMF 2\.6\.1\.2\., 2\.7\.1\.23\..*\n$/u);
+  });
+});
+
+/** A law as `sat:knowledge` converts the Cámara de Diputados' PDF, without its page furniture. */
+const LAW = [
+  "# Código Fiscal de la Federación (texto vigente)",
+  "",
+  "Última reforma publicada DOF 09-04-2026",
+  "El Congreso de los Estados Unidos Mexicanos, Decreta:",
+  "Artículo Único.- Se expide el Código.",
+  "TITULO PRIMERO",
+  "Disposiciones Generales",
+  "CAPITULO I",
+  "Artículo 1o.- Las personas físicas y las morales, están obligadas a contribuir.",
+  "Artículo 4o.-A.- Los impuestos exigibles por los Estados extranjeros se cobrarán conforme al",
+  "Artículo 21 de este Código.",
+  "Artículo reformado DOF 12-11-2021",
+  "CAPÍTULO II",
+  "DE LOS MEDIOS ELECTRÓNICOS",
+  "Artículo 17-H Bis. Tratándose de certificados de sello digital.",
+  "Párrafo adicionado DOF 12-11-2021",
+  "Artículo 20-Bis. El Índice Nacional de Precios al Consumidor.",
+  "Artículo 29-A. Los comprobantes fiscales digitales deberán contener:",
+  "I. La clave del Registro Federal de Contribuyentes.",
+  "Artículo 29-B. (Se deroga).",
+  "Artículo 29-C. Se deroga.",
+  "Nota: Por Decreto DOF 09-12-2019 se adicionó un nuevo Título Segundo.",
+  "TITULO SEGUNDO",
+  "De los Procedimientos",
+  "CAPITULO I",
+  "Sección Primera",
+  "Del Recurso de Revocación",
+  "Artículo 116. Contra los actos administrativos podrá interponerse el recurso de revocación.",
+  "TRANSITORIOS",
+  "Artículo Primero.- Este Código entrará en vigor el 1o. de enero de 1983.",
+  "",
+].join("\n");
+
+describe("lawArticles", () => {
+  const articles = lawArticles(LAW);
+  const article = (number: string) => articles.find((candidate) => candidate.number === number)!;
+
+  it("finds each article once, in order, and none for a repealed one or a wrapped reference", () => {
+    expect(articles.map((candidate) => candidate.number)).toEqual([
+      "1",
+      "4-A",
+      "17-H Bis",
+      "20 Bis",
+      "29-A",
+      "116",
+    ]);
+  });
+
+  it("labels an article by its Título, Capítulo and Sección, with their names", () => {
+    expect(article("1").label).toBe(
+      "TITULO PRIMERO. Disposiciones Generales › CAPITULO I › Artículo 1o.",
+    );
+    expect(article("17-H Bis").label).toBe(
+      "TITULO PRIMERO. Disposiciones Generales › CAPÍTULO II. DE LOS MEDIOS ELECTRÓNICOS › Artículo 17-H Bis",
+    );
+    expect(article("116").label).toBe(
+      "TITULO SEGUNDO. De los Procedimientos › CAPITULO I › Sección Primera. Del Recurso de Revocación › Artículo 116",
+    );
+  });
+
+  it("quotes each article verbatim with its reform notes, up to the next article, heading or note", () => {
+    for (const candidate of articles) expect(LAW).toContain(candidate.text);
+    expect(article("4-A").text).toBe(
+      "Artículo 4o.-A.- Los impuestos exigibles por los Estados extranjeros se cobrarán conforme al\nArtículo 21 de este Código.\nArtículo reformado DOF 12-11-2021\n",
+    );
+    expect(article("17-H Bis").text).toMatch(/\nPárrafo adicionado DOF 12-11-2021\n$/u);
+    expect(article("29-A").text).toMatch(/Contribuyentes\.\n$/u);
+    expect(article("116").text).not.toContain("TRANSITORIOS");
+  });
+});
+
+describe("lawArticles over the Cámara de Diputados' CFF", () => {
+  const markdown = read("codigo-fiscal-de-la-federacion.md");
+  const articles = lawArticles(markdown);
+  const body = markdown.slice(0, markdown.indexOf("\nTRANSITORIOS\n"));
+
+  it("has a passage for every article of the body that is not repealed", () => {
+    // An article's number ends in a period or dash; `Artículo 192 de este Código.` is a reference.
+    const listed = [
+      ...body.matchAll(/^Artículo \d+\S*(?: (?:Bis|Ter|Quáter|Quinquies))?[.-]+ .*$/gmu),
+    ].filter((match) => !/\(?(?:Se deroga|Derogado)\)?\.?$/u.test(match[0]));
+    expect(articles.length).toBe(listed.length);
+    expect(articles.length).toBeGreaterThan(300);
+    expect(new Set(articles.map((candidate) => candidate.number)).size).toBe(articles.length);
+    for (const candidate of articles) expect(markdown).toContain(candidate.text);
+  });
+
+  it("keeps the CFDI requirements of article 29-A whole under their headings", () => {
+    const article = articles.find((candidate) => candidate.number === "29-A")!;
+    expect(article.label).toBe(
+      "TITULO SEGUNDO. De los Derechos y Obligaciones de los Contribuyentes › CAPITULO UNICO › Artículo 29-A",
+    );
+    expect(article.text).toMatch(/^Artículo 29-A\. Los comprobantes fiscales digitales/u);
+    expect(article.text).toContain("Párrafo adicionado DOF 12-11-2021");
+    expect(article.text).not.toContain("Artículo 29-A Bis.");
   });
 });

@@ -1,6 +1,7 @@
 /**
  * Regenerates Códice's SAT corpus in `docs/sat-md` from the SAT's published files (the Phase 0
- * Anexo 20 files, and the current RMF as the SAT compiles it) and records each file's version in
+ * Anexo 20 files, and the current RMF as the SAT compiles it) and the federal laws in force as the
+ * Cámara de Diputados publishes them (the CFF), and records each file's version in
  * `docs/sat-md/sources.json`.
  *
  *   pnpm --filter @codice/api sat:knowledge            regenerate what changed
@@ -24,6 +25,8 @@ import {
 } from "./sat-records";
 import {
   catalogXsdDifferences,
+  lawLastReform,
+  lawMarkdown,
   parseCatalogSheet,
   parseErrorMatrix,
   provenanceHeader,
@@ -45,8 +48,13 @@ const RMF_SITE = "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE";
 const RMF_YEAR = 2026;
 const RMF_PAGE = `${RMF_SITE}/normatividad_rmf_rgce${RMF_YEAR}.html`;
 const RMF_FILE = `resolucion-miscelanea-fiscal-${RMF_YEAR}.md`;
+/**
+ * The Cámara de Diputados' "Leyes Federales Vigentes" (`index.htm`): each federal law's text in
+ * force, at a fixed URL a reform replaces, with the Cámara's note on each reformed part.
+ */
+const LEYES_FEDERALES = "https://www.diputados.gob.mx/LeyesBiblio";
 
-type SourceId = "anexo20" | "pagos" | "matrix" | "catalogs" | "rmf";
+type SourceId = "anexo20" | "pagos" | "matrix" | "catalogs" | "rmf" | "cff";
 type Manifest = Record<SourceId, SatSource & { readonly outputs: readonly string[] }>;
 
 const args = new Set(process.argv.slice(2));
@@ -149,6 +157,30 @@ function rmfCompilation(src: SatSource, path: string) {
   return [write(RMF_FILE, `${title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`)];
 }
 
+/**
+ * A federal law in force, from the Cámara de Diputados' PDF without its page headers and footers,
+ * dated by the last reform its cover names (`Última reforma publicada DOF 09-04-2026`).
+ */
+function federalLaw(url: string, bytes: Uint8Array, path: string) {
+  const info = run("pdfinfo", [path]);
+  const pages = /^Pages:\s+(\d+)/mu.exec(info)?.[1] ?? "?";
+  const markdown = lawMarkdown(run("markitdown", [path]));
+  const src = source(url, bytes, lawLastReform(markdown));
+  const header = provenanceHeader({
+    source: src,
+    format: `PDF, ${pages} pages, the Cámara de Diputados' text in force, last reformed DOF ${src.publishedAt}; the page headers and footers are left out`,
+    publisher: "the Cámara de Diputados'",
+  });
+  const title = "# Código Fiscal de la Federación (texto vigente)";
+  const outputs = [
+    write(
+      "codigo-fiscal-de-la-federacion.md",
+      `${title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`,
+    ),
+  ];
+  return { ...src, outputs };
+}
+
 /** The PDF's own modification date, ISO; the guides carry no date in their file names. */
 function pdfDate(path: string) {
   const info = run("pdfinfo", ["-isodates", path]);
@@ -164,6 +196,7 @@ async function main() {
     matrix: linked(page, /MatrizDeErrores_CFDI_v40_\d{8}\.xls/u),
     catalogs: linked(page, /catCFDI_V_4_\d{8}\.xls/u),
     rmf: latestRmfCompilation(rmfPage),
+    cff: `${LEYES_FEDERALES}/pdf/CFF.pdf`,
   };
   const previous = (
     existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : {}
@@ -181,6 +214,11 @@ async function main() {
     console.log(`${same ? "unchanged" : "CHANGED  "} ${id} ${url} ${hash}`);
     if (!same) changed += 1;
     if (args.has("--check") || (same && !args.has("--force"))) continue;
+    if (id === "cff") {
+      manifest[id] = federalLaw(url, bytes, path);
+      written.push(...manifest[id].outputs);
+      continue;
+    }
     const pdf = id === "anexo20" || id === "pagos" || id === "rmf";
     const src = source(url, bytes, pdf ? pdfDate(path) : fileNameDate(url));
     let outputs: string[];
@@ -235,8 +273,9 @@ async function main() {
   }
   write("sources.json", `${JSON.stringify(manifest, null, 2)}\n`);
   // From the repository root, where oxfmt finds the repository's formatting settings. Twice: the
-  // guides' broken PDF tables settle only on the second pass. The RMF is in `ignorePatterns`: its
-  // numbered lines (`1. Contraseña…`) read as Markdown lists, which oxfmt renumbers.
+  // guides' broken PDF tables settle only on the second pass. The RMF and the CFF are in
+  // `ignorePatterns`: their numbered lines (`1. Contraseña…`) read as Markdown lists, which oxfmt
+  // renumbers.
   const formatted = [...written, "sources.json"].map((file) => join(OUT, file));
   for (let pass = 0; pass < 2; pass += 1) {
     run("pnpm", ["exec", "oxfmt", ...formatted], { cwd: ROOT });
