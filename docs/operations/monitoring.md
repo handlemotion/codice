@@ -4,13 +4,13 @@ How a production failure of Códice reaches someone, within minutes rather than 
 2026-10-28, after `codice-corpus.yml` failed on 2026-10-26 and 2026-10-27 (AI Search items stuck
 while indexing) and nobody noticed for two days.
 
-| Signal                         | What watches it                          | Alerts through                               | State on 2026-10-28                                 |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------- | --------------------------------------------------- |
-| Corpus run fails               | `alert` job of `codice-corpus.yml`       | GitHub issue "Códice corpus failed"          | Live once merged                                    |
-| Worker secret sync fails       | `alert` job of `sync-worker-secrets.yml` | GitHub issue "Worker secret sync failed"     | Live once merged                                    |
-| API down, wrong or slow        | `codice-synthetic.yml`, every 10 minutes | GitHub issue "Códice synthetic check failed" | Live once merged, on `https://codice.io`            |
-| Errors and 5xx in `codice-api` | Sentry rules (proposed below)            | Sentry notification                          | Not created: needs the owner's OK and Sentry access |
-| AI Search latency              | Sentry rule on `ai_search.search` spans  | Sentry notification                          | Not created: as above                               |
+| Signal                         | What watches it                          | Alerts through                               | State on 2026-10-28                      |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------- | ---------------------------------------- |
+| Corpus run fails               | `alert` job of `codice-corpus.yml`       | GitHub issue "Códice corpus failed"          | Live once merged                         |
+| Worker secret sync fails       | `alert` job of `sync-worker-secrets.yml` | GitHub issue "Worker secret sync failed"     | Live once merged                         |
+| API down, wrong or slow        | `codice-synthetic.yml`, every 10 minutes | GitHub issue "Códice synthetic check failed" | Live once merged, on `https://codice.io` |
+| Errors and 5xx in `codice-api` | Sentry alert and monitor (below)         | Sentry email                                 | Live since 2026-10-28                    |
+| AI Search latency              | Sentry monitor on `ai_search.search`     | Sentry email                                 | Live since 2026-10-28                    |
 
 ## Workflow failure issues
 
@@ -87,27 +87,26 @@ dashboard key):
 
 With a wrong key both keyed checks failed twice with `HTTP 401` and the script exited 1.
 
-## Sentry rules for `codice-api` (proposed, not created)
+## Sentry rules for `codice-api`
 
-Org `handlemotion`, project `codice-api`. The Sentry connection this repository's agents use
-reaches only org `jaantonio` (2026-10-28: `find_organizations` lists `jaantonio`, and every
-`handlemotion` call answers 403), so these were not created. Create them in the Sentry UI, or grant
-the connection `alerts:write` on `handlemotion` and ask for them to be created, after the owner
-approves the exact rules:
+Org `handlemotion`, project `codice-api`. Approved by the owner and created on 2026-10-28 through
+the Sentry connection. Each notifies by email the issue's owners, else every active member
+(`issue_owners`, fallthrough `ActiveMembers`), as the org's default "high priority issues" alert
+(`6239850`) does; that one stays and covers only issues Sentry rates high priority.
 
-1. **Alert "codice-api: new or regressed issue"**: the project's issue stream; triggers
-   "a new issue is created", "an issue changes state from resolved to unresolved" and "an archived
-   issue escalates"; notify the project's owner by email (or the org's incident.io integration,
-   as `Production issues → incident.io` does in `jaantonio`); at most once every 30 minutes per
-   issue. Every 5xx is a Sentry error (`src/index.ts`), so a new failure mode alerts on its first
+1. **Alert "codice-api: new or regressed issue"** (`6242204`,
+   <https://handlemotion.sentry.io/monitors/alerts/6242204/>): sources the project's issue stream
+   and the two monitors below; triggers a new issue (`first_seen_event`), a regression
+   (`regression_event`) and a reappeared issue (`reappeared_event`); email as above, at most once
+   every 30 minutes per issue. Every 5xx is a Sentry error (`src/index.ts`), so a new failure mode alerts on its first
    event.
-2. **Metric monitor "codice-api: error events"**: dataset errors (`events`), query empty
+2. **Metric monitor "codice-api: error events"** (`10780018`): dataset errors (`events`), query empty
    (every error event), `count()` over 5 minutes, static: critical above 10, warning above 2,
    resolved at 2 or fewer. Connected to the alert above. A count, not a rate: the Worker has had
    almost no traffic (`performance.md`), so a rate over a handful of requests swings between 0 and
    100 %; Sentry's `failure_rate()` also counts 401 and 404 spans as failures, which a client with
    a bad key causes. Switch to `failure_rate()` on `http.server` 5xx once traffic is steady.
-3. **Metric monitor "codice-api: AI Search p95"**: dataset spans (`events_analytics_platform`,
+3. **Metric monitor "codice-api: AI Search p95"** (`10780020`): dataset spans (`events_analytics_platform`,
    `trace_item_span`), query `span.op:ai_search.search`, `p95(span.duration)` over 1 hour, static:
    critical above 8,000 ms, warning above 5,000 ms, resolved at 4,000 ms or less. 5,000 ms is above
    every search measured so far (3,959 ms the slowest); 8,000 ms matches the synthetic limit.

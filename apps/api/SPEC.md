@@ -894,8 +894,9 @@ indexing; the next green run closes it (`scripts/ops/alert-issue.mjs`, no secret
 `codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` every
 10 minutes with the site's key and alerts the same way on a non-200, an unexpected body or a call
 over 1, 8 or 1.5 seconds, against `https://codice.io` (a manual run can name another base URL).
-Sentry alert rules for errors
-and the `ai_search.search` p95 are proposed there and not created yet.
+In Sentry, the alert "codice-api:
+new or regressed issue" emails on every new, regressed or reappeared issue and on the monitors for
+error events (above 10 in 5 minutes) and the `ai_search.search` p95 (above 8 s over an hour).
 
 ### Go-live checklist
 
