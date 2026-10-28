@@ -12,6 +12,7 @@ import type { CodiceBindings, CodiceEnv } from "./env";
 import {
   CodiceProblem,
   listCatalog,
+  listChanges,
   listSources,
   lookupCatalog,
   lookupError,
@@ -269,6 +270,17 @@ app.get("/v1/search", async (context) =>
 // A passage id holds a slash (`<source>/<anchor>.md`), so the parameter takes the rest of the path.
 app.get("/v1/passages/:id{.+}", async (context) =>
   apiJson(context, await readPassage(context.env, context.req.param("id"))),
+);
+
+app.get("/v1/changes", async (context) =>
+  apiJson(
+    context,
+    await listChanges(context.env, {
+      since: context.req.query("since"),
+      until: context.req.query("until"),
+      source: context.req.query("source"),
+    }),
+  ),
 );
 
 app.get("/v1/sources", async (context) => apiJson(context, await listSources(context.env)));

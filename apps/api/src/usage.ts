@@ -22,6 +22,8 @@ function httpOperation(pathname: string): string | undefined {
       return "read_passage";
     case "errors":
       return "lookup_error";
+    case "changes":
+      return "list_changes";
     case "sources":
       return rest.length > 0 ? "read_source" : "list_sources";
     case "catalogs":

@@ -236,8 +236,9 @@ The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generate
 `0002_*.sql` (the NOCASE catalog index) and `0003_*.sql` to `0005_*.sql` (versions:
 `source_versions`, then the passages' validity in three steps, because SQLite cannot add a
 `NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
-custom `0004`, then tighten it with its check), and `0006_*.sql` (the passages' `body` and
-`kind`).
+custom `0004`, then tighten it with its check), `0006_*.sql` (the passages' `body` and
+`kind`) and `0007_*.sql` (indexes on the passages' `valid_from` and `valid_until`, for
+[Changes](#changes)).
 
 The Worker only reads D1, so it queries through a session that starts `first-unconstrained`
 (`withSession`): with read replication on, a query goes to the nearest replica; without it, to the
@@ -296,6 +297,7 @@ an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 | `GET /v1/search?q=&asOf=&source=&kind=&limit=` | AI Search `search()` + D1 `sources`                       |
 | `GET /v1/passages/:id`                         | D1 `passages` + D1 `sources`                              |
 | `GET /v1/sources`, `/v1/sources/:id`           | D1 `sources`                                              |
+| `GET /v1/changes?since=&until=&source=`        | D1 `passages` + D1 `sources`, `source_versions`           |
 | `GET /v1/errors/:code`                         | D1 `error_codes`                                          |
 | `GET /v1/catalogs/:name`                       | D1 `catalog_entries`                                      |
 | `GET /v1/catalogs/:name/:key?<column>=`        | D1 `catalog_entries`                                      |
@@ -322,6 +324,8 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
 retrievedAt, validFrom, validUntil }`, the same provenance the other routes attach.
+- **`/v1/changes`**: the passages added, changed or removed in a window, from D1 alone
+  ([Changes](#changes)).
 - **`/v1/errors/:code`**: the matrix row, its search passage as `passageId`
   (`errorCodePassageId`), and its source; or `404 error_code_not_found`.
 - **`/v1/catalogs/:name/:key`**: `{ catalog, key, entries: [{ fields, validFrom, validUntil }],
@@ -360,6 +364,7 @@ Worker the account binds can call it. The Agent binds it as `CODICE`.
 | `lookup_error`   | `code`                                 | `GET /v1/errors/:code`        |
 | `lookup_catalog` | `name`, `key`, `where`                 | `GET /v1/catalogs/:name/:key` |
 | `list_sources`   | none                                   | `GET /v1/sources`             |
+| `list_changes`   | `since`, `until`, `source`             | `GET /v1/changes`             |
 
 Each is a thin call to the same handler as `/v1` and returns its `data` as `structuredContent` (and
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
@@ -667,6 +672,41 @@ items, a dated key AI Search already holds is not copied again, and D1 records t
 next run plans the same records. A current item that no longer holds the recorded text with no
 dated copy fails the run instead of keeping the wrong text. The error codes and catalogs keep only
 their current records.
+
+### Changes
+
+`GET /v1/changes?since=&until=&source=` (MCP `list_changes`, `listChanges` in `src/handlers.ts`,
+`passageChanges` in `src/records.ts`) turns the versions above into a change feed: the passages
+added, changed or removed from `since` through `until`, both included, by the day each change
+applies from. It reads D1 alone, never AI Search. `since` is required, `until` optional (without
+it, every change from `since` on, including one Códice already holds for a later date) and not
+before `since`, both `YYYY-MM-DD`; `source` keeps one source. A malformed one is
+`400 invalid_request`.
+
+It answers `{ since, until, source, changes: [{ change, date, passageId, previousPassageId,
+source, heading, kind, validFrom, validUntil }] }`, by `date`, then `passageId`. Everything comes
+from the `valid_from` and `valid_until` of the `passages` rows (indexed by `0007`; a window is a
+multi-index OR over both) and the version starts in `sources` and `source_versions`:
+
+- **`changed`, with `previousPassageId`**: a text starts on `date` and the passage's previous text
+  (its dated key, `versionedKey`) ended the day before. `passageId` is the new text,
+  `previousPassageId` the old one; `read_passage` reads both.
+- **`changed`, with `previousPassageId: null`**: a text starts on `date` with no text before it,
+  in the first version of its source Códice holds: an amendment that version already carried when
+  Códice loaded it. The 36 RMF reglas the Primera RMRMF (DOF 2026-07-09) reformed or added are
+  these (`since=2026-07-01` on the local D1, 2026-10-28): Códice loaded the compilation of
+  2026-07-16, so it has only their new text, and cannot tell a reformed regla from an added one
+  (the regla's own note says which). A regla the amendment repealed has no passage, so it is not
+  listed.
+- **`added`**: a text starts on `date` with no text before it, in a later version of its source:
+  Códice held an earlier version, and this passage was not in it.
+- **`removed`**: a text ended the day before `date` and none followed it. `passageId` is the
+  ended text's dated key, with its validity.
+
+A source's history starts on the earliest `valid_from` of its passages: the texts that start
+that day (the 1,178 RMF reglas from 2025-12-28, each guide's whole text) are what Códice first
+loaded, not changes. The dates are the rule's own, not the day the ingestion found the change; a
+compilation's `sources.valid_from` can be later than the reglas it holds, so it is not the start.
 
 ## Cost
 
@@ -1030,7 +1070,9 @@ to match.
    `deploy:production` (or by hand while the Git build does not run migrations, as `0002` was).
    Only changes from now on are kept: an RMF regla the Primera RMRMF changed before Códice loaded
    the RMF holds only its new text, from the amendment's DOF date, so an `asOf` before that date
-   finds no version of it.
+   finds no version of it. `GET /v1/changes` and the MCP tool `list_changes` list the changes
+   these versions hold ([Changes](#changes)); proved with seeded versions in
+   `test/routes.test.ts` and, on the local D1, with the Primera RMRMF reglas.
 9. **Corpus Phases 1 and 2**, and the open questions below before a public launch. Phase 1 so far:
    the RMF (`rmf-2026`, 2026-10-25; see [Ingestion](#ingestion) and
    [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.

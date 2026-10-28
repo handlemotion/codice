@@ -63,8 +63,9 @@ Todas son de solo lectura: consultan, nunca modifican nada.
 | `lookup_error`   | Explica un código de error `CFDI40xxx`.   | `code`                                              |
 | `lookup_catalog` | Busca una clave en un catálogo del SAT.   | `name`, `key`, y opcional `where`                   |
 | `list_sources`   | Lista los documentos que contiene Códice. | Ninguno                                             |
+| `list_changes`   | Lista qué reglas cambiaron en un periodo. | `since`, y opcionales `until`, `source`             |
 
-Son las mismas consultas que la API, con los mismos argumentos. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten).
+Son las mismas consultas que la API, con los mismos argumentos. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten). `list_changes` se explica en [Cambios en las reglas](/docs/cambios).
 
 ## Qué preguntarle
 

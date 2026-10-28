@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { CodiceBindings } from "./env";
 import {
   CodiceProblem,
+  listChanges,
   listSources,
   lookupCatalog,
   lookupError,
@@ -16,7 +17,7 @@ export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates.";
 
 export const SearchArguments = z.object({
   q: z
@@ -85,6 +86,26 @@ export const LookupCatalogArguments = z.object({
     .describe(
       "Keep only the entries whose column equals the value, by the catalog's own column names, for a key that repeats: `{ c_CodigoPostal: '01000' }` for a `c_Colonia` key, `{ c_Estado: 'JAL' }` for a `c_Municipio` or `c_Localidad` key.",
     ),
+});
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/u;
+
+export const ListChangesArguments = z.object({
+  since: z
+    .string()
+    .regex(ISO_DATE)
+    .describe("The first day of the window, YYYY-MM-DD: changes that apply from this day on."),
+  until: z
+    .string()
+    .regex(ISO_DATE)
+    .optional()
+    .describe(
+      "The last day of the window, YYYY-MM-DD. Without it, every change from `since` on, including any Códice already holds for a later date.",
+    ),
+  source: z
+    .string()
+    .optional()
+    .describe("Only one source, by the id `list_sources` gives, such as `rmf-2026`."),
 });
 
 const READ_ONLY = {
@@ -192,6 +213,17 @@ export function createCodiceMcpServer(env: CodiceBindings) {
       inputSchema: z.object({}),
     },
     () => listSources(env),
+  );
+  registerTool(
+    server,
+    "list_changes",
+    {
+      title: "List changes",
+      description:
+        "List the passages the SAT added, changed or removed between two dates, by the day each change applies from. Each change gives the passage id of the text in force from that day and, for a change, the dated id of the text before it, which `read_passage` reads; a change with no previous id is one Códice holds no earlier text of.",
+      inputSchema: ListChangesArguments,
+    },
+    (args) => listChanges(env, args),
   );
   return server;
 }
