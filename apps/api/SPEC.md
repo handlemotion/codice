@@ -428,8 +428,8 @@ on the dashboard's Uso page (`apps/app`, `/`).
   response is ready, reports it with `ACCOUNTS.recordUsage([event])` in `waitUntil`, so a report
   never delays or fails a call (a failed one goes to Sentry). A rate-limited call counts, with its
   `429`; a refused credential does not.
-- The event (`UsageEvent` in `@codice/contracts`): the caller (a key's id and team, or the OAuth
-  user and client), the surface (`http` or `mcp`), the operation, the HTTP status, the duration
+- The event (`UsageEvent` in `@codice/contracts`): the caller (a key's id, team and the member who
+  created it, or the OAuth user and client), the surface (`http` or `mcp`), the operation, the HTTP status, the duration
   and the time. Operations share the MCP tools' names: `/v1/search` is `search`, `/v1/passages/:id`
   `read_passage`, `/v1/errors/:code` `lookup_error`, `/v1/catalogs/:name/:key` `lookup_catalog`,
   `/v1/sources` `list_sources`; the routes without a tool are `list_catalog`, `read_source` and
@@ -437,7 +437,9 @@ on the dashboard's Uso page (`apps/app`, `/`).
   initialize, listing tools and notifications are the client's bookkeeping.
 - `codice-app` adds each event to a counter row in D1 `codice-accounts` (`api_usage`): per Mexico
   City day, credential (a key, owned by its team, or an MCP client, owned by its user), surface
-  and operation, with calls, errors (status 400 and up) and the summed duration. One upsert per
+  and operation, with calls, errors (status 400 and up) and the summed duration. Each row also
+  names the person behind it (`user_id`: the key's creator, or the client's user), so the Uso page
+  splits a team's calls by key and by person. One upsert per
   call; at today's volume a D1 write per call is well within its limits. If calls grow to where
   that matters, Workers Analytics Engine is the next step (its reads need an account API token).
 
@@ -449,7 +451,8 @@ the dashboard (`apps/app`, `/keys`):
 - Sent as `Authorization: Bearer cdc_…`, or else as `x-api-key: cdc_…`. Keys start with `cdc_`.
 - Verified by `codice-app` over the service binding `ACCOUNTS` (entrypoint `CodiceAccounts`,
   contract `CodiceAccountsService` in `@codice/contracts`): `verifyApiKey(key)` answers
-  `{ valid: true, keyId, organizationId }` or `{ valid: false }`. It reads only the KV namespace
+  `{ valid: true, keyId, organizationId, userId }` or `{ valid: false }`, where `userId` is the
+  member who created the key (`null` for a key from before keys named their creator). It reads only the KV namespace
   where Better Auth's api-key plugin keeps the hashed keys, never D1, and records the key's last use
   at most once a minute per isolate.
 - Missing, unknown, revoked or expired → `401` problem+json, code `unauthorized`, with
@@ -457,9 +460,10 @@ the dashboard (`apps/app`, `/keys`):
   credential answers with its OAuth challenge instead ([MCP authorization](#mcp-authorization)).
 - `/`, `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) stay open.
 - A revoked key can still pass for up to a minute: KV caches a read at each location for 60 seconds.
-- Keys belong to a team (a Better Auth organization); each new user gets a personal team. Only a
-  team's owner can create and revoke its keys. Accounts, sessions and teams are in D1
-  `codice-accounts`, bound to `codice-app` only.
+- Keys belong to a team (a Better Auth organization); each new user gets a personal team and joins
+  others by emailed invitation. Owners and admins create and revoke any of the team's keys;
+  members create keys and revoke the ones they created. Each key records its creator. Accounts,
+  sessions and teams are in D1 `codice-accounts`, bound to `codice-app` only.
 
 ### MCP authorization
 
@@ -1037,7 +1041,8 @@ to match.
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
     `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
     Email Sending for `codice.io`. Usage per key and MCP client is on the dashboard's Uso page
-    ([Usage](#usage)). Next: member roles beyond the owner.
+    ([Usage](#usage)), by key and by person. Teams have owners, admins and members, invited by
+    email; each key records who created it.
 11. **MCP over OAuth** (done in code, see [MCP authorization](#mcp-authorization)). MCP clients
     connect with the URL alone, by Client ID Metadata Document or Dynamic Client Registration,
     and the user's connected clients are listed and disconnected through `codice-app`'s server

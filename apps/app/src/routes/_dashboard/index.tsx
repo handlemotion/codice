@@ -286,7 +286,8 @@ function SeriesMark({ entry, color }: { entry: UsageSeries; color: string }) {
 
 const EMPTY: Record<Scope, string> = {
   claves: "Las llamadas con las claves del equipo aparecen aquí por día.",
-  miembros: "Las herramientas que usan los asistentes de cada miembro aparecen aquí por día.",
+  miembros:
+    "Las llamadas de cada miembro, con las claves que creó y sus asistentes, aparecen aquí por día.",
 };
 
 function UsageCard({ usage, scope }: { usage: UsagePeriodData; scope: Scope }) {

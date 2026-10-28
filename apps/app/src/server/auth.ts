@@ -3,14 +3,16 @@ import { cimd } from "@better-auth/cimd";
 import { mcp } from "@better-auth/mcp";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { emailOTP, jwt, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 import * as schema from "../db/schema";
 import { API_KEY_PREFIX, kvStorage } from "./api-key-store";
 import { fetchClientMetadataResource } from "./client-metadata-fetch";
+import { ac, managesTeam, roles } from "./permissions";
 
 /** The bindings Better Auth reads. `CloudflareBindings` satisfies it; tests pass their own. */
 export interface AuthBindings {
@@ -55,13 +57,28 @@ export function oauthIssuer(env: Pick<AuthBindings, "BETTER_AUTH_URL">) {
   return `${env.BETTER_AUTH_URL.replace(/\/$/u, "")}/api/auth`;
 }
 
+/** How long an invitation to a team stays open. */
+export const INVITATION_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+/** Where an invitation's email leads: the dashboard's page to accept or decline it. */
+export function invitationUrl(env: Pick<AuthBindings, "BETTER_AUTH_URL">, invitationId: string) {
+  return `${env.BETTER_AUTH_URL.replace(/\/$/u, "")}/invitacion/${encodeURIComponent(invitationId)}`;
+}
+
+/** Who created a team key, in the key's metadata; `verifyApiKey` hands it to usage. */
+export interface ApiKeyMetadata {
+  createdBy: string;
+}
+
 /** The edge treats this cookie as a session (`apps/edge/src/route.ts`, `SESSION_COOKIE`). */
 export const SESSION_COOKIE = "__Secure-codice-session";
 
 /**
  * Better Auth for the dashboard: users, sessions and teams in D1 (`codice-accounts`), API keys in
- * KV (`API_KEYS`). A team is a Better Auth organization; each new user gets a personal one, and
- * the team owns its keys. Built per request: the bindings are per request on Workers.
+ * KV (`API_KEYS`). A team is a Better Auth organization with owners, admins and members
+ * (`permissions.ts`); each new user gets a personal one, and others join by invitation. The team
+ * owns its keys, and each key records the member who created it. Built per request: the bindings
+ * are per request on Workers.
  */
 export function createAuth(env: AuthBindings) {
   const db = drizzle(env.ACCOUNTS_DATABASE, { schema });
@@ -79,6 +96,47 @@ export function createAuth(env: AuthBindings) {
       // `__Secure-` + this name is `SESSION_COOKIE`.
       useSecureCookies: true,
       cookies: { session_token: { name: SESSION_COOKIE.replace("__Secure-", "") } },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        // A key always names its creator, whatever the request sent: usage is attributed by it.
+        if (ctx.path === "/api-key/create") {
+          const session = await getSessionFromCtx(ctx);
+          if (!session) return;
+          const metadata: ApiKeyMetadata = { createdBy: session.user.id };
+          return { context: { body: { ...ctx.body, metadata } } };
+        }
+        // The creator stays as it was set; nothing in the dashboard edits a key.
+        if (ctx.path === "/api-key/update" && ctx.body?.metadata !== undefined) {
+          throw new APIError("FORBIDDEN", { message: "A key's metadata is not editable" });
+        }
+        // Members may delete keys (`permissions.ts`), but only the ones they created.
+        if (ctx.path === "/api-key/delete") {
+          const session = await getSessionFromCtx(ctx);
+          if (!session) return;
+          const key = await auth.api
+            .getApiKey({ headers: ctx.headers ?? new Headers(), query: { id: ctx.body?.keyId } })
+            .catch(() => null);
+          if (!key) return;
+          const membership = await db
+            .select({ role: schema.member.role })
+            .from(schema.member)
+            .where(
+              and(
+                eq(schema.member.organizationId, key.referenceId),
+                eq(schema.member.userId, session.user.id),
+              ),
+            )
+            .get();
+          if (!membership || managesTeam(membership.role)) return;
+          const creator = (key.metadata as Partial<ApiKeyMetadata> | null)?.createdBy;
+          if (creator !== session.user.id) {
+            throw new APIError("FORBIDDEN", {
+              message: "Only its creator or an admin revokes a key",
+            });
+          }
+        }
+      }),
     },
     databaseHooks: {
       user: {
@@ -122,7 +180,22 @@ export function createAuth(env: AuthBindings) {
           });
         },
       }),
-      organization(),
+      organization({
+        ac,
+        roles,
+        invitationExpiresIn: INVITATION_TTL_SECONDS,
+        // Inviting the same email again replaces the open invitation instead of adding one.
+        cancelPendingInvitationsOnReInvite: true,
+        async sendInvitationEmail({ id, email, organization, inviter }) {
+          const from = inviter.user.name?.trim() || inviter.user.email;
+          await env.EMAIL.send({
+            from: { name: "Códice", email: env.AUTH_EMAIL_FROM },
+            to: email,
+            subject: `${from} te invitó a ${organization.name} en Códice`,
+            text: `${from} te invitó a unirte a ${organization.name} en Códice.\n\nAcepta la invitación aquí: ${invitationUrl(env, id)}\n\nVence en 7 días. Si no la esperabas, ignora este correo.`,
+          });
+        },
+      }),
       // Signs the MCP access tokens (EdDSA); the public keys are at `/api/auth/jwks`.
       jwt({ disableSettingJwtHeader: true }),
       // The OAuth 2.1 authorization server for MCP clients (MCP 2026-07-28, apps/api/SPEC.md,
@@ -150,6 +223,8 @@ export function createAuth(env: AuthBindings) {
         references: "organization",
         defaultPrefix: API_KEY_PREFIX,
         requireName: true,
+        // Holds `{ createdBy }`, which the `/api-key/create` hook sets.
+        enableMetadata: true,
         // Only KV holds the keys; `CodiceAccounts.verifyApiKey` reads them without touching D1.
         storage: "secondary-storage",
         customStorage: kvStorage(env.API_KEYS),

@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import type { UsageEvent } from "@codice/contracts";
 
 import * as schema from "../db/schema";
+import { displayName } from "../people";
 import { apiUsage } from "../db/usage";
 import { createAuth, type AuthBindings } from "./auth";
 
@@ -47,6 +48,7 @@ export async function recordUsage(database: D1Database, events: UsageEvent[]) {
         credentialKind: caller.kind,
         ownerId: caller.kind === "api_key" ? caller.organizationId : caller.userId,
         credentialId: caller.kind === "api_key" ? caller.keyId : caller.clientId,
+        userId: caller.userId ?? null,
         surface: event.surface,
         operation: event.operation.slice(0, 64),
         requests: 1,
@@ -66,6 +68,8 @@ export async function recordUsage(database: D1Database, events: UsageEvent[]) {
           requests: sql`${apiUsage.requests} + 1`,
           errors: sql`${apiUsage.errors} + ${failed}`,
           durationMs: sql`${apiUsage.durationMs} + ${durationMs}`,
+          // A day's first call may have come before `codice-api` sent the key's creator.
+          userId: sql`coalesce(${apiUsage.userId}, excluded.user_id)`,
         },
       });
   });
@@ -76,12 +80,12 @@ export async function recordUsage(database: D1Database, events: UsageEvent[]) {
 export const USAGE_PERIODS = [7, 30] as const;
 export type UsagePeriod = (typeof USAGE_PERIODS)[number];
 
-/** One key, or one member's MCP clients, in a period's usage. */
+/** One key, or one member (the keys they created and their MCP clients), in a period's usage. */
 export interface UsageSeries {
-  /** `api_key:<id>` or `member:<user id>`. */
+  /** `api_key:<id>` or `member:<user id>` (`member:` for keys without a recorded creator). */
   id: string;
   label: string;
-  /** The key's first characters, or the member's email. */
+  /** The key's first characters and its creator, or the member's email. */
   hint: string | null;
   image: string | null;
   requests: number;
@@ -102,7 +106,7 @@ export interface UsageTotals {
   meanMs: number | null;
 }
 
-/** One scope of the page: the team's keys, or its members through their MCP clients. */
+/** One scope of the page: the team's keys, or its members through their keys and MCP clients. */
 export interface UsageView {
   /** Each day's calls per series id. */
   days: { date: string; requests: Record<string, number> }[];
@@ -192,8 +196,9 @@ function viewOf(
 
 /**
  * A period of the team's usage for the signed-in member, in two views: by the team's keys, and
- * by its members through the MCP clients each connected (an MCP client is the user's, so a member
- * of two teams shows the same calls in both). `end` is the period's last day; by default, today.
+ * by its members: the keys each created (`api_usage.user_id`) and the MCP clients each connected
+ * (an MCP client is the user's, so a member of two teams shows the same MCP calls in both). `end`
+ * is the period's last day; by default, today.
  */
 export async function readUsage(
   env: AuthBindings,
@@ -245,15 +250,33 @@ export async function readUsage(
       .from(apiUsage)
       .where(teams)
       .get(),
-    // Only the team's owner may list its keys; for anyone else, keys go by their id.
+    // Every member reads the team's keys (`permissions.ts`); a revoked key is gone from the list.
     auth.api
       .listApiKeys({ headers, query: { organizationId: input.organizationId } })
       .then(({ apiKeys }) => apiKeys)
       .catch(() => []),
   ]);
 
+  // Keys keep their creator after the creator leaves the team.
+  const formerIds = [...new Set(rows.flatMap((row) => row.userId ?? []))].filter(
+    (id) => !members.some((member) => member.userId === id),
+  );
+  const former =
+    formerIds.length > 0
+      ? await db
+          .select({
+            userId: schema.user.id,
+            name: schema.user.name,
+            email: schema.user.email,
+            image: schema.user.image,
+          })
+          .from(schema.user)
+          .where(inArray(schema.user.id, formerIds))
+      : [];
   const keyNames = new Map(keys.map((key) => [key.id, key]));
-  const people = new Map(members.map((member) => [member.userId, member]));
+  const people = new Map([...members, ...former].map((member) => [member.userId, member]));
+  // A key's calls go to the member who created it; an MCP client's, to its user.
+  const personOf = (row: UsageRow) => (row.credentialKind === "api_key" ? row.userId : row.ownerId);
   const range = { start, previousStart, length };
 
   return {
@@ -265,20 +288,24 @@ export async function readUsage(
     keys: viewOf(rows, range, (row) => {
       if (row.credentialKind !== "api_key") return null;
       const key = keyNames.get(row.credentialId);
+      const creator = row.userId ? people.get(row.userId) : undefined;
       return {
         id: `api_key:${row.credentialId}`,
         label: key ? key.name || "Clave sin nombre" : "Clave revocada",
-        hint: key?.start ?? null,
+        hint: [key?.start, creator && displayName(creator)].filter(Boolean).join(" · ") || null,
         image: null,
       };
     }),
     members: viewOf(rows, range, (row) => {
-      if (row.credentialKind !== "oauth") return null;
-      const member = people.get(row.ownerId)!;
+      const userId = personOf(row);
+      const member = userId ? people.get(userId) : undefined;
+      if (!member) {
+        return { id: `member:${userId ?? ""}`, label: "Claves sin autor", hint: null, image: null };
+      }
       return {
-        id: `member:${row.ownerId}`,
-        label: member.name.trim() || member.email,
-        hint: member.name.trim() ? member.email : null,
+        id: `member:${member.userId}`,
+        label: displayName(member),
+        hint: member.email,
         image: member.image,
       };
     }),

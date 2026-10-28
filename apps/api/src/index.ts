@@ -92,8 +92,9 @@ async function verifiedKey(context: Context<CodiceEnv>, key: string | undefined)
     ? await accountsOf(context).verifyApiKey(key)
     : { valid: false as const };
   if (!verification.valid) return undefined;
-  const { keyId, organizationId } = verification;
-  return { kind: "api_key" as const, keyId, organizationId };
+  // `userId` is missing while `codice-app` runs a version from before keys named their creator.
+  const { keyId, organizationId, userId = null } = verification;
+  return { kind: "api_key" as const, keyId, organizationId, userId };
 }
 
 // `/v1` takes a team's API key, verified by `codice-app` (`ACCOUNTS`). SPEC.md, "Auth".

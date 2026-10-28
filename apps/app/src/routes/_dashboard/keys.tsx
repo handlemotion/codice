@@ -13,6 +13,7 @@ import {
   Section,
 } from "../../components/ui";
 import { createKey, listKeys, revokeKey } from "../../server/functions";
+import type { KeyRow } from "../../server/teams";
 
 export const Route = createFileRoute("/_dashboard/keys")({
   head: () => ({ meta: [{ title: "Claves · Códice" }] }),
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_dashboard/keys")({
 const FAILED = "No se pudo completar. Intenta de nuevo.";
 
 function Keys() {
+  const { dashboard } = Route.useRouteContext();
   const { team, keys } = Route.useLoaderData();
   const router = useRouter();
   const [name, setName] = useState("");
@@ -55,6 +57,11 @@ function Keys() {
       setCreated(key);
       setName("");
     });
+  }
+
+  // Owners and admins revoke any key; members, the ones they created (`permissions.ts`).
+  function revocable(key: KeyRow) {
+    return team?.manages || key.createdBy?.id === dashboard.user.id;
   }
 
   function revoke(keyId: string) {
@@ -114,12 +121,17 @@ function Keys() {
                   <span className="truncate text-[13px] text-muted">
                     <code className="font-mono text-[12px]">{key.start}…</code>
                     {" · "}
+                    {key.createdBy
+                      ? key.createdBy.id === dashboard.user.id
+                        ? "Tuya · "
+                        : `De ${key.createdBy.name} · `
+                      : ""}
                     {key.lastUsedAt
                       ? `Usada el ${dateFormat.format(new Date(key.lastUsedAt))}`
                       : `Creada el ${dateFormat.format(new Date(key.createdAt))}, sin usar`}
                   </span>
                 </div>
-                {confirming === key.id ? (
+                {!revocable(key) ? null : confirming === key.id ? (
                   <span className="flex shrink-0 items-center gap-3">
                     <button className={GHOST} onClick={() => setConfirming(null)} type="button">
                       Cancelar

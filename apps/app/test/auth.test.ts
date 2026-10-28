@@ -10,6 +10,7 @@ import {
   disconnectClient,
   listConnectedClients,
 } from "../src/server/connected-clients";
+import { readDashboard, readTeamKeys, readTeamPeople } from "../src/server/teams";
 import { mexicoDay, readUsage, recordUsage } from "../src/server/usage";
 
 /**
@@ -172,7 +173,13 @@ describe("team API keys", () => {
     });
     await Promise.all(pending);
 
-    expect(verification).toEqual({ valid: true, keyId: created.id, organizationId: team.id });
+    const session = await auth.api.getSession({ headers });
+    expect(verification).toEqual({
+      valid: true,
+      keyId: created.id,
+      organizationId: team.id,
+      userId: session!.user.id,
+    });
     expect(await env.API_KEYS.get(`codice:last-used:${created.id}`)).toMatch(/^\d{4}-/u);
   });
 
@@ -223,6 +230,219 @@ describe("team API keys", () => {
     ["no key", undefined],
   ])("refuses %s", async (_, key) => {
     expect(await verifyApiKey(env.API_KEYS, key, noWaitUntil)).toEqual({ valid: false });
+  });
+});
+
+describe("collaboration", () => {
+  /** A signed-in user, with headers for the server API. */
+  async function person(email: string) {
+    const { cookie } = await signIn(email);
+    const headers = new Headers({ cookie, origin: ORIGIN });
+    const session = await auth.api.getSession({ headers });
+    return { headers, userId: session!.user.id, email };
+  }
+
+  /** An owner's new team with a member who joined by invitation as `role`. */
+  async function teamWith(prefix: string, role: "member" | "admin") {
+    const owner = await person(`${prefix}-owner@example.com`);
+    const team = await auth.api.createOrganization({
+      headers: owner.headers,
+      body: { name: `${prefix} S.A.`, slug: `team-${prefix}` },
+    });
+    const invitee = await person(`${prefix}-${role}@example.com`);
+    const invitation = await auth.api.createInvitation({
+      headers: owner.headers,
+      body: { organizationId: team!.id, email: invitee.email, role },
+    });
+    await auth.api.acceptInvitation({
+      headers: invitee.headers,
+      body: { invitationId: invitation.id },
+    });
+    return { owner, invitee, team: team!, invitation };
+  }
+
+  it("emails an invitation with a link to its page, and accepting it joins the team", async () => {
+    const { owner, invitee, team, invitation } = await teamWith("acme", "member");
+
+    const email = sent.find(
+      (message) => message.to === invitee.email && message.text?.includes("/invitacion/"),
+    );
+    expect(email?.subject).toBe("acme-owner@example.com te invitó a acme S.A. en Códice");
+    expect(email?.text).toContain(`${ORIGIN}/invitacion/${invitation.id}`);
+
+    const people = await readTeamPeople(bindings, owner.headers, team.id);
+    expect(people.members.map((member) => [member.email, member.role])).toEqual([
+      ["acme-owner@example.com", "owner"],
+      ["acme-member@example.com", "member"],
+    ]);
+    expect(people.invitations).toEqual([]);
+
+    const dashboard = await readDashboard(bindings, invitee.headers);
+    expect(dashboard?.team).toMatchObject({
+      id: team.id,
+      role: "member",
+      manages: false,
+      personal: false,
+    });
+    expect(dashboard?.teams.map((entry) => entry.personal)).toEqual([true, false]);
+  });
+
+  it("lists an open invitation for the team and for the invited person", async () => {
+    const owner = await person("open-owner@example.com");
+    const [team] = await auth.api.listOrganizations({ headers: owner.headers });
+    await auth.api.createInvitation({
+      headers: owner.headers,
+      body: { organizationId: team!.id, email: "open-invitee@example.com", role: "admin" },
+    });
+    const invitee = await person("open-invitee@example.com");
+
+    const people = await readTeamPeople(bindings, owner.headers, team!.id);
+    expect(people.invitations).toMatchObject([
+      { email: "open-invitee@example.com", role: "admin" },
+    ]);
+    expect((await readDashboard(bindings, invitee.headers))?.invitations).toBe(1);
+  });
+
+  it("refuses an invitation to anyone but the invited email", async () => {
+    const owner = await person("only-owner@example.com");
+    const [team] = await auth.api.listOrganizations({ headers: owner.headers });
+    const invitation = await auth.api.createInvitation({
+      headers: owner.headers,
+      body: { organizationId: team!.id, email: "only-invitee@example.com", role: "member" },
+    });
+    const stranger = await person("only-stranger@example.com");
+
+    await expect(
+      auth.api.acceptInvitation({
+        headers: stranger.headers,
+        body: { invitationId: invitation.id },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("lets owners and admins invite and change roles, and members neither", async () => {
+    const { invitee: member, team } = await teamWith("roles", "member");
+    const admin = await teamWith("roles-admin", "admin");
+
+    await expect(
+      auth.api.createInvitation({
+        headers: member.headers,
+        body: { organizationId: team.id, email: "nope@example.com", role: "member" },
+      }),
+    ).rejects.toThrow();
+    const invited = await auth.api.createInvitation({
+      headers: admin.invitee.headers,
+      body: { organizationId: admin.team.id, email: "by-admin@example.com", role: "member" },
+    });
+    expect(invited.status).toBe("pending");
+  });
+
+  it("records who created a key, whatever the request sends, and every member reads it", async () => {
+    const { owner, invitee: member, team } = await teamWith("keys", "member");
+
+    const created = await auth.api.createApiKey({
+      headers: member.headers,
+      body: {
+        organizationId: team.id,
+        name: "integración",
+        metadata: { createdBy: owner.userId },
+      },
+    });
+
+    expect(await verifyApiKey(env.API_KEYS, created.key, noWaitUntil)).toEqual({
+      valid: true,
+      keyId: created.id,
+      organizationId: team.id,
+      userId: member.userId,
+    });
+    const keys = await readTeamKeys(bindings, owner.headers, team.id);
+    expect(keys).toMatchObject([
+      { id: created.id, createdBy: { id: member.userId, name: "Keys Member" } },
+    ]);
+    expect(await readTeamKeys(bindings, member.headers, team.id)).toHaveLength(1);
+  });
+
+  it("lets a member revoke only their own keys, and an admin any", async () => {
+    const { owner, invitee: member, team } = await teamWith("revoke", "member");
+    const owners = await auth.api.createApiKey({
+      headers: owner.headers,
+      body: { organizationId: team.id, name: "del propietario" },
+    });
+    const members = await auth.api.createApiKey({
+      headers: member.headers,
+      body: { organizationId: team.id, name: "del miembro" },
+    });
+
+    await expect(
+      auth.api.deleteApiKey({ headers: member.headers, body: { keyId: owners.id } }),
+    ).rejects.toThrow("Only its creator or an admin revokes a key");
+    expect((await verifyApiKey(env.API_KEYS, owners.key, noWaitUntil)).valid).toBe(true);
+
+    await auth.api.deleteApiKey({ headers: member.headers, body: { keyId: members.id } });
+    expect((await verifyApiKey(env.API_KEYS, members.key, noWaitUntil)).valid).toBe(false);
+
+    const again = await auth.api.createApiKey({
+      headers: member.headers,
+      body: { organizationId: team.id, name: "otra" },
+    });
+    await auth.api.deleteApiKey({ headers: owner.headers, body: { keyId: again.id } });
+    expect((await verifyApiKey(env.API_KEYS, again.key, noWaitUntil)).valid).toBe(false);
+  });
+
+  it("refuses to rewrite who created a key", async () => {
+    const { owner, team } = await teamWith("rewrite", "admin");
+    const created = await auth.api.createApiKey({
+      headers: owner.headers,
+      body: { organizationId: team.id, name: "fija" },
+    });
+
+    await expect(
+      auth.api.updateApiKey({
+        headers: owner.headers,
+        body: { keyId: created.id, metadata: { createdBy: "someone-else" } },
+      }),
+    ).rejects.toThrow("A key's metadata is not editable");
+  });
+
+  it("splits a team's usage by the member who created each key", async () => {
+    const { owner, invitee: member, team } = await teamWith("usage-people", "member");
+    const ownerKey = await auth.api.createApiKey({
+      headers: owner.headers,
+      body: { organizationId: team.id, name: "a" },
+    });
+    const memberKey = await auth.api.createApiKey({
+      headers: member.headers,
+      body: { organizationId: team.id, name: "b" },
+    });
+    const call = {
+      surface: "http" as const,
+      operation: "search",
+      status: 200,
+      durationMs: 10,
+      at: Date.now(),
+    };
+    const byKey = (keyId: string, userId: string | null) => ({
+      ...call,
+      caller: { kind: "api_key" as const, keyId, organizationId: team.id, userId },
+    });
+
+    await recordUsage(env.ACCOUNTS_DATABASE, [
+      byKey(ownerKey.id, owner.userId),
+      byKey(memberKey.id, member.userId),
+      byKey(memberKey.id, member.userId),
+      // A key from before keys named their creator.
+      byKey("old-key", null),
+    ]);
+
+    const usage = await readUsage(bindings, member.headers, { organizationId: team.id });
+    expect(usage.members.series.map((entry) => [entry.id, entry.label, entry.requests])).toEqual([
+      [`member:${member.userId}`, "Usage People Member", 2],
+      [`member:${owner.userId}`, "Usage People Owner", 1],
+      ["member:", "Claves sin autor", 1],
+    ]);
+    expect(usage.keys.series.find((entry) => entry.id === `api_key:${ownerKey.id}`)?.hint).toBe(
+      `${ownerKey.start} · Usage People Owner`,
+    );
   });
 });
 
@@ -482,7 +702,7 @@ describe("MCP authorization", () => {
 });
 
 describe("usage", () => {
-  it("counts reported calls per day and reads the team's keys and its members' clients", async () => {
+  it("counts reported calls per day and reads the team's keys and its members' keys and clients", async () => {
     const { cookie } = await signIn("usage@example.com");
     const headers = new Headers({ cookie, origin: ORIGIN });
     const [team] = await auth.api.listOrganizations({ headers });
@@ -494,7 +714,7 @@ describe("usage", () => {
     });
     const now = Date.now();
     const lastWeek = now - 7 * 24 * 60 * 60 * 1000;
-    const byKey = { kind: "api_key" as const, keyId: key.id, organizationId: team!.id };
+    const byKey = { kind: "api_key" as const, keyId: key.id, organizationId: team!.id, userId };
     const byClient = { kind: "oauth" as const, userId, clientId: "https://client.test/a" };
     const call = { surface: "http" as const, durationMs: 100, at: now };
 
@@ -530,7 +750,7 @@ describe("usage", () => {
       {
         id: `api_key:${key.id}`,
         label: "producción",
-        hint: key.start,
+        hint: `${key.start} · Usage`,
         image: null,
         requests: 3,
         previous: 1,
@@ -545,12 +765,13 @@ describe("usage", () => {
     expect(usage.members.series).toEqual([
       {
         id: `member:${userId}`,
-        // Signed in by email code with no name yet: the email stands in.
-        label: "usage@example.com",
-        hint: null,
+        // Signed in by email code with no name yet: the email's local part stands in.
+        label: "Usage",
+        hint: "usage@example.com",
         image: null,
-        requests: 1,
-        previous: 0,
+        // The key they created and their MCP client.
+        requests: 4,
+        previous: 1,
       },
     ]);
 
