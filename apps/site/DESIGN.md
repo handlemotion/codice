@@ -94,7 +94,8 @@ its cell, so neighbouring triangles keep a small gap. Every
 diagonal runs 120ms behind the one above-left of it, so the morph rolls from the top-left corner
 to the bottom-right like a wave. One SVG and one clock for the whole field.
 
-Where it appears: the hero background (the field, in `text-line`), the
+Where it appears: the hero background (the field, in `text-line` at 60%, faint enough that the
+title and the answer sit on it with no ground of their own), the
 footer band (three cells, one step apart), the chat (a still mark beside the greeting; three small
 marks turning while Códice answers), and the favicon.
 
@@ -231,6 +232,11 @@ Entrar → Obtener clave so the blue one sits in the corner.
   document and its date in the tooltip, opening the document. (A branch action, "Continuar la
   conversación con una cuenta", was tried and removed.) `/` focuses the composer from anywhere.
 - Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
+- **Kept for the tab:** once an answer finishes, the conversation is saved in `sessionStorage`, so a
+  refresh shows it again (after hydration: the server has no storage); "Empezar de nuevo" forgets
+  it. An answer still streaming when the page reloads is lost.
+- **No ground on text:** the title, the answer and the hint have no `bg-ink` behind them; the
+  field shows through. Controls (the pills, the bar's buttons) keep theirs.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).
 

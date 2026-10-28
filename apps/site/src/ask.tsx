@@ -35,6 +35,28 @@ const SUGGESTIONS = [
 ];
 const ROTATE_MS = 4000;
 
+// The finished conversation, kept for the tab so a refresh shows it again; "Empezar de nuevo"
+// forgets it. Storage can be missing or refuse (private windows), so every access is guarded.
+const SAVED = "codice-ask";
+
+function savedMessages(): ChatMessage[] | null {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(SAVED) ?? "null");
+    return Array.isArray(saved) && saved.length > 0 ? (saved as ChatMessage[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(messages: readonly ChatMessage[] | null) {
+  try {
+    if (messages) sessionStorage.setItem(SAVED, JSON.stringify(messages));
+    else sessionStorage.removeItem(SAVED);
+  } catch {
+    // Not kept: the chat works the same, only a refresh starts over.
+  }
+}
+
 /** Matches the API's limit on one question (`CHAT_MAX_BODY_BYTES` bounds the whole conversation). */
 const MAX_QUESTION_LENGTH = 2000;
 
@@ -163,7 +185,9 @@ const Answer = memo(function Answer({
  * icon actions (copy, start over; Esc too) and, past a divider, the sources as pills.
  */
 export function Ask() {
-  const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
+  const { messages, sendMessage, isLoading, error, stop, clear, setMessages } = useChat({
+    connection,
+  });
   const [query, setQuery] = useState("");
   const [rotation, setRotation] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -173,6 +197,16 @@ export function Ask() {
   const last = messages.at(-1);
   const pending = isLoading && last?.role === "user";
   const answer = last?.role === "assistant" ? textOf(last.parts) : "";
+
+  // The page renders on the server without the tab's storage, so the saved answer comes back
+  // after hydration; it is saved again once each answer has finished.
+  useEffect(() => {
+    const saved = savedMessages();
+    if (saved) setMessages(saved);
+  }, [setMessages]);
+  useEffect(() => {
+    if (!isLoading && !error && last?.role === "assistant") save(messages);
+  }, [messages, isLoading, error, last]);
 
   // While nothing is typed, the offered question changes every few seconds; it holds still while
   // the bubble has the keyboard, so the question there is the one Enter sends.
@@ -199,6 +233,7 @@ export function Ask() {
   function reset() {
     stop();
     clear();
+    save(null);
     setQuery("");
     setRotation((count) => count + 1);
     requestAnimationFrame(() => input.current?.focus());
@@ -230,13 +265,10 @@ export function Ask() {
 
   return (
     <div className="flex flex-col gap-10">
-      {/* Balanced, so its two lines run about the same length; the ground sits behind the lines only,
-          so the field shows past where each line ends. */}
+      {/* Balanced, so its two lines run about the same length. No ground: the field shows through. */}
       <h1 className="text-[20px] leading-snug text-balance">
-        <span className="box-decoration-clone bg-ink">
-          Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente
-          o intégrala en tu producto.
-        </span>
+        Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente o
+        intégrala en tu producto.
       </h1>
 
       <div aria-label="Conversación con Códice" className="flex flex-col gap-6" role="log">
@@ -245,7 +277,7 @@ export function Ask() {
             {message.role === "user" ? (
               <Bubble>{textOf(message.parts)}</Bubble>
             ) : (
-              <div className="mt-4 bg-ink">
+              <div className="mt-4">
                 <Answer
                   failed={Boolean(error) && !isLoading && index === messages.length - 1}
                   live={isLoading && index === messages.length - 1}
@@ -262,7 +294,7 @@ export function Ask() {
         )}
         {error && !isLoading && last?.role === "user" && (
           <div className="mt-4">
-            <p className="bg-ink text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
+            <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
           </div>
         )}
         {!open && (
@@ -277,7 +309,7 @@ export function Ask() {
                 setQuery={setQuery}
               />
               {/* Under the bubble, in small raw text: how to send it. */}
-              <span className={`${HINT} bg-ink`}>
+              <span className={HINT}>
                 <IconArrowCornerDownLeft size={14} />
                 Enviar
               </span>
