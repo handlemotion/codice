@@ -106,7 +106,7 @@ marks turning while Códice answers), and the favicon.
 - The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
   over the wave field. No brand mark, no nav bar, no section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
-  page's links (Producto, Documentación, API, Precios), 48px apart, with no fill and drawn with
+  page's links (Producto, Documentación, Precios), 48px apart, with no fill and drawn with
   `mix-blend-mode: difference` so they stay readable over whatever scrolls under them, start on the text
   column's edge (48%), the same line as the section text below; the compact pair of buttons sits on the right (Entrar
   outlined, Obtener clave electric). The links show from 1280px up (narrower, they would run into the buttons). Until `/docs` exists,
@@ -146,15 +146,48 @@ above it on hover or keyboard focus.
 - One row under it, spread across the full width (`justify-between`): "© 2026 Handlemotion"
   (opens handlemotion.com in a new tab) and the page's links. No disclaimer, no keyboard hints.
 
+## Docs (`/docs`)
+
+Fumadocs (`fumadocs-ui`, `fumadocs-mdx`, `fumadocs-openapi`) renders the guides in
+`content/docs` and one page per API operation from `content/openapi.json`. It follows this file,
+not Fumadocs' defaults:
+
+- **The same top bar** as the home (`SiteBar`, grounded: `ink` with a bottom hairline). It carries
+  the brand: the mark, and from 1280px the name in regular weight. Narrower, the links sit beside
+  the mark on the left (they scroll sideways if they must; they never disappear). Fumadocs' own
+  layout is off: `routes/docs/$.tsx` lays the page out itself.
+- **Three columns on the home's line:** the sidebar (300px), the page's contents and its actions
+  (copy as Markdown, open in ChatGPT or Claude) up to 48% of the width, and the page from there to
+  the edge, behind one full-height hairline. Docs text is 15px and fills its column; headings are
+  16px bold, with no dividers between sections. Below 1024px the actions sit above the title. An
+  API operation has no contents or actions: Fumadocs' operation keeps its own example column.
+- **The sidebar** (`docs-sidebar.tsx`, Figma node 8:4): a search row with its `⌘K` key cap, one
+  52px row per group (line icon, label, chevron) between hairlines, the current group open, the
+  current page bold in `fg`, and the theme toggle at the foot.
+- **Hover only brightens:** `muted` goes to `fg`; text already in `fg` gets an underline (the bar's
+  links) or brightens its icons (sidebar groups). Nothing dims on hover.
+- **Tokens, not Fumadocs' palette:** every `--color-fd-*` maps to ours in `styles.css`. All
+  surfaces are the ground (no cards, popovers or muted panels in grey); separation is the hairline.
+  The accent is `electric`; Fumadocs' theme switch is off, so `T` and dark-by-default apply.
+- **`.codice-docs` overrides** (`styles.css`): 4px boxes, 2px small controls, no shadows or blur;
+  14px interface text (15px in a guide), the page title at 20px, section headings bold; code in Supply Mono at 12px
+  with Shiki's dark theme unless the page is light; the sidebar's current page bold in `fg`, never a tinted fill.
+- **Spanish interface:** `src/lib/docs-i18n.ts` translates Fumadocs' labels. Add a key there when
+  an English label shows up.
+- **Content:** guides are plain Spanish for accountants first; code only where it is the point.
+  The API reference is generated: change `apps/api/src/openapi.ts`, then run
+  `pnpm --filter @codice/api openapi`.
+
 ## Components
 
 ### Buttons
 
-| Kind      | Classes (shape)                                                      | Where                  |
-| --------- | -------------------------------------------------------------------- | ---------------------- |
-| Primary   | `bg-electric text-white font-bold rounded-[2px] px-3 py-1.5`         | Qué es                 |
-| Secondary | `border border-line rounded-[2px] px-3 py-1.5`                       | Qué es                 |
-| Compact   | same, 28px tall (`h-7`), `px-2 text-[13px]`; secondary adds `bg-ink` | Floating, first screen |
+| Kind      | Classes (shape)                                                           | Where                  |
+| --------- | ------------------------------------------------------------------------- | ---------------------- |
+| Primary   | `bg-electric text-white font-bold rounded-[2px] px-3 py-1.5`              | Qué es                 |
+| Secondary | `border border-line rounded-[2px] px-3 py-1.5`                            | Qué es                 |
+| Compact   | same, 28px tall (`h-7`), `px-2 text-[13px]`; secondary adds `bg-ink`      | Floating, first screen |
+| Ghost     | `h-8 px-2 rounded-[2px] text-muted`, no box until hover (`bg-line`, `fg`) | Docs page actions      |
 
 Hover: primary inverts to `bg-fg text-ink`; secondary's border goes to `fg`. Sharp, small, flat.
 Primary always comes first in reading order of its group, except the floating pair, which reads

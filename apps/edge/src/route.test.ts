@@ -74,6 +74,26 @@ describe("edge routing", () => {
     }
   });
 
+  it("serves the docs from the site to everyone, for GET and HEAD", () => {
+    for (const path of [
+      "/docs",
+      "/docs/",
+      "/docs/api",
+      "/docs/api/search?x=1",
+      "/docs/guias/mcp",
+    ]) {
+      expect(target(path)).toBe("site");
+      expect(target(path, { cookie: `${SESSION}=sealed` })).toBe("site");
+      expect(target(path, { method: "HEAD" })).toBe("site");
+      expect(target(path, { method: "POST" })).toBe("app");
+      expect(target(path, { enabled: "false" })).toBe("app");
+    }
+  });
+
+  it("does not widen the docs prefix", () => {
+    for (const path of ["/docsx", "/doc", "/x/docs", "/Docs"]) expect(target(path)).toBe("app");
+  });
+
   it("sends only GET and HEAD on / to the site", () => {
     expect(target("/", { method: "HEAD" })).toBe("site");
     for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {

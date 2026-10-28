@@ -14,6 +14,7 @@
     "deploy:production": "pnpm run db:migrate:remote && WRANGLER_OUTPUT_FILE_PATH=/tmp/codice-wrangler-$WORKERS_CI_COMMIT_SHA.ndjson wrangler versions upload --tag $WORKERS_CI_COMMIT_SHA --outdir dist --upload-source-maps --var SENTRY_RELEASE:$WORKERS_CI_COMMIT_SHA && pnpm exec sentry-cli sourcemaps upload --org $SENTRY_ORG --project codice-api --release $WORKERS_CI_COMMIT_SHA --strip-prefix 'dist/..' --validate --strict --wait dist && wrangler versions deploy --version-id $(node -e 'const entry = JSON.parse(require(\"node:fs\").readFileSync(\"/tmp/codice-wrangler-\" + process.env.WORKERS_CI_COMMIT_SHA + \".ndjson\", \"utf8\").trim().split(\"\\n\").at(-1)); if (entry.type !== \"version-upload\" || !entry.version_id) throw new Error(\"Missing uploaded Worker version ID\"); process.stdout.write(entry.version_id)') --yes && wrangler triggers deploy",
     "test": "vitest run --config vitest.unit.config.mts && vitest run",
     "ingest": "tsx scripts/ingest.ts",
+    "openapi": "tsx scripts/openapi.ts",
     "sat:knowledge": "tsx scripts/sat-knowledge.ts",
     "eval": "doppler run -p codice -c dev -- tsx scripts/eval.ts"
   },

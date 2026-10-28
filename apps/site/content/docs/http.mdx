@@ -1,0 +1,83 @@
+---
+title: HTTP
+description: Autenticación, formato de respuesta, errores, límites y buenas prácticas de la API.
+---
+
+La API vive en `https://codice.io/v1`. Todas las rutas son `GET`, responden JSON y piden una clave. Cada una, con sus parámetros y respuestas, está en la [referencia](/docs/api/search).
+
+| Ruta                            | Para qué                                             |
+| ------------------------------- | ---------------------------------------------------- |
+| `GET /v1/search`                | [Buscar reglas](/docs/buscar) por pregunta o código. |
+| `GET /v1/passages/{id}`         | Leer un pasaje completo.                             |
+| `GET /v1/errors/{code}`         | Consultar un [código de error](/docs/errores).       |
+| `GET /v1/catalogs/{name}`       | Listar un [catálogo](/docs/catalogos).               |
+| `GET /v1/catalogs/{name}/{key}` | Consultar una clave de catálogo.                     |
+| `GET /v1/sources`               | Listar las fuentes.                                  |
+| `GET /v1/sources/{id}`          | Leer una fuente.                                     |
+
+## Autenticación
+
+Manda tu clave en cada petición, de cualquiera de estas dos formas:
+
+```http
+Authorization: Bearer cdc_…
+x-api-key: cdc_…
+```
+
+Sin clave, o con una desconocida, revocada o vencida, la respuesta es `401` con el código `unauthorized`. Una clave revocada puede seguir funcionando hasta un minuto después de revocarla.
+
+Las claves son de tu equipo y se administran en [Claves](/keys). Usa una por sistema o entorno, para poder revocar una sin afectar a las demás, y nunca la mandes desde un navegador: llama a Códice desde tu servidor.
+
+## Respuestas
+
+Toda respuesta correcta tiene la misma forma: `data` con el resultado y `meta.requestId` para rastrearla.
+
+```json
+{ "data": { "…": "…" }, "meta": { "requestId": "…" } }
+```
+
+Cada respuesta trae también el encabezado `x-request-id`. Si mandas el tuyo (de 1 a 128 caracteres), Códice lo conserva, así puedes seguir una petición de tu sistema al nuestro. Inclúyelo cuando reportes un problema.
+
+## Errores
+
+Los errores son `application/problem+json`, con un `code` estable que puedes usar en tu código, un `title` legible y el `requestId`:
+
+```json
+{
+  "type": "…",
+  "title": "Error code not found",
+  "status": 404,
+  "code": "error_code_not_found",
+  "requestId": "…"
+}
+```
+
+| Código                    | Estado | Cuándo                                                      |
+| ------------------------- | ------ | ----------------------------------------------------------- |
+| `invalid_request`         | 400    | Un parámetro está mal formado.                              |
+| `unauthorized`            | 401    | Falta la clave, o no es válida.                             |
+| `passage_not_found`       | 404    | No hay un pasaje con ese id.                                |
+| `error_code_not_found`    | 404    | El código no está en la matriz de errores.                  |
+| `catalog_not_found`       | 404    | No hay un catálogo con ese nombre.                          |
+| `catalog_entry_not_found` | 404    | La clave no existe en el catálogo, o el filtro no coincide. |
+| `source_not_found`        | 404    | No hay una fuente con ese id.                               |
+| `rate_limited`            | 429    | Más de 60 peticiones por minuto con la misma clave.         |
+| `search_unavailable`      | 502    | El servicio de búsqueda falló. Reintenta.                   |
+
+Decide por `code`, no por `title`: los títulos pueden cambiar de redacción, los códigos no.
+
+## Límites
+
+Cada clave puede hacer 60 peticiones por minuto, sumando la API y [MCP](/docs/mcp). Al pasarte, la respuesta es `429` con el encabezado `retry-after`: espera esos segundos antes de reintentar.
+
+Una petición sin clave válida no cuenta contra el límite.
+
+## Fechas
+
+Las reglas cambian cada año. `/v1/search` acepta `asOf=AAAA-MM-DD` y responde solo con las reglas vigentes ese día; por omisión, hoy en la Ciudad de México. Más en [Conceptos](/docs/conceptos#vigencia).
+
+## Buenas prácticas
+
+- **Reintenta solo lo reintentable:** `429` (después de `retry-after`) y `502`. Un `400` o `404` dará lo mismo la siguiente vez.
+- **Guarda en caché las consultas exactas.** Un código de error, una clave de catálogo o una fuente cambian solo cuando el SAT publica una versión nueva.
+- **Cita la fuente** al mostrar una respuesta a tus usuarios: `sourceTitle`, `sourceUrl` y la vigencia.

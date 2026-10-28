@@ -2,32 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { Ask } from "../ask";
+import { SiteBar } from "../components/site-bar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { Mark, MarkField } from "../brand/mark";
 
 export const Route = createFileRoute("/")({ component: Home });
-
-// A real row of the SAT's CFDI 4.0 error matrix (docs/sat-md), trimmed to its quoted fields.
-const RESPONSE = `{
-  "data": {
-    "code": "CFDI40149",
-    "attribute": "DomicilioFiscalReceptor",
-    "validation": "Si el valor del atributo Rfc del receptor es \\"XAXX010101000\\" o \\"XEXX010101000\\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
-    "source": {
-      "authority": "SAT",
-      "url": "http://omawww.sat.gob.mx/…/MatrizDeErrores_CFDI_v40_20260325.xls",
-      "publishedAt": "2026-03-25"
-    }
-  }
-}`;
-
-const TOOLS = [
-  ["search", "Busca reglas por pregunta o por clave."],
-  ["read_passage", "Lee una regla completa."],
-  ["lookup_error", "Explica un código de error CFDI40xxx."],
-  ["lookup_catalog", "Busca una clave en un catálogo del SAT."],
-  ["list_sources", "Lista los documentos indexados."],
-] as const;
 
 // The page is a ruled sheet: a margin column for the section's name and a text column that
 // starts just right of center, like a note written in a codex's outer margin. Every cell keeps
@@ -44,15 +23,6 @@ function Section({ id, title, children }: { id?: string; title: string; children
   );
 }
 
-// The only islands on the page: code the reader would copy.
-function Code({ children }: { children: ReactNode }) {
-  return (
-    <pre className="rounded-[4px] border border-line p-4 font-mono text-[12px] break-words whitespace-pre-wrap">
-      <code>{children}</code>
-    </pre>
-  );
-}
-
 // Assistants an accountant knows that can connect to https://codice.io/mcp. Their icons come from
 // svgl.app, cropped to their drawn area so they render at one size, and are drawn as masks filled
 // with the page's ink, so every logo is one color in either theme.
@@ -62,27 +32,17 @@ const ASSISTANTS = [
   ["Microsoft Copilot", "copilot"],
 ] as const;
 
-// Until the docs have their own page (`/docs`, routed by apps/edge), they point at this page's
-// developer section.
-const NAV_LINKS = [
-  ["Producto", "#que-es"],
-  ["Documentación", "#desarrolladores"],
-  ["API", "#desarrolladores"],
-  ["Precios", "#precios"],
-] as const;
-
 const FOOTER_LINKS = [
   ["Preguntar", "#preguntar"],
   ["Qué es", "#que-es"],
   ["Índice", "#indice"],
-  ["Desarrolladores", "#desarrolladores"],
+  ["Documentación", "/docs"],
   ["Obtener clave", "/keys"],
   ["Entrar", "/login"],
 ] as const;
 
-// The top bar is shorter than the logo strip. The strip sticks above the window's top edge by the
-// difference, so its bottom border lands on the bar's bottom edge and becomes the bar's ground.
-const BAR = "h-[44px] sm:h-[52px]";
+// The top bar (SiteBar) is shorter than the logo strip. The strip sticks above the window's top
+// edge by the difference, so its bottom border lands on the bar's bottom edge and becomes its ground.
 const STRIP = "h-[60px] -top-4 sm:h-[76px] sm:-top-6";
 
 /**
@@ -163,39 +123,7 @@ function Home() {
       {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
           marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
           border become its ground (see `Strip`). */}
-      <div
-        className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-30 grid items-center sm:grid-cols-[48fr_52fr]`}
-      >
-        {/* The page's links start on the text column's edge (48%), like the sections below. */}
-        <nav
-          aria-label="Principal"
-          className="pointer-events-auto hidden gap-12 px-6 sm:col-start-2 xl:flex"
-        >
-          {NAV_LINKS.map(([label, href]) => (
-            <a
-              className="inline-flex h-7 items-center text-white mix-blend-difference hover:underline"
-              href={href}
-              key={label}
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
-        <div className="pointer-events-auto absolute right-4 flex gap-2">
-          <a
-            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2 text-[13px] hover:border-fg"
-            href="/login"
-          >
-            Entrar
-          </a>
-          <a
-            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
-            href="/keys"
-          >
-            Obtener clave
-          </a>
-        </div>
-      </div>
+      <SiteBar />
 
       {/* The first screen: the title and the chat, centered and nudged above the middle, over a
           field of marks rolling corner to corner like a wave. */}
@@ -260,35 +188,15 @@ function Home() {
           <p>Los planes y precios se publicarán pronto.</p>
         </Section>
 
-        <Section id="desarrolladores" title="Para desarrolladores">
-          <p>Por HTTP, pide un código de error:</p>
-          <Code>curl https://codice.io/v1/errors/CFDI40149</Code>
-          <p>Y recibes el renglón de la matriz, palabra por palabra, con su fuente:</p>
-          <Code>{RESPONSE}</Code>
-          <p>Para Claude, ChatGPT o Cursor, agrega este servidor MCP:</p>
-          <Code>https://codice.io/mcp</Code>
-          <p>Tu asistente tendrá cinco herramientas, y consultará la regla en vez de recordarla:</p>
-          <dl className="flex flex-col">
-            {TOOLS.map(([tool, detail]) => (
-              <div
-                className="grid grid-cols-[9rem_1fr] gap-4 border-t border-line py-2 last:border-b"
-                key={tool}
-              >
-                <dt>{tool}</dt>
-                <dd>{detail}</dd>
-              </div>
-            ))}
-          </dl>
+        <Section id="desarrolladores" title="Para tu software">
           <p>
-            La API necesita una clave.{" "}
-            <a className={LINK} href="/keys">
-              Obtén una aquí
+            Conecta Códice a tu asistente de IA por MCP, o intégralo en tu sistema por HTTP. La
+            documentación explica cómo, paso a paso, con una referencia de cada ruta de la API.
+          </p>
+          <p>
+            <a className={LINK} href="/docs">
+              Leer la documentación
             </a>
-            . Si ya tienes cuenta,{" "}
-            <a className={LINK} href="/login">
-              entra
-            </a>
-            .
           </p>
         </Section>
       </main>

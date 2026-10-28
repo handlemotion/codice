@@ -1,0 +1,67 @@
+---
+title: Asistentes (MCP)
+description: Conecta tu asistente de IA para que consulte y cite las reglas del SAT.
+---
+
+Códice es un servidor [MCP](https://modelcontextprotocol.io), el estándar para darle herramientas a un asistente de IA. Conectado, tu asistente consulta la regla en vez de recordarla, y la cita con su fuente y su vigencia.
+
+Sin Códice, un asistente responde de memoria: puede citar una regla que ya cambió o inventar un atributo. Con Códice, busca el pasaje del SAT vigente y lo cita tal cual.
+
+## Conexión
+
+El servidor está en `https://codice.io/mcp` y necesita tu clave en el encabezado `Authorization`. Crea una en [Claves](/keys).
+
+### Cursor, VS Code y otros clientes con archivo JSON
+
+```json
+{
+  "mcpServers": {
+    "codice": {
+      "url": "https://codice.io/mcp",
+      "headers": { "Authorization": "Bearer cdc_…" }
+    }
+  }
+}
+```
+
+### Claude Code
+
+```bash
+claude mcp add --transport http codice https://codice.io/mcp \
+  --header "Authorization: Bearer cdc_…"
+```
+
+### Otros asistentes
+
+Cualquier cliente MCP que hable HTTP y permita mandar un encabezado sirve: usa la misma dirección y el mismo encabezado. Si tu asistente no permite encabezados, conecta Códice por la [API](/docs/http) desde tu propio servidor.
+
+## Herramientas
+
+Todas son de solo lectura: consultan, nunca modifican nada.
+
+| Herramienta      | Para qué                                  | Argumentos                                          |
+| ---------------- | ----------------------------------------- | --------------------------------------------------- |
+| `search`         | Busca reglas por pregunta o por clave.    | `q`, y opcionales `asOf`, `source`, `kind`, `limit` |
+| `read_passage`   | Lee una regla completa por su id.         | `id`                                                |
+| `lookup_error`   | Explica un código de error `CFDI40xxx`.   | `code`                                              |
+| `lookup_catalog` | Busca una clave en un catálogo del SAT.   | `name`, `key`, y opcional `where`                   |
+| `list_sources`   | Lista los documentos que contiene Códice. | Ninguno                                             |
+
+Son las mismas consultas que la API, con los mismos argumentos. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten).
+
+## Qué preguntarle
+
+- "El SAT me rechazó una factura con CFDI40149, ¿qué hago?"
+- "¿Qué uso de CFDI le pongo a una factura de honorarios médicos?"
+- "¿Qué régimen fiscal es el 626 y lo puede usar una persona moral?"
+- "¿Cuál era el plazo para cancelar un CFDI en junio de 2025?"
+
+El asistente decide qué herramientas usar: busca, lee el pasaje y responde citando la fuente.
+
+## Respuestas y errores
+
+Cada herramienta devuelve el mismo `data` que la ruta de la API, como contenido estructurado y como texto JSON. Cuando una consulta no encuentra nada o está mal formada, la herramienta responde con un error (`isError`) que trae el mismo `code` y estado que la API, por ejemplo `error_code_not_found`.
+
+## Límites
+
+Las consultas por MCP cuentan contra el mismo límite que la API: 60 por minuto por clave. Un asistente puede hacer varias consultas por pregunta, así que usa una clave aparte para él.

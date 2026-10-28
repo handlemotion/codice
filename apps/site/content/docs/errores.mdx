@@ -1,0 +1,68 @@
+---
+title: Códigos de error
+description: Qué significa un rechazo CFDI40xxx del SAT, según su matriz de errores de validación.
+---
+
+Cuando el SAT o tu proveedor de timbrado rechaza un comprobante, responde con un código como `CFDI40149`. Cada código es un renglón de la matriz de errores de validación del CFDI 4.0, que dice qué nodo y atributo revisa, qué regla aplica y qué mensaje devuelve.
+
+## Consultar un código
+
+```bash
+curl https://codice.io/v1/errors/CFDI40149 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "code": "CFDI40149",
+    "sourceId": "matriz-de-errores-cfdi-40",
+    "node": "…",
+    "attribute": "DomicilioFiscalReceptor",
+    "validation": "Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
+    "message": "El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion.",
+    "passageId": "matriz-de-errores-cfdi-40/cfdi40149.md",
+    "source": {
+      "id": "matriz-de-errores-cfdi-40",
+      "authority": "SAT",
+      "publishedAt": "2026-03-25",
+      "…": "…"
+    }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+| Campo        | Qué es                                              |
+| ------------ | --------------------------------------------------- |
+| `code`       | El código de error.                                 |
+| `node`       | El nodo del comprobante que se valida.              |
+| `attribute`  | El atributo que se valida.                          |
+| `validation` | La regla de validación, tal como la escribe el SAT. |
+| `message`    | El mensaje que devuelve el SAT, tal cual.           |
+| `passageId`  | El pasaje de la matriz, para leerlo o citarlo.      |
+| `source`     | La versión de la matriz de la que sale.             |
+
+Si el código no existe en la matriz, la respuesta es `404` con el código `error_code_not_found`.
+
+## Del rechazo a la corrección
+
+La matriz dice qué se validó, no por qué tu comprobante lo incumple. Un camino que funciona:
+
+1. **Consulta el código** para saber qué atributo y qué regla fallaron.
+2. **Busca el atributo en la guía de llenado** para saber qué valor espera el SAT:
+
+   ```bash
+   curl -G https://codice.io/v1/search \
+     --data-urlencode "q=DomicilioFiscalReceptor" \
+     --data-urlencode "kind=guia" \
+     -H "Authorization: Bearer $CODICE_KEY"
+   ```
+
+3. **Revisa el catálogo** si el atributo toma su valor de uno (régimen fiscal, uso de CFDI, código postal). Ver [Catálogos del SAT](/docs/catalogos).
+
+Un asistente de IA conectado por [MCP](/docs/mcp) hace estos tres pasos por su cuenta cuando le pegas el rechazo.
+
+## En tu software
+
+Si integras Códice en tu sistema de facturación, consulta el código cuando tu proveedor de timbrado devuelva un rechazo y muestra a quien factura el atributo, la regla y su fuente junto al error. Los códigos y sus reglas cambian solo cuando el SAT publica una matriz nueva, así que puedes guardar la respuesta en caché y renovarla de vez en cuando.

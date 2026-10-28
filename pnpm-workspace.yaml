@@ -13,6 +13,7 @@ minimumReleaseAgeExclude:
   - wrangler@4.129.1
 
 allowBuilds:
+  "@central-icons-react/square-outlined-radius-0-stroke-1.5": false
   "@sentry/cli": true
   bufferutil: false
   core-js-pure: false

@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
 
 @source "./**/*.{ts,tsx}";
 
@@ -101,5 +104,157 @@ kbd {
   from {
     opacity: 0;
     transform: translateY(2px);
+  }
+}
+
+/* The docs (Fumadocs) take the site's tokens, so they follow the same ground, inks, hairlines and
+   T toggle as the home. No raised surface: every Fumadocs surface is the ground itself. */
+:root,
+.dark {
+  --color-fd-background: var(--color-ink);
+  --color-fd-foreground: var(--color-fg);
+  --color-fd-muted: var(--color-ink);
+  --color-fd-muted-foreground: var(--color-muted);
+  --color-fd-popover: var(--color-ink);
+  --color-fd-popover-foreground: var(--color-fg);
+  --color-fd-card: var(--color-ink);
+  --color-fd-card-foreground: var(--color-fg);
+  --color-fd-border: var(--color-line);
+  --color-fd-primary: var(--color-electric);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: var(--color-ink);
+  --color-fd-secondary-foreground: var(--color-fg);
+  --color-fd-accent: transparent;
+  --color-fd-accent-foreground: var(--color-fg);
+  --color-fd-ring: var(--color-electric);
+}
+
+/* Fumadocs' components, brought to DESIGN.md: 4px boxes and 2px controls, no shadows or blur,
+   14px text with a 20px title, hierarchy by weight, code in the mono at 12px. Scoped to the docs. */
+.codice-docs {
+  font-size: 14px;
+  line-height: 1.7;
+
+  & :where(.rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
+    border-radius: 4px;
+  }
+  & :where(.rounded-sm, .rounded, [class*="rounded-["], button[class*="rounded"]) {
+    border-radius: 2px;
+  }
+  & :where([class*="shadow"]) {
+    box-shadow: none;
+  }
+  & :where([class*="backdrop-blur"]) {
+    backdrop-filter: none;
+    background-color: var(--color-ink);
+  }
+
+  /* The page title is the one larger size; the rest of the hierarchy is weight. */
+  & h1 {
+    font-size: 20px;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  & .prose h2,
+  & .prose h3,
+  & .prose h4 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  & .prose,
+  & .prose :where(p, li, td, th) {
+    font-size: 14px;
+    color: var(--color-fg);
+  }
+  & .prose :where(a) {
+    text-decoration-color: var(--color-line);
+    text-underline-offset: 4px;
+    font-weight: 400;
+    &:hover {
+      text-decoration-color: var(--color-fg);
+    }
+  }
+  & :where(pre, code, kbd) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  & .prose :where(h1, h2, h3, h4) a {
+    font-weight: inherit;
+    text-decoration: none;
+  }
+  & .prose :where(:not(pre) > code) {
+    border: 1px solid var(--color-line);
+    border-radius: 2px;
+    padding: 0.05em 0.3em;
+    background: transparent;
+  }
+  & .prose :where(table) {
+    border-radius: 4px;
+  }
+
+  /* A page's text runs across its column, from the home's 48% line to the page's edge, at 15px. */
+  & .doc-sheet {
+    max-width: none;
+    padding-bottom: 6rem;
+  }
+  & .doc-sheet > * {
+    margin-inline: 16px;
+  }
+  & .doc-sheet,
+  & .doc-sheet :where(p, li, td, th) {
+    font-size: 15px;
+  }
+  & .doc-sheet > h1 {
+    margin-block: 0;
+    padding-top: 16px;
+  }
+  & .doc-sheet > h3 {
+    font-size: 15px;
+    margin-top: 2em;
+  }
+  & .doc-sheet > h2 {
+    font-size: 16px;
+    margin-top: 2.5em;
+    scroll-margin-top: 76px;
+  }
+  & .doc-sheet :where(ul, ol) {
+    padding-inline-start: 1.25em;
+  }
+  & .doc-api {
+    padding-bottom: 24px;
+  }
+  & .doc-sheet .doc-lead {
+    color: var(--color-muted);
+  }
+  @media (min-width: 640px) {
+    & .doc-sheet > * {
+      margin-inline: 24px;
+    }
+    & .doc-sheet > h1 {
+      padding-top: 24px;
+    }
+  }
+
+  /* An API operation (fumadocs-openapi): each part (authorization, parameters, body, response)
+     has its name in bold, and the description stands apart from the route. */
+  /* Code is highlighted with Shiki's two themes; the dark one unless the page is light. */
+  &:where(:root:not([data-theme="light"]) *) :where(.shiki, .shiki span) {
+    color: var(--shiki-dark) !important;
+  }
+
+  & .codice-api {
+    & h2 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    & :where(div:has(> h2)) {
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    & :where(.min-w-0.flex-1 > p) {
+      margin-block: 1rem;
+    }
   }
 }
