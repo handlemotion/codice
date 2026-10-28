@@ -138,7 +138,7 @@ kbd {
   & :where(.rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
     border-radius: 4px;
   }
-  & :where(.rounded-sm, .rounded) {
+  & :where(.rounded-sm, .rounded, [class*="rounded-["], button[class*="rounded"]) {
     border-radius: 2px;
   }
   & :where([class*="shadow"]) {
@@ -163,12 +163,6 @@ kbd {
     font-weight: 700;
     letter-spacing: 0;
   }
-  /* A guide's sections open on a hairline (not the API pages, whose headings sit in rows). */
-  & .prose > h2 {
-    margin-top: 2.5em;
-    padding-top: 1.5em;
-    border-top: 1px solid var(--color-line);
-  }
   & .prose,
   & .prose :where(p, li, td, th) {
     font-size: 14px;
@@ -186,6 +180,10 @@ kbd {
     font-family: var(--font-mono);
     font-size: 12px;
   }
+  & .prose :where(h1, h2, h3, h4) a {
+    font-weight: inherit;
+    text-decoration: none;
+  }
   & .prose :where(:not(pre) > code) {
     border: 1px solid var(--color-line);
     border-radius: 2px;
@@ -196,13 +194,59 @@ kbd {
     border-radius: 4px;
   }
 
-  /* The sidebar's current page: the ink and bold, no tinted fill. */
-  & #nd-sidebar :where(a[data-active="true"]) {
-    background: transparent;
-    color: var(--color-fg);
-    font-weight: 700;
+  /* A page is a column of text, 34rem at most, from the home's 48% line. */
+  & .doc-sheet {
+    max-width: none;
+    padding-bottom: 6rem;
   }
-  & #nd-sidebar :where(a) {
-    font-size: 14px;
+  & .doc-sheet > * {
+    margin-inline: 16px;
+    max-width: 34rem;
+  }
+  & .doc-sheet > h1 {
+    margin-block: 0;
+    padding-top: 16px;
+  }
+  & .doc-sheet > h2 {
+    margin-top: 2.5em;
+    scroll-margin-top: 76px;
+  }
+  & .doc-sheet :where(ul, ol) {
+    padding-inline-start: 1.25em;
+  }
+  & .doc-api {
+    padding-bottom: 24px;
+  }
+  & .doc-sheet .doc-lead {
+    color: var(--color-muted);
+  }
+  @media (min-width: 640px) {
+    & .doc-sheet > * {
+      margin-inline: 24px;
+    }
+    & .doc-sheet > h1 {
+      padding-top: 24px;
+    }
+  }
+
+  /* An API operation (fumadocs-openapi): each part (authorization, parameters, body, response)
+     has its name in bold, and the description stands apart from the route. */
+  /* Code is highlighted with Shiki's two themes; the dark one unless the page is light. */
+  &:where(:root:not([data-theme="light"]) *) :where(.shiki, .shiki span) {
+    color: var(--shiki-dark) !important;
+  }
+
+  & .codice-api {
+    & h2 {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    & :where(div:has(> h2)) {
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    & :where(.min-w-0.flex-1 > p) {
+      margin-block: 1rem;
+    }
   }
 }

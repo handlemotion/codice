@@ -1,15 +1,15 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useFumadocsLoader } from "fumadocs-core/source/client";
-import { DocsLayout } from "fumadocs-ui/layouts/docs";
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page";
-import { Suspense, use, type ReactNode } from "react";
+import { Suspense, use } from "react";
 
 import { OpenAPIPage } from "../../components/api-page";
+import { DocsSidebar } from "../../components/docs-sidebar";
+import { DocsToc } from "../../components/docs-toc";
+import { PageActions } from "../../components/page-actions";
 import { SiteBar } from "../../components/site-bar";
 import { useMDXComponents } from "../../components/mdx";
 import { docs } from "../../lib/collections";
-import { baseOptions } from "../../lib/layout.shared";
 import { source } from "../../lib/source";
 
 // Every docs page: a guide from content/docs, or an API operation from the OpenAPI document.
@@ -45,47 +45,67 @@ const serverLoader = createServerFn({ method: "GET" })
 function Guide({ path }: { path: string }) {
   const page = docs.getPage(path);
   if (!page) throw new Error(`unknown page: ${path}`);
-  const { toc } = use(page.load());
+  use(page.load());
   const MDX = page.body;
   return (
-    <DocsPage toc={toc}>
-      <DocsTitle>{page.title}</DocsTitle>
-      <DocsDescription>{page.description}</DocsDescription>
-      <DocsBody>
-        <MDX components={useMDXComponents()} />
-      </DocsBody>
-    </DocsPage>
+    <article className="doc-sheet prose">
+      <h1>{page.title}</h1>
+      {page.description && <p className="doc-lead">{page.description}</p>}
+      <MDX components={useMDXComponents()} />
+    </article>
   );
 }
 
 function Page() {
   const page = useFumadocsLoader(Route.useLoaderData());
-  let content: ReactNode;
-  if (page.type === "openapi") {
-    content = (
-      <DocsPage full>
-        <DocsTitle>{page.title}</DocsTitle>
-        <DocsBody>
+  const content =
+    page.type === "openapi" ? (
+      <>
+        <header className="doc-sheet doc-api prose">
+          <h1>{page.title}</h1>
+        </header>
+        <div className="codice-api px-4 pb-24 sm:px-6">
           <OpenAPIPage {...page.props} />
-        </DocsBody>
-      </DocsPage>
-    );
-  } else {
-    content = (
+        </div>
+      </>
+    ) : (
       <Suspense>
         <Guide path={page.path} />
       </Suspense>
     );
-  }
-  // The site's own bar on top; Fumadocs offsets its sticky sidebar and contents by
-  // `--fd-banner-height`, so they start under it.
+  // The site's bar on top, then three columns, the home's ruled sheet: the sidebar, the page's
+  // contents up to the home's 48% line, and the page itself from that line, with its actions at
+  // the right edge. An API operation is the sidebar and the operation, which has its own example
+  // column. Below 1024px they stack.
+  const guide = page.type === "docs";
   return (
-    <div className="codice-docs [--fd-banner-height:44px] sm:[--fd-banner-height:52px]">
+    <div className="codice-docs">
       <SiteBar grounded />
-      <div className="pt-[44px] sm:pt-[52px]">
-        <DocsLayout {...baseOptions()} tree={page.pageTree}>
-          {content}
-        </DocsLayout>
+      <div
+        className={`pt-[44px] sm:pt-[52px] lg:grid ${guide ? "lg:grid-cols-[300px_calc(48%-300px)_minmax(0,1fr)]" : "lg:grid-cols-[300px_minmax(0,1fr)]"}`}
+      >
+        <div className="max-lg:border-b max-lg:border-line lg:sticky lg:top-[52px] lg:h-[calc(100dvh-52px)]">
+          <DocsSidebar tree={page.pageTree} />
+        </div>
+        {guide && (
+          <div className="max-lg:hidden">
+            <div className="sticky top-[52px] max-h-[calc(100dvh-52px)] overflow-y-auto">
+              <DocsToc />
+            </div>
+          </div>
+        )}
+        <main
+          className={`min-h-[calc(100dvh-52px)] min-w-0 overflow-x-clip xl:flex ${guide ? "lg:border-l lg:border-line" : ""}`}
+        >
+          {guide && (
+            <div className="p-4 sm:px-6 xl:order-last xl:w-[240px] xl:shrink-0">
+              <div className="xl:sticky xl:top-[76px]">
+                <PageActions path={page.path} title={page.title} />
+              </div>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">{content}</div>
+        </main>
       </div>
     </div>
   );

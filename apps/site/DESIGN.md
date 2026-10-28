@@ -152,15 +152,27 @@ Fumadocs (`fumadocs-ui`, `fumadocs-mdx`, `fumadocs-openapi`) renders the guides 
 `content/docs` and one page per API operation from `content/openapi.json`. It follows this file,
 not Fumadocs' defaults:
 
-- **The same top bar** as the home (`SiteBar`, grounded: `ink` with a bottom hairline). Fumadocs'
-  own header is off; its sidebar and contents start under the bar through `--fd-banner-height`.
-  The sidebar keeps the brand (back to the home) and the search.
+- **The same top bar** as the home (`SiteBar`, grounded: `ink` with a bottom hairline). It carries
+  the brand: the mark, and from 1280px the name in regular weight. Narrower, the links sit beside
+  the mark on the left (they scroll sideways if they must; they never disappear). Fumadocs' own
+  layout is off: `routes/docs/$.tsx` lays the page out itself.
+- **Three columns on the home's line:** the sidebar (300px), the page's contents up to 48% of the
+  width, and the page from there, behind one full-height hairline. Text holds 34rem; the page's
+  actions (copy as Markdown, open in ChatGPT or Claude) sit at its right edge from 1280px and
+  above the title below that. No dividers between sections: headings in bold carry the
+  structure. An API operation has no contents or actions column: Fumadocs' operation keeps its
+  own example column.
+- **The sidebar** (`docs-sidebar.tsx`, Figma node 8:4): a search row with its `⌘K` key cap, one
+  52px row per group (line icon, label, chevron) between hairlines, the current group open, the
+  current page bold in `fg`, and the theme toggle at the foot.
+- **Hover only brightens:** `muted` goes to `fg`; text already in `fg` gets an underline (the bar's
+  links) or brightens its icons (sidebar groups). Nothing dims on hover.
 - **Tokens, not Fumadocs' palette:** every `--color-fd-*` maps to ours in `styles.css`. All
   surfaces are the ground (no cards, popovers or muted panels in grey); separation is the hairline.
   The accent is `electric`; Fumadocs' theme switch is off, so `T` and dark-by-default apply.
 - **`.codice-docs` overrides** (`styles.css`): 4px boxes, 2px small controls, no shadows or blur;
-  14px text, the page title at 20px, section headings bold at 14px over a hairline; code in Supply
-  Mono at 12px; the sidebar's current page bold in `fg`, never a tinted fill.
+  14px text, the page title at 20px, section headings bold at 14px; code in Supply Mono at 12px
+  with Shiki's dark theme unless the page is light; the sidebar's current page bold in `fg`, never a tinted fill.
 - **Spanish interface:** `src/lib/docs-i18n.ts` translates Fumadocs' labels. Add a key there when
   an English label shows up.
 - **Content:** guides are plain Spanish for accountants first; code only where it is the point.

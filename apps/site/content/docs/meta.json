@@ -1,4 +1,4 @@
 {
   "title": "Documentación",
-  "pages": ["index", "primeros-pasos", "http", "mcp", "api"]
+  "pages": ["---Empezar---", "index", "primeros-pasos", "---Conectar---", "http", "mcp", "api"]
 }

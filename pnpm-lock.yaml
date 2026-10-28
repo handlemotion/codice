@@ -363,6 +363,9 @@ importers:
 
   apps/site:
     dependencies:
+      '@central-icons-react/square-outlined-radius-0-stroke-1.5':
+        specifier: 1.2.22
+        version: 1.2.22(react@19.2.8)
       '@radix-ui/react-tooltip':
         specifier: 1.4.1
         version: 1.4.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -802,6 +805,11 @@ packages:
 
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
+
+  '@central-icons-react/square-outlined-radius-0-stroke-1.5@1.2.22':
+    resolution: {integrity: sha512-g8gUyFNuwLlQ2+4BYISjkPKbZAJy869vTukuzLqD/bgCuQtNyTog1cENTNN9bBvUQz5VxWoOInrfJ8l6dyGcLQ==}
+    peerDependencies:
+      react: '>=16.6.0 <20'
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -5855,10 +5863,6 @@ packages:
     resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
     engines: {node: '>=20.18.1'}
 
-  undici@7.29.1:
-    resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==}
-    engines: {node: '>=20.18.1'}
-
   undici@7.30.1:
     resolution: {integrity: sha512-03KrMbjIFDWQR5RNPrSw3bd1r12JpyFQl9/yxjUbJtqkjmllqC5lFjZh6ujeuJCKr8EOQvRW872Oy/az+nLYxg==}
     engines: {node: '>=20.18.1'}
@@ -6261,7 +6265,7 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.1.0
-      undici: 7.29.1
+      undici: 7.30.1
       zod: 4.6.5
     optional: true
 
@@ -6613,6 +6617,10 @@ snapshots:
   '@better-fetch/fetch@1.3.3': {}
 
   '@braintree/sanitize-url@7.1.2': {}
+
+  '@central-icons-react/square-outlined-radius-0-stroke-1.5@1.2.22(react@19.2.8)':
+    dependencies:
+      react: 19.2.8
 
   '@cfworker/json-schema@4.1.1': {}
 
@@ -11498,9 +11506,6 @@ snapshots:
   undici-types@7.18.2: {}
 
   undici@7.29.0: {}
-
-  undici@7.29.1:
-    optional: true
 
   undici@7.30.1: {}
 
