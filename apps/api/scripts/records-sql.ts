@@ -148,7 +148,8 @@ function catalogValues(row: CatalogEntryRow): Value[] {
  * fails leaves the database as it was). Sources are upserted, not deleted, because the large
  * catalogs' rows reference theirs; a source the corpus no longer has goes once nothing references
  * it, with its superseded versions. `passages` are the plan's records, current and superseded, and
- * `sourceVersions` the versions this run supersedes; earlier ones stay.
+ * `sourceVersions` the versions this run supersedes; earlier ones stay. The corpus's links follow
+ * the passages, each only when both its passages are among those records.
  */
 export function recordsSql(
   corpus: Corpus,
@@ -159,7 +160,17 @@ export function recordsSql(
   },
 ) {
   const sourceIds = nameList(corpus.sources.map((row) => row.id));
+  const written = new Set(versions.passages.map((row) => row.key));
+  const positions = new Map<string, number>();
+  const links = corpus.links
+    .filter((link) => written.has(link.from) && written.has(link.to))
+    .map((link): Value[] => {
+      const position = positions.get(link.from) ?? 0;
+      positions.set(link.from, position + 1);
+      return [link.from, link.to, position];
+    });
   return [
+    "DELETE FROM passage_links;",
     "DELETE FROM passages;",
     "DELETE FROM error_codes;",
     `DELETE FROM catalog_entries WHERE catalog NOT IN ${nameList(largeCatalogs)};`,
@@ -181,6 +192,7 @@ export function recordsSql(
         row.validUntil,
       ]),
     ),
+    ...insertStatements("passage_links", ["passage_key", "related_key", "position"], links),
     ...insertStatements(
       "error_codes",
       ["code", "node", "attribute", "validation", "message", "source_id"],

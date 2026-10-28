@@ -6,6 +6,7 @@ import {
   catalogEntries,
   errorCodes,
   IN_FORCE_UNTIL,
+  passageLinks,
   passages,
   sources,
   sourceVersions,
@@ -188,19 +189,30 @@ export function errorCodePassageId(sourceId: string, code: string) {
   return `${sourceId}/${code.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}.md`;
 }
 
-/** The matrix rows of the codes, by their `matrixCode`, in one query; an unknown code is left out. */
+/**
+ * The matrix rows of the codes, by their `matrixCode`, in one query, each with its passage, the
+ * guide passages that passage links to (`related`) and its source; an unknown code is left out.
+ */
 export async function errorCodeRows(db: Database, codes: readonly string[]) {
-  const rows = await db
-    .select()
-    .from(errorCodes)
-    .where(inArray(errorCodes.code, [...new Set(codes.map(matrixCode))]));
-  const provenance = await sourcesById(db, [...new Set(rows.map((row) => row.sourceId))]);
+  const rows = (
+    await db
+      .select()
+      .from(errorCodes)
+      .where(inArray(errorCodes.code, [...new Set(codes.map(matrixCode))]))
+  ).map((row) => ({ ...row, passageId: errorCodePassageId(row.sourceId, row.code) }));
+  const [related, provenance] = await Promise.all([
+    relatedPassagesOf(
+      db,
+      rows.map((row) => row.passageId),
+    ),
+    sourcesById(db, [...new Set(rows.map((row) => row.sourceId))]),
+  ]);
   return new Map(
     rows.map((row) => [
       row.code,
       {
         ...row,
-        passageId: errorCodePassageId(row.sourceId, row.code),
+        related: related.get(row.passageId) ?? [],
         source: provenance.get(row.sourceId) ?? null,
       },
     ]),
@@ -317,6 +329,24 @@ export async function passageHeadings(
 export async function passageRow(db: Database, key: string) {
   const [row] = await db.select().from(passages).where(eq(passages.key, key)).limit(1);
   return row ?? null;
+}
+
+/** The passage ids a passage links to, in its text's order (SPEC.md, "Related passages"). */
+export async function relatedPassages(db: Database, key: string) {
+  return (await relatedPassagesOf(db, [key])).get(key) ?? [];
+}
+
+/** The passage ids each passage links to, by its key, in one query; a passage without links is left out. */
+async function relatedPassagesOf(db: Database, keys: readonly string[]) {
+  const related = new Map<string, string[]>();
+  if (keys.length === 0) return related;
+  const rows = await db
+    .select({ from: passageLinks.passageKey, to: passageLinks.relatedKey })
+    .from(passageLinks)
+    .where(inArray(passageLinks.passageKey, [...keys]))
+    .orderBy(asc(passageLinks.passageKey), asc(passageLinks.position));
+  for (const row of rows) related.set(row.from, [...(related.get(row.from) ?? []), row.to]);
+  return related;
 }
 
 /** A `YYYYMMDD` date moved by whole days: `addDays(20260301, -1)` is `20260228`. */

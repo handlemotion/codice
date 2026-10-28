@@ -278,6 +278,9 @@ hand-written migrations).
   row alone (see [HTTP API](#http-api-v1)). `body` and `kind` are null only in a row written
   before `0006`, until the next ingestion rewrites every row; a superseded row keeps the body D1
   recorded for it, or the text the ingestion copies from AI Search for one that has none.
+- `passage_links`: the related passages each current passage's text names (passage key, related
+  key, position in the text's order), both ends `passages` rows; see
+  [Related passages](#related-passages).
 - `error_codes`: the `CFDI40xxx` matrix (code, node, attribute, validation, message). Each row
   is also a search passage, so a plain-language question (_"código postal de un receptor con RFC
   genérico"_) finds its code; the record answers the exact lookup.
@@ -293,8 +296,8 @@ The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generate
 `source_versions`, then the passages' validity in three steps, because SQLite cannot add a
 `NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
 custom `0004`, then tighten it with its check), `0006_*.sql` (the passages' `body` and
-`kind`) and `0007_*.sql` (indexes on the passages' `valid_from` and `valid_until`, for
-[Changes](#changes)).
+`kind`), `0007_*.sql` (indexes on the passages' `valid_from` and `valid_until`, for
+[Changes](#changes)), and `0008_*.sql` (`passage_links`).
 
 The Worker only reads D1, so it queries through a session that starts `first-unconstrained`
 (`withSession`): with read replication on, a query goes to the nearest replica; without it, to the
@@ -376,14 +379,17 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
   `valid_until`: a superseded passage's own version, else the current one). A superseded passage's
   dated id (`…/nodo-receptor-usocfdi.20220101.md`) reads like any other. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
   `passage_not_found`; an Items API failure is `502 search_unavailable` (both only for a row
-  without a body).
+  without a body). `related` lists the passage ids its text links to, in the text's order, from D1
+  `passage_links` ([Related passages](#related-passages)); empty for a passage without links,
+  including every superseded one.
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
 retrievedAt, validFrom, validUntil }`, the same provenance the other routes attach.
 - **`/v1/changes`**: the passages added, changed or removed in a window, from D1 alone
   ([Changes](#changes)).
 - **`/v1/errors/:code`**: the matrix row, its search passage as `passageId`
-  (`errorCodePassageId`), and its source; or `404 error_code_not_found`.
+  (`errorCodePassageId`), that passage's `related` (the Anexo 20 passage that defines the row's
+  attribute, or none), and its source; or `404 error_code_not_found`.
 - **`/v1/catalogs/:name/:key`**: `{ catalog, key, entries: [{ fields, validFrom, validUntil }],
 source }`, every entry of the key in the SAT's order, or `404 catalog_entry_not_found`. Each query
   parameter names a column of the catalog by its SAT header (`c_CodigoPostal`, `c_Estado`) and
@@ -407,7 +413,8 @@ Transitive's own Workers call the same handlers over a service binding to the `C
 entrypoint (`src/index.ts`; contract `@codice/contracts`, mirrored by Transitive's
 `@transitive/api-contracts/codice`): `search`,
 `readPassage`, `lookupError`, `lookupCatalog` and `listCatalog`, each answering
-`{ ok: true, data }` with the route's `data`, or `{ ok: false, problem: { status, code, title } }`
+`{ ok: true, data }` with the route's `data` (`related` included: `CodicePassage` and
+`CodiceErrorCode` carry it, and Transitive's mirror needs the same field), or `{ ok: false, problem: { status, code, title } }`
 (RPC keeps only an error's message). It takes no API key and skips the per-key rate limit: only a
 Worker the account binds can call it. The Agent binds it as `CODICE`. `search`'s `source` takes
 one id or a list, and its answer's `source` is the sorted list or null (since 2026-10-28; before,
@@ -451,6 +458,10 @@ substring of its full quote. The MCP tool's JSON text is the same `data`, 69 byt
 A brief result costs 640–880 bytes, much of it the heading path (up to 280 characters for the
 Pagos guide), so reading two short passages after a brief search can cost more than one full search;
 reading one never did in these five.
+
+`read_passage` and `lookup_error` answer `related` as the routes do (each item of a
+`lookup_error` batch carries its own), and their descriptions tell the client to follow it with
+`read_passage`.
 
 The two lookups take a batch, so checking a whole invoice is one call each: `lookup_error`
 `{ codes: ["CFDI40149", "CFDI40147"] }` reads every code's matrix row in one D1 query
@@ -640,7 +651,7 @@ fetch source → sha256 → unchanged? stop
   splits the guides with Códice's splitter (`scripts/sections.ts`, below), keeps the passages a
   newer text supersedes under dated keys ([Versions](#versions)), deletes stuck items, uploads only
   passages that are new, changed, missing or stuck, deletes items no record has any more, then
-  replaces the D1 records. A stuck item is one AI Search will never finish indexing:
+  replaces the D1 records, the passages' links among them ([Related passages](#related-passages)). A stuck item is one AI Search will never finish indexing:
   status `error`, or `outdated` with `next_action: null` (`stuckItem` in `scripts/corpus.ts`). On
   2026-10-25 `complemento-pagos-guia-de-llenado/nodo-concepto-descuento.md` stayed so after a
   `workers_ai_timeout_error`: AI Search never retried it, uploading the same key again changed
@@ -812,6 +823,45 @@ items, a dated key AI Search already holds is not copied again, and D1 records t
 next run plans the same records. A current item that no longer holds the recorded text with no
 dated copy fails the run instead of keeping the wrong text. The error codes and catalogs keep only
 their current records.
+
+### Related passages
+
+Each current passage carries the passage ids its own text links to, so an agent can follow a
+regla's references or go from a rejection code to the field's definition without a search. The
+ingestion reads them from the text, deterministically (`scripts/links.ts`, called by `buildCorpus`):
+no AI Search call and no embedding. D1 `passage_links` holds them, replaced with the passages in
+the same import; a link is written only when both its passages are among the records written, so
+no link names a passage D1 does not hold. `/v1/passages/:id`, `/v1/errors/:code`, their MCP tools
+and the entrypoint answer them as `related`.
+
+- **RMF reglas.** A regla ends with its references line, such as
+  `LIF 25, Trigésimo transitorio, LISR 18, RMF 9.1.18., 9.1.20.`. Each `RMF` list (its numbers
+  run on across line breaks, `…, RCFF 7, RMF` / `2.1.6., 2.2.6.`) links to `rmf-2026/regla-<n>.md`
+  for each number, in the line's order, once each. A number a capital follows starts a regla
+  (`Anexos de la RMF` / `1.4. Para…`), so it is not read. A number that is a Sección
+  (`RMF 2.8.3.`), a repealed regla, or the regla itself names no passage and links nothing. Links go
+  one way: a regla does not list the reglas that cite it.
+- **Error matrix and the Anexo 20 guide.** A row names its node as a path
+  (`cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado`) and its attribute. The node is found
+  among Part I's nodes (the CFDI's; Part II is the Retenciones CFDI) in the guide's order: the
+  path's first name at the last place the guide defines it (the comprobante's `Impuestos` follows
+  `Conceptos`, whose concept defines its own), each next name the first after the one before. The
+  row links to the attribute's passage (`nodo-receptor-domiciliofiscalreceptor`, `nodo-traslado-base-2`
+  for the comprobante's summary); else to the node's passage, when the row validates the node
+  itself (no attribute, or the node's name) or the node's passage names the attribute
+  (`InformacionGlobal`'s `Periodicidad, Meses y Año`). The guide passage links back to every row
+  that links to it, in the matrix's order.
+
+Counts on the current corpus (2026-10-28, `ingest --local`): 1,341 links. 540 of the 1,214
+reglas link to 1,101 reglas in all (at most 12 a regla); 12 numbers named no regla (Secciones
+such as `2.8.3`). 120 of the 129 codes match a guide passage, 109 by their attribute's own passage,
+and 60 guide passages link back. The 9 left: `CFDI40204` and `CFDI40205` (`TotalImpuestosTrasladados`,
+which the splitter leaves inside the `TotalImpuestosRetenidos` passage), `CFDI40206` to `CFDI40211`
+(the comprobante's `Retenciones`, which the splitter gives no node of its own) and `CFDI40999`
+(_Error no clasificado_). A better split of those passages would link them with no change here.
+
+The links reach production with the first ingestion after `0008` deploys; until then `related`
+is empty.
 
 ### Changes
 

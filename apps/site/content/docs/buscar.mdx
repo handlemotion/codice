@@ -112,7 +112,7 @@ curl https://codice.io/v1/passages/matriz-de-errores-cfdi-40/cfdi40149.md \
   -H "Authorization: Bearer $CODICE_KEY"
 ```
 
-La respuesta trae `heading` (su título), `text` (la ruta de títulos y el texto completo), su vigencia y su fuente.
+La respuesta trae `heading` (su título), `text` (la ruta de títulos y el texto completo), su vigencia, su fuente y `related`: los ids de los pasajes a los que remite su texto (ver [Pasajes relacionados](/docs/conceptos#pasajes-relacionados)).
 
 ## Cuando no hay resultados
 

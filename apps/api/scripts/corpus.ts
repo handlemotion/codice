@@ -22,6 +22,7 @@ import {
   type SatErrorMatrix,
   type SatSource,
 } from "./sat-records";
+import { passageLinks, type PassageLink } from "./links";
 import {
   type GuideSection,
   guideSections,
@@ -85,6 +86,8 @@ export type Corpus = {
   readonly passages: readonly Passage[];
   readonly errorCodes: readonly ErrorCodeRow[];
   readonly catalogEntries: readonly CatalogEntryRow[];
+  /** The related passages each passage's text names (`links.ts`). */
+  readonly links: readonly PassageLink[];
 };
 
 export type SatMarkdownFiles = {
@@ -242,6 +245,11 @@ export function rmfPassages(document: SatDocument): Passage[] {
   );
 }
 
+/** A matrix row's anchor: `CFDI40149` → `cfdi40149`. */
+function errorCodeAnchor(code: string) {
+  return anchorOf(code, ITEM_KEY_MAX);
+}
+
 /**
  * One passage an article of the CFF (`cff/articulo-29-a.md`), valid from the law's last reform:
  * the Cámara notes only the reforms since 2021 on each part, so an article's own date is not known.
@@ -267,7 +275,7 @@ export function errorCodePassages(matrix: SatErrorMatrix): Passage[] {
   return matrix.codes.map((row) =>
     passage({
       sourceId,
-      anchor: anchorOf(row.code, ITEM_KEY_MAX),
+      anchor: errorCodeAnchor(row.code),
       heading: `${matrix.title} › ${row.element} › ${row.attribute} › ${row.code}`,
       text: [
         `Código: ${row.code}`,
@@ -364,6 +372,29 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
     return (title: string) => guideSections(document.markdown, { title, vocabulary });
   };
   const catalogTitle = "Catálogos del CFDI 4.0 (catCFDI)";
+  const passages = [
+    ...guidePassages(
+      anexo20.document,
+      anexo20.row.id,
+      anexo20.row.validFrom,
+      guideSplit(anexo20.document),
+    ),
+    ...guidePassages(pagos.document, pagos.row.id, pagos.row.validFrom, guideSplit(pagos.document)),
+    ...errorCodePassages(errorMatrix),
+    ...rmfPassages(rmf.document),
+    ...cartaPorte.flatMap(({ document, row }) =>
+      guidePassages(document, row.id, row.validFrom, (title) =>
+        instructivoSections(document.markdown, { title }),
+      ),
+    ),
+    ...guidePassages(
+      comercioExterior.document,
+      comercioExterior.row.id,
+      comercioExterior.row.validFrom,
+      guideSplit(comercioExterior.document, [comercioExterior.document.markdown]),
+    ),
+    ...cffPassages(cff.document, cff.row.validFrom),
+  ];
   return {
     sources: [
       anexo20.row,
@@ -375,34 +406,7 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
       comercioExterior.row,
       cff.row,
     ],
-    passages: [
-      ...guidePassages(
-        anexo20.document,
-        anexo20.row.id,
-        anexo20.row.validFrom,
-        guideSplit(anexo20.document),
-      ),
-      ...guidePassages(
-        pagos.document,
-        pagos.row.id,
-        pagos.row.validFrom,
-        guideSplit(pagos.document),
-      ),
-      ...errorCodePassages(errorMatrix),
-      ...rmfPassages(rmf.document),
-      ...cartaPorte.flatMap(({ document, row }) =>
-        guidePassages(document, row.id, row.validFrom, (title) =>
-          instructivoSections(document.markdown, { title }),
-        ),
-      ),
-      ...guidePassages(
-        comercioExterior.document,
-        comercioExterior.row.id,
-        comercioExterior.row.validFrom,
-        guideSplit(comercioExterior.document, [comercioExterior.document.markdown]),
-      ),
-      ...cffPassages(cff.document, cff.row.validFrom),
-    ],
+    passages,
     errorCodes: errorMatrix.codes.map((row) => ({
       code: row.code,
       sourceId: SOURCES.matrix.id,
@@ -412,6 +416,16 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
       message: row.message,
     })),
     catalogEntries: catalogEntryRows(catalogs),
+    links: passageLinks({
+      passages,
+      rmfSourceId: SOURCES.rmf.id,
+      guideSourceId: anexo20.row.id,
+      errorCodes: errorMatrix.codes.map((row) => ({
+        key: `${SOURCES.matrix.id}/${errorCodeAnchor(row.code)}.md`,
+        node: row.element,
+        attribute: row.attribute,
+      })),
+    }),
   };
 }
 

@@ -18,6 +18,7 @@ import {
   versionedKey,
 } from "../scripts/corpus";
 import { questionsFor } from "../scripts/eval-questions";
+import { guideNodes, guidePassageFor, rmfReferences } from "../scripts/links";
 import { errorCodePassageId } from "../src/records";
 import { isoDate } from "../src/search";
 
@@ -668,5 +669,123 @@ describe("settledRecords", () => {
       earlier,
       kept,
     ]);
+  });
+});
+
+describe("rmfReferences", () => {
+  it("reads every RMF number of a references line, across its line breaks, once each", () => {
+    expect(
+      rmfReferences(
+        "proveedor los incumplimientos detectados.\nCFF 29, 29 Bis, RMF 2.7.1.32., 2.7.2.1., 2.7.2.4.,\n2.7.2.16., 2.7.3.6., 2.7.2.1.\n",
+      ),
+    ).toEqual(["2.7.1.32", "2.7.2.1", "2.7.2.4", "2.7.2.16", "2.7.3.6"]);
+    expect(rmfReferences("LISR 13, RMF 3.4.1., 3.5.3., Circular 4/2012 DOF 02/03/2012")).toEqual([
+      "3.4.1",
+      "3.5.3",
+    ]);
+    expect(rmfReferences("CFF 131, RMF 1.1., 2.1.29.")).toEqual(["1.1", "2.1.29"]);
+    expect(rmfReferences("CFF 17-E, RCFF 7, RMF\n2.1.6., 2.2.6., 2.9.2.\n")).toEqual([
+      "2.1.6",
+      "2.2.6",
+      "2.9.2",
+    ]);
+  });
+
+  it("reads no number from a title that ends in RMF above its regla, nor from the RMF in words", () => {
+    expect(rmfReferences("Anexos de la RMF\n1.4. Para los efectos de esta RMF, forman")).toEqual(
+      [],
+    );
+    expect(rmfReferences("la RMF para 2025, publicada en el DOF el 30 de diciembre")).toEqual([]);
+    expect(rmfReferences("aplicables para la RMF\n2026:")).toEqual([]);
+    expect(rmfReferences("CFF 29, 29-A")).toEqual([]);
+  });
+});
+
+describe("passage links", () => {
+  const keys = new Set(corpus.passages.map((passage) => passage.key));
+  const related = (key: string) =>
+    corpus.links.filter((link) => link.from === key).map((link) => link.to);
+  const nodes = guideNodes(
+    corpus.passages.filter((passage) => passage.sourceId === "anexo-20-guia-de-llenado"),
+  );
+  const guide = (anchor: string) => `anexo-20-guia-de-llenado/${anchor}.md`;
+  const matrix = (code: string) => errorCodePassageId("matriz-de-errores-cfdi-40", code);
+
+  it("links only passages the corpus holds, never a passage to itself, each link once", () => {
+    expect(corpus.links.length).toBeGreaterThan(1000);
+    for (const link of corpus.links) {
+      expect(keys.has(link.from) && keys.has(link.to)).toBe(true);
+      expect(link.to).not.toBe(link.from);
+    }
+    const ids = corpus.links.map((link) => `${link.from} ${link.to}`);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("links a regla to the reglas its references line names, in its order, leaving out sections", () => {
+    expect(related("rmf-2026/regla-2.7.2.11.md")).toEqual(
+      [
+        "2.7.1.32",
+        "2.7.2.1",
+        "2.7.2.4",
+        "2.7.2.5",
+        "2.7.2.8",
+        "2.7.2.9",
+        "2.7.2.10",
+        "2.7.2.12",
+        "2.7.2.16",
+        "2.7.3.6",
+      ].map((number) => `rmf-2026/regla-${number}.md`),
+    );
+    // `RMF 3.5.8., 3.15.1.`: 3.15.1 is a Sección, not a regla.
+    expect(keys.has("rmf-2026/regla-2.8.3.md")).toBe(false);
+    expect(corpus.links.some((link) => link.to === "rmf-2026/regla-2.8.3.md")).toBe(false);
+    const linked = new Set(
+      corpus.links.filter((link) => link.from.startsWith("rmf-2026/")).map((link) => link.from),
+    );
+    expect(linked.size).toBeGreaterThan(500);
+  });
+
+  it("links a matrix row to the guide passage of its node and attribute, and back", () => {
+    expect(related(matrix("CFDI40149"))).toEqual([guide("nodo-receptor-domiciliofiscalreceptor")]);
+    expect(related(guide("nodo-receptor-domiciliofiscalreceptor"))).toEqual(
+      ["CFDI40147", "CFDI40148", "CFDI40149"].map(matrix),
+    );
+    expect(related(matrix("CFDI40101"))).toEqual([guide("nodo-comprobante-fecha")]);
+  });
+
+  it("tells a node the guide defines twice apart by the row's path", () => {
+    const passage = (node: string, attribute: string) =>
+      guidePassageFor(nodes, { node, attribute });
+    // A concept's tax, then the comprobante's summary.
+    expect(passage("cfdi:Conceptos/Concepto:Impuestos:Traslados/Traslado", "Base")).toBe(
+      guide("nodo-traslado-base"),
+    );
+    expect(passage("cfdi:Impuestos:Traslados/Traslado", "Base")).toBe(
+      guide("nodo-traslado-base-2"),
+    );
+    expect(passage("cfdi:Conceptos/Concepto:InformacionAduanera", "NumeroPedimento")).toBe(
+      guide("nodo-informacionaduanera-numeropedimento"),
+    );
+    expect(passage("cfdi:Conceptos/Concepto:Parte:InformacionAduanera", "NumeroPedimento")).toBe(
+      guide("nodo-informacionaduanera-numeropedimento-2"),
+    );
+    // Part II of Anexo 20 (the Retenciones CFDI) is not the matrix's.
+    expect(passage("cfdi:Emisor", "Nombre")).toBe(guide("nodo-emisor-nombre"));
+  });
+
+  it("falls back to the node's passage only when the row validates the node or the node names the attribute", () => {
+    const passage = (node: string, attribute: string) =>
+      guidePassageFor(nodes, { node, attribute });
+    expect(passage("cfdi:Impuestos:Traslados", "Traslados")).toBe(guide("nodo-traslados-2"));
+    expect(passage("cfdi:InformacionGlobal", "")).toBe(guide("nodo-informacionglobal"));
+    // `campos (Periodicidad, Meses y Año), se encuentran contenidas en la “Guía de llenado…”`.
+    expect(passage("cfdi:InformacionGlobal", "Año")).toBe(guide("nodo-informacionglobal"));
+    // The guide gives the comprobante's Retenciones no node of its own.
+    expect(passage("cfdi:Impuestos:Retenciones/Retencion", "Importe")).toBeNull();
+    expect(passage("Error no clasificado", "No clasificado")).toBeNull();
+    const matched = corpus.errorCodes.filter((row) =>
+      related(matrix(row.code)).some((to) => to.startsWith("anexo-20-guia-de-llenado/")),
+    );
+    expect(matched.length).toBeGreaterThan(110);
   });
 });
