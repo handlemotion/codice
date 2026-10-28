@@ -66,6 +66,13 @@ describe("edge routing", () => {
     expect(target("/keys?site", { cookie: `${SESSION}=sealed` })).toBe("app");
   });
 
+  it("serves the chat page from the site regardless of session", () => {
+    expect(target("/chat")).toBe("site");
+    expect(target("/chat", { cookie: `${SESSION}=sealed` })).toBe("site");
+    expect(target("/chat", { method: "POST" })).toBe("app");
+    for (const path of ["/chat/x", "/chats", "/Chat"]) expect(target(path)).toBe("app");
+  });
+
   it("serves site assets from the site regardless of session", () => {
     expect(target("/_site/app.js")).toBe("site");
     expect(target("/_site/app.js", { cookie: `${SESSION}=sealed` })).toBe("site");

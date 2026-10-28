@@ -7,6 +7,9 @@ export const API_PREFIXES: readonly string[] = ["/v1", "/mcp"];
 /** The API's probes, answered on the public host too. */
 export const API_PATHS: ReadonlySet<string> = new Set(["/health", "/ready"]);
 
+/** The site's pages beyond `/`, served to every visitor, signed in or not. */
+export const SITE_PATHS: ReadonlySet<string> = new Set(["/chat"]);
+
 /** `/?site` serves the site to a signed-in visitor too: the dashboard's "Website" link uses it. */
 export const SITE_HOME_PARAM = "site";
 
@@ -32,13 +35,14 @@ function hasSession(cookie: string | null): boolean {
 }
 
 // The API owns its prefixes regardless of method or session. The site owns `/` for anonymous
-// visitors and its hashed assets; every other path is the dashboard's, so the
+// visitors, its pages in `SITE_PATHS` and its hashed assets; every other path is the dashboard's, so the
 // app stays the default.
 export function routeTarget({ url, method, cookie, siteEnabled }: RouteInput): RouteTarget {
   if (isApiPath(url.pathname)) return "api";
   if (siteEnabled !== "true") return "app";
   if (url.pathname.startsWith(SITE_ASSET_PREFIX)) return "site";
   if (method !== "GET" && method !== "HEAD") return "app";
+  if (SITE_PATHS.has(url.pathname)) return "site";
   if (url.pathname !== "/") return "app";
   if (url.searchParams.has(SITE_HOME_PARAM)) return "site";
   return hasSession(cookie) ? "app" : "site";

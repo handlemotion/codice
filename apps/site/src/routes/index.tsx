@@ -67,7 +67,7 @@ const ASSISTANTS = [
 const NAV_LINKS = [
   ["Producto", "#que-es"],
   ["Documentación", "#desarrolladores"],
-  ["API", "#desarrolladores"],
+  ["Chat", "/chat"],
   ["Precios", "#precios"],
 ] as const;
 

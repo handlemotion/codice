@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as ChatRouteImport } from "./routes/chat";
 import { Route as Char91_siteChar93ChatRouteImport } from "./routes/[_site]/chat";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ChatRoute = ChatRouteImport.update({
+  id: "/chat",
+  path: "/chat",
   getParentRoute: () => rootRouteImport,
 } as any);
 const Char91_siteChar93ChatRoute = Char91_siteChar93ChatRouteImport.update({
@@ -25,27 +31,31 @@ const Char91_siteChar93ChatRoute = Char91_siteChar93ChatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/chat": typeof ChatRoute;
   "/_site/chat": typeof Char91_siteChar93ChatRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/chat": typeof ChatRoute;
   "/_site/chat": typeof Char91_siteChar93ChatRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/chat": typeof ChatRoute;
   "/_site/chat": typeof Char91_siteChar93ChatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/_site/chat";
+  fullPaths: "/" | "/chat" | "/_site/chat";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/_site/chat";
-  id: "__root__" | "/" | "/_site/chat";
+  to: "/" | "/chat" | "/_site/chat";
+  id: "__root__" | "/" | "/chat" | "/_site/chat";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  ChatRoute: typeof ChatRoute;
   Char91_siteChar93ChatRoute: typeof Char91_siteChar93ChatRoute;
 }
 
@@ -56,6 +66,13 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/";
       preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/chat": {
+      id: "/chat";
+      path: "/chat";
+      fullPath: "/chat";
+      preLoaderRoute: typeof ChatRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/_site/chat": {
@@ -70,6 +87,7 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChatRoute: ChatRoute,
   Char91_siteChar93ChatRoute: Char91_siteChar93ChatRoute,
 };
 export const routeTree = rootRouteImport
