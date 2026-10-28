@@ -4,9 +4,8 @@ import {
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
 
-import { Group, Page } from "../../components/ui";
+import { Group, ISLAND, Page, ROW } from "../../components/ui";
 import {
-  MeterRow,
   SeriesRow,
   numberFormat,
   seriesColor,
@@ -118,16 +117,15 @@ function Totals({ usage }: { usage: UsageWeek }) {
     { label: "Tiempo medio", value: meanMs === null ? "–" : `${numberFormat.format(meanMs)} ms` },
   ];
   return (
-    <Group title="Resumen">
-      <div className="grid grid-cols-3 divide-x divide-line/60">
-        {figures.map((figure) => (
-          <div className="flex flex-col gap-1 p-4" key={figure.label}>
-            <span className="text-[13px] text-muted">{figure.label}</span>
-            <span className="text-[20px] leading-snug tabular-nums">{figure.value}</span>
-          </div>
-        ))}
-      </div>
-    </Group>
+    <div className={`${ISLAND} grid grid-cols-3 divide-x divide-line/60`}>
+      {figures.map((figure) => (
+        // 13px on 20px leaves 4px over the label's capitals; 20px on 28px, 7px under the figure.
+        <div className="flex flex-col px-4 pt-3 pb-2.5" key={figure.label}>
+          <span className="text-[13px] leading-5 text-muted">{figure.label}</span>
+          <span className="text-[20px] leading-7 tabular-nums">{figure.value}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -137,9 +135,9 @@ function Usage() {
 
   if (!team || !usage) {
     return (
-      <Page inset title="Uso">
+      <Page title="Uso">
         <Group title="Solicitudes">
-          <p className="p-4 text-muted">Crea o únete a un equipo para ver su uso.</p>
+          <p className={`${ROW} text-muted`}>Crea o únete a un equipo para ver su uso.</p>
         </Group>
       </Page>
     );
@@ -149,24 +147,25 @@ function Usage() {
     ...entry,
     color: seriesColor(index),
   }));
-  const busiest = usage.operations[0]?.requests ?? 0;
 
   return (
-    <Page action={<WeekControl usage={usage} />} inset title="Uso">
-      <div className={`flex flex-col gap-8 transition-opacity ${pending ? "opacity-60" : ""}`}>
+    <Page action={<WeekControl usage={usage} />} title="Uso">
+      <div className={`flex flex-col gap-6 transition-opacity ${pending ? "opacity-60" : ""}`}>
         <Totals usage={usage} />
         <Group
           note={series.length > 0 ? `Claves de ${team.name} y tus asistentes` : undefined}
           title="Solicitudes"
         >
           {series.length === 0 ? (
-            <p className="p-4 text-muted">
+            <p className={`${ROW} text-muted`}>
               Las llamadas a la API y las herramientas que usan tus asistentes aparecen aquí por
               día.
             </p>
           ) : (
             <>
-              <figure aria-label="Solicitudes por día" className="min-w-0 p-4">
+              {/* The top tick sits centered on its line, 4px of capitals above it: 20px to the line puts
+                  the letters 16px under the divider. */}
+              <figure aria-label="Solicitudes por día" className="min-w-0 px-4 pt-5 pb-3.5">
                 <UsageBars days={usage.days} series={series} />
               </figure>
               {series.map((entry) => (
@@ -182,20 +181,25 @@ function Usage() {
           )}
         </Group>
         {usage.operations.length > 0 && (
-          <Group note="De la API y de MCP" title="Operaciones">
+          <Group note={requests(usage.totals.requests)} title="Operaciones">
             {usage.operations.map((operation) => (
-              <MeterRow
-                amount={
-                  operation.errors > 0
-                    ? `${requests(operation.requests)} · ${numberFormat.format(operation.errors)} con error`
-                    : requests(operation.requests)
-                }
-                hint={operation.operation}
-                key={operation.operation}
-                label={OPERATIONS[operation.operation] ?? operation.operation}
-                max={busiest}
-                value={operation.requests}
-              />
+              <div className={`flex items-baseline gap-3 ${ROW}`} key={operation.operation}>
+                <span className="min-w-0 flex-1 truncate">
+                  {OPERATIONS[operation.operation] ?? operation.operation}
+                  <span className="text-muted"> ({operation.operation})</span>
+                </span>
+                {operation.errors > 0 && (
+                  <span className="shrink-0 text-[13px] text-muted tabular-nums">
+                    {numberFormat.format(operation.errors)} con error
+                  </span>
+                )}
+                <span className="min-w-12 shrink-0 text-right text-[13px] tabular-nums">
+                  {numberFormat.format(operation.requests)}
+                </span>
+                <span className="w-10 shrink-0 text-right text-[13px] text-muted tabular-nums">
+                  {Math.round((operation.requests / usage.totals.requests) * 100)} %
+                </span>
+              </div>
             ))}
           </Group>
         )}

@@ -29,12 +29,11 @@ This file records only where the dashboard adds to it or departs from it. Values
   tooltip to its right with its number key; `1`–`5` go there when no field has focus.
 - **Pages.** A 20px title, then islands, each with its name and an optional `muted`
   note on the right.
-- **Groups (Uso), after Transitive's settings groups** (`trstv/transitive`,
-  `components/settings/kit/settings-layout.tsx`): `Group` in `ui.tsx`. The group's name sits in
-  `muted` 13px above the island, 8px over it, with an optional note at the right; the page title
-  (`Page inset`) and those names start 16px in, on the line of the text inside. Inside, every
-  block (the totals, the chart, each row) pads itself 16px on all sides, and blocks are divided
-  edge to edge by `line`/60 in both themes. Groups are 32px apart.
+- **Groups (Uso)**: `Group` in `ui.tsx`, an island whose first row is its name (and an optional
+  `muted` note at the right), its blocks divided edge to edge by `line`/60 in both themes.
+  Padding is measured to the letters: Radio Grotesk at 14px on a 20px line leaves 4.5px over the
+  capitals and 5.5px under the baseline, so a one-line row (`ROW`) pads 12px top and 10px bottom
+  for 16px each way. Islands are 24px apart, as on every page.
 - **The usage chart** (`src/components/usage-chart.tsx`, after Transitive's
   `workspace-settings-usage.tsx`, drawn without a chart library): a week of stacked daily columns
   (220px, a 32px y axis with 12px to the plot, dashed `line` grid, square bars). Each day is an
@@ -43,14 +42,14 @@ This file records only where the dashboard adds to it or departs from it. Values
   `fg`/5 with its tooltip beside it. Under it, one row per series (a 2px-rounded color square,
   its name, a `muted` hint, its calls on the right). Series colors are Transitive's
   (`--series-1`…`4` in `styles.css`): the saturated pair by day, the softer one at night, taken
-  by rank. Meters are a 6px round bar on `fg`/10 in `--series-1`.
+  by rank. No meters: a bar reads as something being used up, and usage has no cap.
 
 ## Pages
 
 - **Uso** (`/`): a week (Mexico City days) ending today, stepped with the chevrons by the title
   (`?hasta=YYYY-MM-DD`): "Resumen" (calls, error rate, mean time), the "Solicitudes" chart of the
-  team's keys and the user's MCP clients with their rows, and "Operaciones", a meter per
-  operation against the busiest.
+  team's keys and the user's MCP clients with their rows, and "Operaciones" (the week's total in
+  its header): a row per operation with its errors, its calls and its share of the total.
 - **Claves** (`/keys`): a new key (shown once, with copy), the team's keys (revoke asks in place,
   no dialog), and "Conectar": the API and MCP URLs and the header to copy.
 - **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected

@@ -2,6 +2,8 @@
 // rows under them and its meters), drawn in the dashboard's language without a chart library.
 import { useState, type ReactNode } from "react";
 
+import { ROW } from "./ui";
+
 export const numberFormat = new Intl.NumberFormat("es-MX");
 
 /** A day as the axis shows it: "lun 26", or "26" on a phone. */
@@ -120,7 +122,7 @@ export function UsageBars({
       </div>
       <div
         aria-hidden
-        className="flex text-center text-[11px] text-muted"
+        className="flex text-center text-[11px] leading-none text-muted"
         style={{ paddingLeft: Y_AXIS_WIDTH }}
       >
         {days.map((day) => (
@@ -189,58 +191,13 @@ export function SeriesRow({
   value: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 p-4">
+    <div className={`flex items-center gap-3 ${ROW}`}>
       <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: color }} />
       <span className="min-w-0 flex-1 truncate">
         {label}
         {hint ? <span className="text-muted"> ({hint})</span> : null}
       </span>
       <span className="shrink-0 text-[13px] text-muted tabular-nums">{value}</span>
-    </div>
-  );
-}
-
-/**
- * A share of a whole: the name (and a muted hint) and the amount on one line, the bar under both.
- */
-export function MeterRow({
-  amount,
-  hint,
-  label,
-  max,
-  value,
-}: {
-  amount: ReactNode;
-  hint?: ReactNode;
-  label: string;
-  max: number;
-  value: number;
-}) {
-  return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex min-w-0 items-baseline gap-3">
-        <span className="min-w-0 flex-1 truncate">
-          {label}
-          {hint ? <span className="text-muted"> ({hint})</span> : null}
-        </span>
-        <span className="shrink-0 text-[13px] text-muted tabular-nums">{amount}</span>
-      </div>
-      <div
-        aria-label={label}
-        aria-valuemax={max}
-        aria-valuemin={0}
-        aria-valuenow={value}
-        className="h-1.5 overflow-hidden rounded-full bg-fg/10"
-        role="meter"
-      >
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${max > 0 ? Math.min(100, (value / max) * 100) : 0}%`,
-            background: seriesColor(0),
-          }}
-        />
-      </div>
     </div>
   );
 }

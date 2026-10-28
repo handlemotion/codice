@@ -30,18 +30,15 @@ export const GHOST = "text-[13px] text-muted hover:text-fg disabled:opacity-50";
 export function Page({
   title,
   action,
-  inset = false,
   children,
 }: {
   title: string;
   action?: ReactNode;
-  /** Sets the title 16px in, on the line of the text inside its groups (`Group`). */
-  inset?: boolean;
   children: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-6 py-10 sm:py-16">
-      <header className={`flex min-h-8 items-center justify-between gap-4 ${inset ? "px-4" : ""}`}>
+      <header className="flex min-h-8 items-center justify-between gap-4">
         <h1 className="text-[20px] leading-snug">{title}</h1>
         {action}
       </header>
@@ -51,9 +48,14 @@ export function Page({
 }
 
 /**
- * Transitive's settings group: the name in `muted` above the island, on the line of the text in
- * it, an optional note at the right, and the island's blocks divided edge to edge. Every block
- * pads itself 16px.
+ * A one-line row's padding: 16px from the edges to the letters. Radio Grotesk at 14px on a 20px
+ * line leaves 4.5px over the capitals and 5.5px under the baseline, so the box pads 12px and 10px.
+ */
+export const ROW = "px-4 pt-3 pb-2.5 leading-5";
+
+/**
+ * An island in Transitive's settings style: its name (and an optional `muted` note at the right)
+ * as its first row, then its blocks, divided edge to edge.
  */
 export function Group({
   title,
@@ -65,14 +67,12 @@ export function Group({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-2">
-      <div className="flex min-h-7 items-center justify-between gap-4 px-4 text-[13px] text-muted">
+    <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+      <div className={`flex items-baseline justify-between gap-4 ${ROW}`}>
         <h2>{title}</h2>
-        {note && <span>{note}</span>}
+        {note && <span className="text-[13px] text-muted">{note}</span>}
       </div>
-      <div className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
-        {children}
-      </div>
+      {children}
     </section>
   );
 }
