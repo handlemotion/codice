@@ -1,0 +1,198 @@
+---
+title: Revisar una factura antes de timbrarla
+description: Comprueba el régimen fiscal, el uso del CFDI y el código postal del receptor contra los catálogos del SAT, antes de que tu proveedor de timbrado la rechace.
+---
+
+Un rechazo cuesta un intento de timbrado y, a veces, una llamada con el cliente. Muchos rechazos vienen de combinar mal tres datos del receptor: su régimen fiscal, el uso del CFDI y el código postal. Los tres se comprueban contra los catálogos del SAT antes de mandar la factura.
+
+El caso: una clínica factura una consulta a una empresa (persona moral). El borrador trae:
+
+| Atributo                  | Valor   |
+| ------------------------- | ------- |
+| `RegimenFiscalReceptor`   | `601`   |
+| `UsoCFDI`                 | `D01`   |
+| `DomicilioFiscalReceptor` | `44100` |
+| `LugarExpedicion`         | `44100` |
+
+Todas las consultas de esta página leen catálogos y la matriz de errores, sin búsquedas.
+
+## 1. El régimen fiscal del receptor
+
+```bash
+curl https://codice.io/v1/catalogs/c_RegimenFiscal/601 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "catalog": "c_RegimenFiscal",
+    "key": "601",
+    "entries": [
+      {
+        "fields": {
+          "c_RegimenFiscal": "601",
+          "Descripción": "General de Ley Personas Morales",
+          "Física": "No",
+          "Moral": "Sí",
+          "Fecha de inicio de vigencia": "2022-01-01"
+        },
+        "validFrom": "2022-01-01",
+        "validUntil": null
+      }
+    ],
+    "source": { "id": "catalogos-cfdi-40", "publishedAt": "2026-10-15", "…": "…" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+`Moral: Sí`: el 601 aplica a una empresa. Si el receptor fuera una persona física, el comprobante se rechazaría con `CFDI40158` ("La clave del campo RegimenFiscalR debe corresponder con el tipo de persona (física o moral).").
+
+## 2. El uso del CFDI
+
+```bash
+curl https://codice.io/v1/catalogs/c_UsoCFDI/D01 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "catalog": "c_UsoCFDI",
+    "key": "D01",
+    "entries": [
+      {
+        "fields": {
+          "c_UsoCFDI": "D01",
+          "Descripción": "Honorarios médicos, dentales y gastos hospitalarios.",
+          "Física": "Sí",
+          "Moral": "No",
+          "Fecha inicio de vigencia": "2022-01-01",
+          "Régimen Fiscal Receptor": "605, 606, 608, 611, 612, 614, 607, 615, 625"
+        },
+        "validFrom": "2022-01-01",
+        "validUntil": null
+      }
+    ],
+    "source": { "id": "catalogos-cfdi-40", "publishedAt": "2026-10-15", "…": "…" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+Aquí está el problema: `D01` dice `Moral: No`, y `601` no aparece en `Régimen Fiscal Receptor`. ¿Qué error daría? Pregunta por el código de la matriz para el uso del CFDI:
+
+```bash
+curl https://codice.io/v1/errors/CFDI40161 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "code": "CFDI40161",
+    "node": "cfdi:Receptor",
+    "attribute": "UsoCFDI",
+    "validation": "El valor que se registre en este atributo debe aplicar para el tipo de persona del receptor y el régimen correspondiente conforme al catálogo c_UsoCFDI.",
+    "message": "La clave del campo UsoCFDI debe corresponder con el tipo de persona (física o moral) y el régimen correspondiente conforme al catálogo c_UsoCFDI.",
+    "sourceId": "matriz-de-errores-cfdi-40",
+    "passageId": "matriz-de-errores-cfdi-40/cfdi40161.md",
+    "source": { "id": "matriz-de-errores-cfdi-40", "publishedAt": "2026-03-25", "…": "…" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+Si la empresa la registra como gasto general, el uso sería `G03`. Compruébalo igual:
+
+```bash
+curl https://codice.io/v1/catalogs/c_UsoCFDI/G03 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "fields": {
+    "c_UsoCFDI": "G03",
+    "Descripción": "Gastos en general.",
+    "Física": "Sí",
+    "Moral": "Sí",
+    "Fecha inicio de vigencia": "2022-01-01",
+    "Régimen Fiscal Receptor": "601, 603, 606, 612, 620, 621, 622, 623, 624, 625, 626"
+  },
+  "validFrom": "2022-01-01",
+  "validUntil": null
+}
+```
+
+(Solo la entrada de `entries`; el resto de la respuesta es igual a la anterior.) `Moral: Sí` y `601` en la lista: `G03` pasa. Qué uso le corresponde a tu operación lo decides tú o tu cliente; el catálogo solo dice qué combinaciones acepta el SAT.
+
+## 3. El código postal
+
+`DomicilioFiscalReceptor` y `LugarExpedicion` deben existir en `c_CodigoPostal`. Es uno de los catálogos grandes, así que se consulta clave por clave:
+
+```bash
+curl https://codice.io/v1/catalogs/c_CodigoPostal/44100 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "fields": {
+    "c_CodigoPostal": "44100",
+    "c_Estado": "JAL",
+    "c_Municipio": "039",
+    "c_Localidad": "03",
+    "Estímulo Franja Fronteriza": "0",
+    "Fecha inicio de vigencia": "2019-01-07",
+    "Descripción del Huso Horario": "Tiempo del Centro",
+    "Diferencia_Horaria_Verano": "-6",
+    "Diferencia_Horaria_Invierno": "-6"
+  },
+  "validFrom": "2019-01-07",
+  "validUntil": null
+}
+```
+
+Existe, en Jalisco. Un código mal capturado, como `4410` (sin el último dígito), responde `404`:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Catalog entry not found",
+  "status": 404,
+  "code": "catalog_entry_not_found",
+  "requestId": "…"
+}
+```
+
+En el `LugarExpedicion`, ese código lo rechazaría el SAT con `CFDI40126` ("El campo LugarExpedicion, no contiene un valor del catálogo c_CodigoPostal."). Escribe los códigos postales con sus cinco dígitos, con el cero inicial si lo tienen.
+
+El catálogo dice que el código existe, no que sea el del receptor. Que `DomicilioFiscalReceptor` coincida con el domicilio registrado del RFC lo valida el SAT contra su padrón (`CFDI40147` y `CFDI40148`); pídeselo a tu cliente de su constancia de situación fiscal.
+
+## Resultado
+
+| Atributo                  | Antes   | Revisión                                  | Después |
+| ------------------------- | ------- | ----------------------------------------- | ------- |
+| `RegimenFiscalReceptor`   | `601`   | Persona moral: correcto                   | `601`   |
+| `UsoCFDI`                 | `D01`   | No aplica a personas morales: `CFDI40161` | `G03`   |
+| `DomicilioFiscalReceptor` | `44100` | Existe en `c_CodigoPostal`                | `44100` |
+| `LugarExpedicion`         | `44100` | Existe en `c_CodigoPostal`                | `44100` |
+
+## Desde un asistente
+
+Conectado por [MCP](/docs/mcp), tu asistente hace las mismas consultas con `lookup_catalog` y `lookup_error`. Pégale el borrador y pídele "revisa estos datos del receptor contra los catálogos del SAT". Cada consulta es una llamada como esta:
+
+```json
+{
+  "method": "tools/call",
+  "params": { "name": "lookup_catalog", "arguments": { "name": "c_UsoCFDI", "key": "D01" } }
+}
+```
+
+Y devuelve el mismo `data` que la API, en `structuredContent`.
+
+## En tu software
+
+Haz estas consultas al validar el formulario, antes de mandar la factura al proveedor de timbrado. Los catálogos cambian solo cuando el SAT publica una versión nueva, así que puedes guardar las respuestas en caché por días. Ver [Catálogos del SAT](/docs/catalogos) para filtrar claves que se repiten, como colonias y municipios.

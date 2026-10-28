@@ -34,7 +34,7 @@
         "operationId": "search",
         "tags": ["Búsqueda"],
         "summary": "Buscar reglas",
-        "description": "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source.",
+        "description": "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source; `format=brief` returns each one's heading path and an excerpt instead.",
         "parameters": [
           {
             "name": "q",
@@ -61,16 +61,22 @@
             "name": "source",
             "in": "query",
             "required": false,
-            "description": "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` or `rmf-2026`.",
+            "description": "Only these sources: repeat it for several (`?source=anexo-20-guia-de-llenado&source=matriz-de-errores-cfdi-40`). The ids are the ones `/v1/sources` lists, such as `rmf-2026`.",
             "schema": {
-              "type": "string"
-            }
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10
+            },
+            "style": "form",
+            "explode": true
           },
           {
             "name": "kind",
             "in": "query",
             "required": false,
-            "description": "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas.",
+            "description": "Only one kind of passage: `guia` for the filling guides, which define each field (ask what a field means with `guia`); `anexo` for the validation matrix; `regla` for the RMF reglas; `ley` for the CFF's articles.",
             "schema": {
               "type": "string",
               "enum": ["ley", "reglamento", "regla", "anexo", "guia", "criterio"]
@@ -86,6 +92,16 @@
               "minimum": 1,
               "maximum": 50
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "description": "`full` (the default) quotes each passage's matched text; `brief` gives its heading path and an excerpt of at most 320 characters around the question's words, cut from the text verbatim, for `/v1/passages/{id}` to read the one that answers.",
+            "schema": {
+              "type": "string",
+              "enum": ["full", "brief"]
+            }
           }
         ],
         "responses": {
@@ -97,96 +113,205 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "query": {
-                          "type": "string"
-                        },
-                        "asOf": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": ["string", "null"]
-                        },
-                        "kind": {
-                          "type": ["string", "null"]
-                        },
-                        "results": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "passageId": {
-                                "type": "string",
-                                "description": "Pass it to `/v1/passages/{id}` to read the whole passage."
-                              },
-                              "source": {
-                                "type": "string"
-                              },
-                              "quote": {
-                                "type": "string",
-                                "description": "The matched text, verbatim as the SAT wrote it."
-                              },
-                              "authority": {
-                                "type": ["string", "null"]
-                              },
-                              "kind": {
-                                "type": ["string", "null"]
-                              },
-                              "validFrom": {
-                                "description": "First day the rule applies, YYYY-MM-DD.",
-                                "type": ["string", "null"]
-                              },
-                              "validUntil": {
-                                "description": "Last day it applies; null while in force.",
-                                "type": ["string", "null"]
-                              },
-                              "score": {
-                                "type": "number"
-                              },
-                              "scoring": {
-                                "type": "object",
-                                "properties": {
-                                  "keywordScore": {
-                                    "type": ["number", "null"]
-                                  },
-                                  "vectorScore": {
-                                    "type": ["number", "null"]
-                                  },
-                                  "rerankingScore": {
-                                    "type": ["number", "null"]
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "query": {
+                              "type": "string"
+                            },
+                            "asOf": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
                                   }
                                 },
-                                "required": ["keywordScore", "vectorScore", "rerankingScore"]
-                              },
-                              "sourceTitle": {
-                                "type": ["string", "null"]
-                              },
-                              "sourceUrl": {
-                                "type": ["string", "null"]
-                              },
-                              "sourcePublishedAt": {
-                                "type": ["string", "null"]
-                              }
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The sources asked for, sorted; null for all."
                             },
-                            "required": [
-                              "passageId",
-                              "source",
-                              "quote",
-                              "authority",
-                              "kind",
-                              "validFrom",
-                              "validUntil",
-                              "score",
-                              "scoring",
-                              "sourceTitle",
-                              "sourceUrl",
-                              "sourcePublishedAt"
-                            ]
-                          }
+                            "kind": {
+                              "type": ["string", "null"]
+                            },
+                            "format": {
+                              "type": "string",
+                              "const": "full"
+                            },
+                            "results": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "passageId": {
+                                    "type": "string",
+                                    "description": "Pass it to `/v1/passages/{id}` to read the whole passage."
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "quote": {
+                                    "type": "string",
+                                    "description": "The matched text, verbatim as the SAT wrote it."
+                                  },
+                                  "authority": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "kind": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "validFrom": {
+                                    "description": "First day the rule applies, YYYY-MM-DD.",
+                                    "type": ["string", "null"]
+                                  },
+                                  "validUntil": {
+                                    "description": "Last day it applies; null while in force.",
+                                    "type": ["string", "null"]
+                                  },
+                                  "score": {
+                                    "type": "number"
+                                  },
+                                  "scoring": {
+                                    "type": "object",
+                                    "properties": {
+                                      "keywordScore": {
+                                        "type": ["number", "null"]
+                                      },
+                                      "vectorScore": {
+                                        "type": ["number", "null"]
+                                      },
+                                      "rerankingScore": {
+                                        "type": ["number", "null"]
+                                      }
+                                    },
+                                    "required": ["keywordScore", "vectorScore", "rerankingScore"]
+                                  },
+                                  "sourceTitle": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "sourceUrl": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "sourcePublishedAt": {
+                                    "type": ["string", "null"]
+                                  }
+                                },
+                                "required": [
+                                  "passageId",
+                                  "source",
+                                  "quote",
+                                  "authority",
+                                  "kind",
+                                  "validFrom",
+                                  "validUntil",
+                                  "score",
+                                  "scoring",
+                                  "sourceTitle",
+                                  "sourceUrl",
+                                  "sourcePublishedAt"
+                                ]
+                              }
+                            }
+                          },
+                          "required": ["query", "asOf", "source", "kind", "format", "results"]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "query": {
+                              "type": "string"
+                            },
+                            "asOf": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The sources asked for, sorted; null for all."
+                            },
+                            "kind": {
+                              "type": ["string", "null"]
+                            },
+                            "format": {
+                              "type": "string",
+                              "const": "brief"
+                            },
+                            "results": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "passageId": {
+                                    "type": "string",
+                                    "description": "Pass it to `/v1/passages/{id}` to read the whole passage."
+                                  },
+                                  "heading": {
+                                    "description": "The passage's heading path.",
+                                    "type": ["string", "null"]
+                                  },
+                                  "excerpt": {
+                                    "type": "string",
+                                    "description": "Up to about 300 characters of the matched text around the question's words, an exact substring of it."
+                                  },
+                                  "truncated": {
+                                    "type": "object",
+                                    "properties": {
+                                      "before": {
+                                        "type": "boolean"
+                                      },
+                                      "after": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": ["before", "after"],
+                                    "description": "Whether the matched text continues before or after the excerpt."
+                                  },
+                                  "kind": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "validFrom": {
+                                    "description": "First day the rule applies, YYYY-MM-DD.",
+                                    "type": ["string", "null"]
+                                  },
+                                  "validUntil": {
+                                    "description": "Last day it applies; null while in force.",
+                                    "type": ["string", "null"]
+                                  },
+                                  "score": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "passageId",
+                                  "heading",
+                                  "excerpt",
+                                  "truncated",
+                                  "kind",
+                                  "validFrom",
+                                  "validUntil",
+                                  "score"
+                                ]
+                              }
+                            }
+                          },
+                          "required": ["query", "asOf", "source", "kind", "format", "results"]
                         }
-                      },
-                      "required": ["query", "asOf", "source", "kind", "results"]
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -927,6 +1052,168 @@
           },
           "404": {
             "description": "Nothing by that id, code or key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Over 60 requests a minute for this key. Retry after `retry-after` seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/changes": {
+      "get": {
+        "operationId": "listChanges",
+        "tags": ["Registros"],
+        "summary": "Listar los cambios",
+        "description": "The passages the SAT added, changed or removed from `since` through `until`, by the day each change applies from. The first version of a source Códice holds is where its history starts, not a change.",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": true,
+            "description": "The first day of the window, YYYY-MM-DD: changes that apply from this day on.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "The last day of the window, YYYY-MM-DD. Without it, every change from `since` on, including any Códice already holds for a later date.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Only one source, by the id `list_sources` gives, such as `rmf-2026`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The changes, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "since": {
+                          "type": "string"
+                        },
+                        "until": {
+                          "type": ["string", "null"]
+                        },
+                        "source": {
+                          "type": ["string", "null"]
+                        },
+                        "changes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "change": {
+                                "type": "string",
+                                "enum": ["added", "changed", "removed"],
+                                "description": "`changed` with a null `previousPassageId` is a change Códice holds no earlier text of."
+                              },
+                              "date": {
+                                "type": "string",
+                                "description": "The day the change applies from, YYYY-MM-DD."
+                              },
+                              "passageId": {
+                                "type": "string",
+                                "description": "The text in force from `date`; for `removed`, the dated id of the last text. Read it with `/v1/passages/{id}`."
+                              },
+                              "previousPassageId": {
+                                "description": "For `changed`, the dated id of the text that applied until the day before.",
+                                "type": ["string", "null"]
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": ["string", "null"]
+                              },
+                              "validFrom": {
+                                "description": "First day the rule applies, YYYY-MM-DD.",
+                                "type": ["string", "null"]
+                              },
+                              "validUntil": {
+                                "description": "Last day it applies; null while in force.",
+                                "type": ["string", "null"]
+                              }
+                            },
+                            "required": [
+                              "change",
+                              "date",
+                              "passageId",
+                              "previousPassageId",
+                              "source",
+                              "heading",
+                              "kind",
+                              "validFrom",
+                              "validUntil"
+                            ]
+                          },
+                          "description": "By `date`, then `passageId`."
+                        }
+                      },
+                      "required": ["since", "until", "source", "changes"]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["requestId"]
+                    }
+                  },
+                  "required": ["data", "meta"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is malformed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, unknown, revoked or expired API key.",
             "content": {
               "application/problem+json": {
                 "schema": {

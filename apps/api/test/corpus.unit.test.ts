@@ -17,6 +17,7 @@ import {
   settledRecords,
   versionedKey,
 } from "../scripts/corpus";
+import { questionsFor } from "../scripts/eval-questions";
 import { errorCodePassageId } from "../src/records";
 import { isoDate } from "../src/search";
 
@@ -33,16 +34,22 @@ describe("buildCorpus", () => {
     }
   });
 
-  it("splits both guides, the matrix and the RMF into passages with SAT metadata", () => {
+  it("splits the guides, the matrix, the RMF, the instructivos and the CFF into passages", () => {
     const sources = new Set(corpus.passages.map((passage) => passage.sourceId));
     expect([...sources]).toEqual([
       "anexo-20-guia-de-llenado",
       "complemento-pagos-guia-de-llenado",
       "matriz-de-errores-cfdi-40",
       "rmf-2026",
+      "complemento-carta-porte-autotransporte",
+      "complemento-carta-porte-maritimo",
+      "complemento-carta-porte-aereo",
+      "complemento-carta-porte-ferroviario",
+      "complemento-comercio-exterior-guia-de-llenado",
+      "cff",
     ]);
     for (const passage of corpus.passages) {
-      expect(passage.metadata.authority).toBe("SAT");
+      expect(passage.metadata.authority).toBe(passage.sourceId === "cff" ? "Congreso" : "SAT");
       expect(passage.metadata.valid_until).toBe(99_991_231);
       expect(passage.metadata.valid_from).toBeGreaterThan(20_220_000);
     }
@@ -103,6 +110,30 @@ describe("buildCorpus", () => {
     );
   });
 
+  it("quotes an article of the CFF under its heading path, valid from the law's last reform", () => {
+    const article = corpus.passages.find((candidate) => candidate.key === "cff/articulo-29-a.md");
+    expect(article?.body).toMatch(
+      /^# Código Fiscal de la Federación \(texto vigente\) › TITULO SEGUNDO\. .* › CAPITULO UNICO › Artículo 29-A\n\nArtículo 29-A\. Los comprobantes fiscales digitales/u,
+    );
+    expect(article?.metadata).toEqual({
+      authority: "Congreso",
+      kind: "ley",
+      valid_from: 20_260_409,
+      valid_until: 99_991_231,
+    });
+    const keys = corpus.passages.map((candidate) => candidate.key);
+    expect(keys).toContain("cff/articulo-1.md");
+    expect(keys).toContain("cff/articulo-17-h-bis.md");
+    expect(keys).toContain("cff/articulo-20-bis.md");
+    expect(keys).not.toContain("cff/articulo-29-b.md");
+    expect(corpus.sources.find((source) => source.id === "cff")).toMatchObject({
+      authority: "Congreso",
+      url: "https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf",
+      publishedAt: "2026-04-09",
+      validFrom: 20_260_409,
+    });
+  });
+
   it("labels a guide passage by its node, and has every passage the eval expects", () => {
     const passage = corpus.passages.find(
       (candidate) => candidate.key === "anexo-20-guia-de-llenado/nodo-comprobante-tipocambio.md",
@@ -117,6 +148,24 @@ describe("buildCorpus", () => {
     expect(
       questions.flatMap((question) => question.expect).filter((key) => !keys.has(key)),
     ).toEqual([]);
+  });
+
+  it("quotes a Carta Porte field under its part and sections, as a definition", () => {
+    const passage = corpus.passages.find(
+      (candidate) =>
+        candidate.key ===
+        "complemento-carta-porte-maritimo/ingreso-transporte-maritimo-numautorizacionnaviero.md",
+    );
+    expect(passage?.heading).toBe(
+      "Instructivo de llenado del CFDI con complemento Carta Porte 3.1: Marítimo › CFDI de tipo ingreso con complemento Carta Porte › 2. Información del complemento Carta Porte › 2.4 Transporte Marítimo › Número de autorización naviero (NumAutorizacionNaviero)",
+    );
+    expect(passage?.body).toContain("• Número de autorización naviero (NumAutorizacionNaviero):");
+    expect(passage?.metadata).toEqual({
+      authority: "SAT",
+      kind: "guia",
+      valid_from: 20_240_802,
+      valid_until: 99_991_231,
+    });
   });
 
   it("records every matrix code and catalog entry for D1", () => {
@@ -134,6 +183,12 @@ describe("buildCorpus", () => {
       "matriz-de-errores-cfdi-40",
       "catalogos-cfdi-40",
       "rmf-2026",
+      "complemento-carta-porte-autotransporte",
+      "complemento-carta-porte-maritimo",
+      "complemento-carta-porte-aereo",
+      "complemento-carta-porte-ferroviario",
+      "complemento-comercio-exterior-guia-de-llenado",
+      "cff",
     ]);
   });
 
@@ -142,6 +197,28 @@ describe("buildCorpus", () => {
     for (const row of corpus.errorCodes) {
       expect(keys).toContain(errorCodePassageId(row.sourceId, row.code));
     }
+  });
+});
+
+describe("questionsFor", () => {
+  const questions = [
+    { q: "RFC del receptor", expect: ["anexo-20-guia-de-llenado/nodo-receptor-rfc.md"] },
+    {
+      q: "Permiso SCT",
+      expect: [
+        "complemento-carta-porte-autotransporte/ingreso-autotransporte-permsct.md",
+        "complemento-carta-porte-maritimo/ingreso-transporte-maritimo-permsct.md",
+      ],
+    },
+  ];
+
+  it("keeps every question, or those that expect a passage of a source the prefix names", () => {
+    expect(questionsFor(questions, undefined)).toEqual(questions);
+    expect(questionsFor(questions, "complemento-carta-porte").map(({ q }) => q)).toEqual([
+      "Permiso SCT",
+    ]);
+    expect(questionsFor(questions, "complemento-carta-porte-maritimo")).toHaveLength(1);
+    expect(questionsFor(questions, "rmf-2026")).toEqual([]);
   });
 });
 

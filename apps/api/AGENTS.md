@@ -11,7 +11,9 @@ the behavior changes.
   MCP tools at `/mcp`, and the `CodiceKnowledge` entrypoint the Agent binds as `CODICE` (SPEC.md,
   "Internal entrypoint"; change it and `@codice/contracts` together, and keep Transitive's
   mirror `@transitive/api-contracts/codice` in step). The ingestion loads `docs/sat-md` into AI
-  Search and D1, including the RMF (Phase 1's first source, one passage a regla). Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
+  Search and D1, including the RMF (Phase 1's first source, one passage a regla) and the Carta Porte and
+  Comercio Exterior filling guides (one passage a field), and the CFF (from the Cámara de Diputados,
+  one passage an article). Since the cutover (2026-10-25, `docs/operations/cutover.md`) the Cloudflare Git
   build of this repository's `main` deploys the Worker `codice-api` on the Handle account (root `apps/api`, deploy command
   `pnpm run deploy:production`; SPEC.md, "Go-live checklist"), and `codice-corpus.yml` and
   `sync-worker-secrets.yml` run from here. No route of its own: since 2026-10-28 `codice.io` is a custom domain of the edge Worker
@@ -50,7 +52,7 @@ the behavior changes.
 
 Commands: `pnpm --filter @codice/api test`, `check-types`, `build`, `cf-typegen`,
 `db:generate`, `db:migrate:local`, `sat:knowledge` (`--check`, `--force`; needs LibreOffice,
-MarkItDown and Poppler), `dev` and `eval` (Doppler `codice` `dev`; `eval` spends ~170 AI Search
-queries; `--instance` for a comparison instance), and `ingest` (`--dry-run`, `--local`,
+MarkItDown and Poppler), `dev` and `eval` (Doppler `codice` `dev`; `eval` spends ~215 AI Search
+queries; `--instance` for a comparison instance, `--source` for one source's questions), and `ingest` (`--dry-run`, `--local`,
 `--catalogs` for the large catalogs, `--instance`; writes production, so run it under
 `doppler run -p codice -c prd --`).

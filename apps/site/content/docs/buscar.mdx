@@ -13,18 +13,32 @@ curl -G https://codice.io/v1/search \
 
 ## Parámetros
 
-| Parámetro | Obligatorio | Qué hace                                                                                                                   |
-| --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `q`       | Sí          | La pregunta o el código, en español o inglés, hasta 1,000 caracteres.                                                      |
-| `asOf`    | No          | Solo reglas vigentes en esa fecha, `AAAA-MM-DD`. Por omisión, hoy en la Ciudad de México.                                  |
-| `source`  | No          | Solo una fuente, por su id: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado` o `matriz-de-errores-cfdi-40`. |
-| `kind`    | No          | Solo un tipo de pasaje: `guia`, `anexo`, `regla` (ver [Conceptos](/docs/conceptos#tipos-de-pasaje)).                       |
-| `limit`   | No          | Cuántos pasajes devolver como máximo, de 1 a 50. Por omisión, 5.                                                           |
+| Parámetro | Obligatorio | Qué hace                                                                                                                                          |
+| --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `q`       | Sí          | La pregunta o el código, en español o inglés, hasta 1,000 caracteres.                                                                             |
+| `asOf`    | No          | Solo reglas vigentes en esa fecha, `AAAA-MM-DD`. Por omisión, hoy en la Ciudad de México.                                                         |
+| `source`  | No          | Solo esas fuentes, por el id que da `GET /v1/sources`, como `anexo-20-guia-de-llenado` o `rmf-2026`. Repítelo para buscar en varias, hasta 10.    |
+| `kind`    | No          | Solo un tipo de pasaje: `guia`, `anexo`, `regla` (ver [Conceptos](/docs/conceptos#tipos-de-pasaje)).                                              |
+| `limit`   | No          | Cuántos pasajes devolver como máximo, de 1 a 50. Por omisión, 5.                                                                                  |
+| `format`  | No          | `full` (por omisión) cita el texto que coincidió; `brief` da solo su ruta de títulos y un extracto (ver [Resultados breves](#resultados-breves)). |
+
+Para buscar en varias fuentes a la vez, repite `source`. Esta búsqueda revisa la guía de llenado y la matriz de errores, sin la Miscelánea:
+
+```bash
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=código postal del receptor con RFC genérico" \
+  --data-urlencode "source=anexo-20-guia-de-llenado" \
+  --data-urlencode "source=matriz-de-errores-cfdi-40" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Por [MCP](/docs/mcp), `source` es un id o una lista: `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]`. En la respuesta, `source` trae las fuentes que pediste, en orden alfabético, o `null` si buscaste en todas.
 
 ## Cómo preguntar
 
 - **Pregunta por el caso, no por la palabra.** "¿Puedo cancelar una factura de enero en marzo?" encuentra la regla de cancelación aunque no use esas palabras.
 - **Usa el código cuando lo tengas.** Un `CFDI40xxx`, una clave de catálogo o un número de regla encuentran su pasaje exacto. Para un código de error, [`/v1/errors/{code}`](/docs/errores) es más directo.
+- **Acota con `source`** cuando sepas en qué documentos está la respuesta; puedes dar varios.
 - **Acota con `kind`** cuando sepas qué buscas: `guia` para saber qué significa un campo, `anexo` para saber por qué se rechaza, `regla` para las reglas de la Miscelánea.
 - **Fija `asOf`** si revisas un periodo pasado.
 - **Usa los nombres de los campos del SAT** si la respuesta no llega. "¿Cómo hago una nota de crédito que aplique a varias facturas?" encuentra poco; "CFDI de egresos con `CfdiRelacionados` y `TipoRelacion` 01 que relaciona varias facturas" encuentra los casos del Anexo 20.
@@ -69,6 +83,25 @@ Los resultados vienen ordenados del más al menos relevante. Códice deja fuera 
 | `validFrom`, `validUntil`                       | La vigencia del pasaje.                                  |
 | `score`                                         | La relevancia final; `scoring` desglosa cómo se calculó. |
 | `sourceTitle`, `sourceUrl`, `sourcePublishedAt` | La fuente, en la versión vigente en `asOf`.              |
+
+## Resultados breves
+
+Con `format=brief`, cada resultado trae la ruta de títulos del pasaje y un extracto de hasta 320 caracteres alrededor de las palabras de tu pregunta, en vez del texto completo y su fuente. Sirve para revisar muchos resultados con pocas palabras y leer después solo el que responde.
+
+```json
+{
+  "passageId": "matriz-de-errores-cfdi-40/cfdi40146.md",
+  "heading": "Matriz de códigos de error para el Comprobante fiscal digital por Internet. Versión 4.0 › cfdi:Receptor › Nombre › CFDI40146",
+  "excerpt": "Código: CFDI40146\n\nNodo: cfdi:Receptor\n\nAtributo: Nombre\n\nValidación: Si el valor registrado en este atributo es “PUBLICO EN GENERAL”, el valor del atributo RFC del receptor debe ser “XAXX010101000”.\n\nMensaje: El campo RFC del receptor debe contener el valor \"XAXX010101000\".",
+  "truncated": { "before": false, "after": false },
+  "kind": "anexo",
+  "validFrom": "2026-03-25",
+  "validUntil": null,
+  "score": 0.95
+}
+```
+
+El extracto es un fragmento exacto del texto del SAT, recortado en palabras completas y nunca reescrito. `truncated` dice si el texto sigue antes (`before`) o después (`after`) del extracto: márcalo con "…" al citarlo. Si ninguno es `true`, el extracto es el pasaje entero. La búsqueda es la misma en los dos formatos, así que pedir `brief` y luego `full` con los mismos parámetros responde desde la caché.
 
 ## Leer el pasaje completo
 
