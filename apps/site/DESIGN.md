@@ -222,7 +222,7 @@ Entrar → Obtener clave so the blue one sits in the corner.
   it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
 - **One question, one answer.** The composer is a grey bubble on the right under the title, as
-  wide as its text; Enter sends it in place as the blue bubble and the answer streams under it.
+  wide as its text; Enter sends it in place (from anywhere on the page, unless a link or button has focus) as the blue bubble and the answer streams under it.
   Under the answer, one row pulled up close to it: two `muted` icon actions with their names in
   tooltips (copy the answer, a counter-clockwise arrow for "Empezar de nuevo", also Esc), a 16px
   `line` divider, then each source as a pill: `line` border, full radius, 12px `muted` text

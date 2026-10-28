@@ -184,12 +184,16 @@ export function Ask() {
     return () => clearInterval(timer);
   }, [query, isLoading]);
 
-  function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  function send() {
     const text = query.trim() || (ghost ?? "");
     if (!text || open) return;
     setQuery("");
     void sendMessage(text);
+  }
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    send();
   }
 
   function reset() {
@@ -200,11 +204,18 @@ export function Ask() {
     requestAnimationFrame(() => input.current?.focus());
   }
 
-  // `/` anywhere focuses the composer; Esc starts over, whatever the chat holds.
+  // `/` anywhere focuses the composer; Enter anywhere sends it, unless it would press a focused
+  // control; Esc starts over, whatever the chat holds.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const typing = event.target instanceof HTMLInputElement;
-      if (event.key === "/" && !typing) {
+      const control =
+        event.target instanceof Element &&
+        event.target.closest("a, button, input, select, textarea, [contenteditable]");
+      if (event.key === "Enter" && !control && !open && !event.isComposing) {
+        event.preventDefault();
+        send();
+      } else if (event.key === "/" && !typing) {
         event.preventDefault();
         input.current?.focus();
         input.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -276,7 +287,7 @@ export function Ask() {
         {/* One question, one answer: to keep talking, the visitor makes an account. Pulled up
             against the answer, so the row reads as its footer. */}
         {open && !isLoading && (
-          <div className="message-in -mt-4">
+          <div className="message-in -mt-2">
             <Actions answer={answer} reset={reset} />
           </div>
         )}
