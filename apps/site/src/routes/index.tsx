@@ -147,8 +147,8 @@ function Home() {
           </p>
           <p>
             Códice reúne esos documentos y los vuelve fáciles de consultar. Le preguntas como le
-            preguntarías a un colega, y te responde en pocas palabras con la regla exacta, el
-            documento donde está y desde cuándo aplica.
+            preguntarías a un colega, y te responde con la regla exacta, el documento donde está y
+            desde cuándo aplica.
           </p>
           <p>
             Las reglas cambian cada año, así que cada respuesta corresponde a la fecha que te

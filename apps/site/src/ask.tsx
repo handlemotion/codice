@@ -222,10 +222,11 @@ export function Ask() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <h1 className="text-[20px] leading-snug text-balance">
+      <h1 className="text-[20px] leading-snug">
         <span className="box-decoration-clone bg-ink">
-          Pregunta lo que necesites sobre facturación y reglas del SAT. Códice te responde en pocas
-          palabras con la regla exacta, el documento donde está y desde cuándo aplica.
+          Las reglas del SAT, con su fuente. Pregunta por un código de error, un uso de CFDI o un
+          plazo de cancelación, y Códice te muestra la regla exacta, el documento donde está y desde
+          cuándo aplica.
         </span>
       </h1>
 
