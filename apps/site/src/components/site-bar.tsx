@@ -36,7 +36,7 @@ export function SiteBar({ grounded = false }: { grounded?: boolean }) {
       >
         {NAV_LINKS.map(([label, href]) => (
           <a
-            className="inline-flex h-7 shrink-0 items-center text-white mix-blend-difference hover:underline"
+            className="inline-flex h-7 shrink-0 items-center hover:underline"
             href={href}
             key={label}
           >

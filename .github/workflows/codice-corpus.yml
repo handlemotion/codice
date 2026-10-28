@@ -8,8 +8,8 @@
 # - ingest: loads `main`'s docs/sat-md into AI Search and D1 (`ingest`, a no-op for unchanged
 #   passages), then runs the retrieval eval when a passage changed, or on request. The eval spends
 #   ~215 AI Search queries, so it never runs on pull requests, and it fails below the top-3 result
-#   recorded in SPEC.md, "Retrieval eval". `--wait` holds the eval until AI Search has indexed
-#   every item, so it measures the new passages.
+#   recorded in SPEC.md, "Retrieval eval". The eval runs only once AI Search has indexed every
+#   item, so it measures the new passages; a run that stops waiting leaves it to the next run.
 # - alert: a failed run opens or updates the GitHub issue "Códice corpus failed" naming the failed
 #   step and the stuck items; a green run closes it.
 #
@@ -137,8 +137,10 @@ jobs:
     name: Ingest and eval
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    # `ingest --wait` waits up to 120 minutes for AI Search to index (scripts/ingest.ts).
-    timeout-minutes: 150
+    # AI Search indexes about 6 items a minute, so a big change takes hours; waiting for it here
+    # would bill every one of them. `--wait-minutes 10` records what indexed and exits; the next run
+    # records the rest (scripts/ingest.ts). Start one by hand when a change should land sooner.
+    timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
@@ -194,7 +196,7 @@ jobs:
         run: |
           set -euo pipefail
           doppler run -p codice -c prd --no-check-version -- \
-            pnpm --filter @codice/api ingest --wait 2>&1 | tee "$RUNNER_TEMP/ingest.log"
+            pnpm --filter @codice/api ingest --wait --wait-minutes 10 2>&1 | tee "$RUNNER_TEMP/ingest.log"
           # The plan line `scripts/ingest.ts` prints: superseded, stuck, upload, delete, unchanged.
           plan=$(grep -E "^AI Search: [0-9]+ to keep as superseded, " "$RUNNER_TEMP/ingest.log")
           echo "$plan" >> "$GITHUB_STEP_SUMMARY"
@@ -203,10 +205,16 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+          # A partly indexed instance would fail the eval for passages still indexing.
+          if grep -q "^AI Search: every item indexed" "$RUNNER_TEMP/ingest.log"; then
+            echo "indexed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "indexed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Retrieval eval
         id: eval
-        if: steps.ingest.outputs.changed == 'true' || inputs.eval
+        if: (steps.ingest.outputs.changed == 'true' && steps.ingest.outputs.indexed == 'true') || inputs.eval
         run: |
           set -uo pipefail
           # The package script runs under Doppler `codice` `dev` (a token that can only search).
