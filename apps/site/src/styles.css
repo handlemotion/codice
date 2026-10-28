@@ -108,23 +108,101 @@ kbd {
 }
 
 /* The docs (Fumadocs) take the site's tokens, so they follow the same ground, inks, hairlines and
-   T toggle as the home. Raised surfaces are a small step from the ground, never grey panels. */
+   T toggle as the home. No raised surface: every Fumadocs surface is the ground itself. */
 :root,
 .dark {
   --color-fd-background: var(--color-ink);
   --color-fd-foreground: var(--color-fg);
-  --color-fd-muted: color-mix(in oklab, var(--color-fg) 4%, var(--color-ink));
+  --color-fd-muted: var(--color-ink);
   --color-fd-muted-foreground: var(--color-muted);
   --color-fd-popover: var(--color-ink);
   --color-fd-popover-foreground: var(--color-fg);
-  --color-fd-card: color-mix(in oklab, var(--color-fg) 3%, var(--color-ink));
+  --color-fd-card: var(--color-ink);
   --color-fd-card-foreground: var(--color-fg);
   --color-fd-border: var(--color-line);
   --color-fd-primary: var(--color-electric);
   --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: color-mix(in oklab, var(--color-fg) 6%, var(--color-ink));
+  --color-fd-secondary: var(--color-ink);
   --color-fd-secondary-foreground: var(--color-fg);
-  --color-fd-accent: color-mix(in oklab, var(--color-fg) 8%, var(--color-ink));
+  --color-fd-accent: transparent;
   --color-fd-accent-foreground: var(--color-fg);
   --color-fd-ring: var(--color-electric);
+}
+
+/* Fumadocs' components, brought to DESIGN.md: 4px boxes and 2px controls, no shadows or blur,
+   14px text with a 20px title, hierarchy by weight, code in the mono at 12px. Scoped to the docs. */
+.codice-docs {
+  font-size: 14px;
+  line-height: 1.7;
+
+  & :where(.rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
+    border-radius: 4px;
+  }
+  & :where(.rounded-sm, .rounded) {
+    border-radius: 2px;
+  }
+  & :where([class*="shadow"]) {
+    box-shadow: none;
+  }
+  & :where([class*="backdrop-blur"]) {
+    backdrop-filter: none;
+    background-color: var(--color-ink);
+  }
+
+  /* The page title is the one larger size; the rest of the hierarchy is weight. */
+  & h1 {
+    font-size: 20px;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  & .prose h2,
+  & .prose h3,
+  & .prose h4 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  /* A guide's sections open on a hairline (not the API pages, whose headings sit in rows). */
+  & .prose > h2 {
+    margin-top: 2.5em;
+    padding-top: 1.5em;
+    border-top: 1px solid var(--color-line);
+  }
+  & .prose,
+  & .prose :where(p, li, td, th) {
+    font-size: 14px;
+    color: var(--color-fg);
+  }
+  & .prose :where(a) {
+    text-decoration-color: var(--color-line);
+    text-underline-offset: 4px;
+    font-weight: 400;
+    &:hover {
+      text-decoration-color: var(--color-fg);
+    }
+  }
+  & :where(pre, code, kbd) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  & .prose :where(:not(pre) > code) {
+    border: 1px solid var(--color-line);
+    border-radius: 2px;
+    padding: 0.05em 0.3em;
+    background: transparent;
+  }
+  & .prose :where(table) {
+    border-radius: 4px;
+  }
+
+  /* The sidebar's current page: the ink and bold, no tinted fill. */
+  & #nd-sidebar :where(a[data-active="true"]) {
+    background: transparent;
+    color: var(--color-fg);
+    font-weight: 700;
+  }
+  & #nd-sidebar :where(a) {
+    font-size: 14px;
+  }
 }

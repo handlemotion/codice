@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { Ask } from "../ask";
+import { SiteBar } from "../components/site-bar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { Mark, MarkField } from "../brand/mark";
 
@@ -31,14 +32,6 @@ const ASSISTANTS = [
   ["Microsoft Copilot", "copilot"],
 ] as const;
 
-// The docs live at `/docs` (Fumadocs, routed by apps/edge); the API reference under `/docs/api`.
-const NAV_LINKS = [
-  ["Producto", "#que-es"],
-  ["Documentación", "/docs"],
-  ["API", "/docs/api"],
-  ["Precios", "#precios"],
-] as const;
-
 const FOOTER_LINKS = [
   ["Preguntar", "#preguntar"],
   ["Qué es", "#que-es"],
@@ -48,9 +41,8 @@ const FOOTER_LINKS = [
   ["Entrar", "/login"],
 ] as const;
 
-// The top bar is shorter than the logo strip. The strip sticks above the window's top edge by the
-// difference, so its bottom border lands on the bar's bottom edge and becomes the bar's ground.
-const BAR = "h-[44px] sm:h-[52px]";
+// The top bar (SiteBar) is shorter than the logo strip. The strip sticks above the window's top
+// edge by the difference, so its bottom border lands on the bar's bottom edge and becomes its ground.
 const STRIP = "h-[60px] -top-4 sm:h-[76px] sm:-top-6";
 
 /**
@@ -131,39 +123,7 @@ function Home() {
       {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
           marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
           border become its ground (see `Strip`). */}
-      <div
-        className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-30 grid items-center sm:grid-cols-[48fr_52fr]`}
-      >
-        {/* The page's links start on the text column's edge (48%), like the sections below. */}
-        <nav
-          aria-label="Principal"
-          className="pointer-events-auto hidden gap-12 px-6 sm:col-start-2 xl:flex"
-        >
-          {NAV_LINKS.map(([label, href]) => (
-            <a
-              className="inline-flex h-7 items-center text-white mix-blend-difference hover:underline"
-              href={href}
-              key={label}
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
-        <div className="pointer-events-auto absolute right-4 flex gap-2">
-          <a
-            className="inline-flex h-7 items-center rounded-[2px] border border-line bg-ink px-2 text-[13px] hover:border-fg"
-            href="/login"
-          >
-            Entrar
-          </a>
-          <a
-            className="inline-flex h-7 items-center rounded-[2px] bg-electric px-2 text-[13px] font-bold text-white hover:bg-fg hover:text-ink"
-            href="/keys"
-          >
-            Obtener clave
-          </a>
-        </div>
-      </div>
+      <SiteBar />
 
       {/* The first screen: the title and the chat, centered and nudged above the middle, over a
           field of marks rolling corner to corner like a wave. */}

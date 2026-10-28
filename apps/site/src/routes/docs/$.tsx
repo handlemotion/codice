@@ -6,6 +6,7 @@ import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layo
 import { Suspense, use, type ReactNode } from "react";
 
 import { OpenAPIPage } from "../../components/api-page";
+import { SiteBar } from "../../components/site-bar";
 import { useMDXComponents } from "../../components/mdx";
 import { docs } from "../../lib/collections";
 import { baseOptions } from "../../lib/layout.shared";
@@ -76,9 +77,16 @@ function Page() {
       </Suspense>
     );
   }
+  // The site's own bar on top; Fumadocs offsets its sticky sidebar and contents by
+  // `--fd-banner-height`, so they start under it.
   return (
-    <DocsLayout {...baseOptions()} tree={page.pageTree}>
-      {content}
-    </DocsLayout>
+    <div className="codice-docs [--fd-banner-height:44px] sm:[--fd-banner-height:52px]">
+      <SiteBar grounded />
+      <div className="pt-[44px] sm:pt-[52px]">
+        <DocsLayout {...baseOptions()} tree={page.pageTree}>
+          {content}
+        </DocsLayout>
+      </div>
+    </div>
   );
 }

@@ -2,7 +2,7 @@ import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 
 import { Mark } from "../brand/mark";
 
-/** The docs' bar: the brand back to the home, and the site's own links. */
+/** The docs' sidebar header: the brand, back to the home. The site's links live in SiteBar. */
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
@@ -15,11 +15,5 @@ export function baseOptions(): BaseLayoutProps {
       url: "/",
     },
     themeSwitch: { enabled: false },
-    links: [
-      { text: "Producto", url: "/" },
-      { text: "Documentación", url: "/docs", active: "nested-url" },
-      { text: "API", url: "/docs/api" },
-      { text: "Precios", url: "/#precios" },
-    ],
   };
 }

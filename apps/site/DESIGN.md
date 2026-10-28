@@ -146,6 +146,27 @@ above it on hover or keyboard focus.
 - One row under it, spread across the full width (`justify-between`): "© 2026 Handlemotion"
   (opens handlemotion.com in a new tab) and the page's links. No disclaimer, no keyboard hints.
 
+## Docs (`/docs`)
+
+Fumadocs (`fumadocs-ui`, `fumadocs-mdx`, `fumadocs-openapi`) renders the guides in
+`content/docs` and one page per API operation from `content/openapi.json`. It follows this file,
+not Fumadocs' defaults:
+
+- **The same top bar** as the home (`SiteBar`, grounded: `ink` with a bottom hairline). Fumadocs'
+  own header is off; its sidebar and contents start under the bar through `--fd-banner-height`.
+  The sidebar keeps the brand (back to the home) and the search.
+- **Tokens, not Fumadocs' palette:** every `--color-fd-*` maps to ours in `styles.css`. All
+  surfaces are the ground (no cards, popovers or muted panels in grey); separation is the hairline.
+  The accent is `electric`; Fumadocs' theme switch is off, so `T` and dark-by-default apply.
+- **`.codice-docs` overrides** (`styles.css`): 4px boxes, 2px small controls, no shadows or blur;
+  14px text, the page title at 20px, section headings bold at 14px over a hairline; code in Supply
+  Mono at 12px; the sidebar's current page bold in `fg`, never a tinted fill.
+- **Spanish interface:** `src/lib/docs-i18n.ts` translates Fumadocs' labels. Add a key there when
+  an English label shows up.
+- **Content:** guides are plain Spanish for accountants first; code only where it is the point.
+  The API reference is generated: change `apps/api/src/openapi.ts`, then run
+  `pnpm --filter @codice/api openapi`.
+
 ## Components
 
 ### Buttons
