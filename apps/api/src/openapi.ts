@@ -4,6 +4,7 @@ import { SEARCH_SOURCES_MAX } from "./handlers";
 import {
   CatalogLookupArgument,
   ErrorCodeArgument,
+  ListChangesArguments,
   MCP_SERVER_VERSION,
   ReadPassageArguments,
   SearchArguments,
@@ -106,6 +107,35 @@ const Catalog = z.object({
   ),
   truncated: z.boolean().describe("True when the catalog has more than the 500 entries returned."),
   source: Source.nullable(),
+});
+
+const Change = z.object({
+  change: z
+    .enum(["added", "changed", "removed"])
+    .describe(
+      "`changed` with a null `previousPassageId` is a change Códice holds no earlier text of.",
+    ),
+  date: z.string().describe("The day the change applies from, YYYY-MM-DD."),
+  passageId: z
+    .string()
+    .describe(
+      "The text in force from `date`; for `removed`, the dated id of the last text. Read it with `/v1/passages/{id}`.",
+    ),
+  previousPassageId: z
+    .string()
+    .nullable()
+    .describe("For `changed`, the dated id of the text that applied until the day before."),
+  source: z.string(),
+  heading: z.string(),
+  kind: z.string().nullable(),
+  ...Validity,
+});
+
+const Changes = z.object({
+  since: z.string(),
+  until: z.string().nullable(),
+  source: z.string().nullable(),
+  changes: z.array(Change).describe("By `date`, then `passageId`."),
 });
 
 const Problem = z.object({
@@ -267,6 +297,17 @@ export function openApiDocument() {
             "Every entry of a key in a SAT catalog. Any other query parameter filters by a column, named as in the SAT's catalog (`?c_CodigoPostal=01000`).",
           parameters: parametersOf(CatalogLookupArgument, "path", ["name", "key"]),
           responses: { 200: success(CatalogEntry, "The key's entries."), ...problems(400, 404) },
+        },
+      },
+      "/v1/changes": {
+        get: {
+          operationId: "listChanges",
+          tags: ["Registros"],
+          summary: "Listar los cambios",
+          description:
+            "The passages the SAT added, changed or removed from `since` through `until`, by the day each change applies from. The first version of a source Códice holds is where its history starts, not a change.",
+          parameters: parametersOf(ListChangesArguments, "query"),
+          responses: { 200: success(Changes, "The changes, oldest first."), ...problems(400) },
         },
       },
       "/v1/sources": {

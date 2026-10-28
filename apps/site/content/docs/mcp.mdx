@@ -63,8 +63,9 @@ Todas son de solo lectura: consultan, nunca modifican nada.
 | `lookup_error`   | Explica hasta 25 códigos de error `CFDI40xxx`.  | `codes`                                             |
 | `lookup_catalog` | Busca hasta 25 claves en los catálogos del SAT. | `lookups`: una lista de `{ name, key, where }`      |
 | `list_sources`   | Lista los documentos que contiene Códice.       | Ninguno                                             |
+| `list_changes`   | Lista qué reglas cambiaron en un periodo.       | `since`, y opcionales `until`, `source`             |
 
-Son las mismas consultas que la API. `source` en `search` es un id o una lista de ids: `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]`. `lookup_error` y `lookup_catalog` reciben varios códigos o claves a la vez, para revisar un comprobante completo en una sola llamada: `{ "codes": ["CFDI40149", "CFDI40147"] }`, o `{ "lookups": [{ "name": "c_UsoCFDI", "key": "G03" }, { "name": "c_RegimenFiscal", "key": "601" }] }`. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Códigos de error](/docs/errores#varios-códigos-a-la-vez) y [Catálogos del SAT](/docs/catalogos#varias-claves-a-la-vez).
+Son las mismas consultas que la API. `source` en `search` es un id o una lista de ids: `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]`. `lookup_error` y `lookup_catalog` reciben varios códigos o claves a la vez, para revisar un comprobante completo en una sola llamada: `{ "codes": ["CFDI40149", "CFDI40147"] }`, o `{ "lookups": [{ "name": "c_UsoCFDI", "key": "G03" }, { "name": "c_RegimenFiscal", "key": "601" }] }`. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Códigos de error](/docs/errores#varios-códigos-a-la-vez) y [Catálogos del SAT](/docs/catalogos#varias-claves-a-la-vez). `list_changes` se explica en [Cambios en las reglas](/docs/cambios).
 
 ## Qué preguntarle
 

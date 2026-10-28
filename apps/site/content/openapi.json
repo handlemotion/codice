@@ -965,6 +965,168 @@
         }
       }
     },
+    "/v1/changes": {
+      "get": {
+        "operationId": "listChanges",
+        "tags": ["Registros"],
+        "summary": "Listar los cambios",
+        "description": "The passages the SAT added, changed or removed from `since` through `until`, by the day each change applies from. The first version of a source Códice holds is where its history starts, not a change.",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": true,
+            "description": "The first day of the window, YYYY-MM-DD: changes that apply from this day on.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "The last day of the window, YYYY-MM-DD. Without it, every change from `since` on, including any Códice already holds for a later date.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "Only one source, by the id `list_sources` gives, such as `rmf-2026`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The changes, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "since": {
+                          "type": "string"
+                        },
+                        "until": {
+                          "type": ["string", "null"]
+                        },
+                        "source": {
+                          "type": ["string", "null"]
+                        },
+                        "changes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "change": {
+                                "type": "string",
+                                "enum": ["added", "changed", "removed"],
+                                "description": "`changed` with a null `previousPassageId` is a change Códice holds no earlier text of."
+                              },
+                              "date": {
+                                "type": "string",
+                                "description": "The day the change applies from, YYYY-MM-DD."
+                              },
+                              "passageId": {
+                                "type": "string",
+                                "description": "The text in force from `date`; for `removed`, the dated id of the last text. Read it with `/v1/passages/{id}`."
+                              },
+                              "previousPassageId": {
+                                "description": "For `changed`, the dated id of the text that applied until the day before.",
+                                "type": ["string", "null"]
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": ["string", "null"]
+                              },
+                              "validFrom": {
+                                "description": "First day the rule applies, YYYY-MM-DD.",
+                                "type": ["string", "null"]
+                              },
+                              "validUntil": {
+                                "description": "Last day it applies; null while in force.",
+                                "type": ["string", "null"]
+                              }
+                            },
+                            "required": [
+                              "change",
+                              "date",
+                              "passageId",
+                              "previousPassageId",
+                              "source",
+                              "heading",
+                              "kind",
+                              "validFrom",
+                              "validUntil"
+                            ]
+                          },
+                          "description": "By `date`, then `passageId`."
+                        }
+                      },
+                      "required": ["since", "until", "source", "changes"]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["requestId"]
+                    }
+                  },
+                  "required": ["data", "meta"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is malformed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, unknown, revoked or expired API key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Over 60 requests a minute for this key. Retry after `retry-after` seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sources": {
       "get": {
         "operationId": "listSources",
