@@ -236,6 +236,11 @@ kbd {
       padding-top: 24px;
     }
   }
+  @media (min-width: 1280px) {
+    & .doc-sheet:not(.doc-api) > h1 {
+      padding-top: 56px;
+    }
+  }
 
   /* An API operation (fumadocs-openapi): each part (authorization, parameters, body, response)
      has its name in bold, and the description stands apart from the route. */

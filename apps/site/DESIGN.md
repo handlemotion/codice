@@ -156,11 +156,15 @@ not Fumadocs' defaults:
   the brand: the mark, and from 1280px the name in regular weight. Narrower, the links sit beside
   the mark on the left (they scroll sideways if they must; they never disappear). Fumadocs' own
   layout is off: `routes/docs/$.tsx` lays the page out itself.
-- **Three columns on the home's line:** the sidebar (300px), the page's contents and its actions
-  (copy as Markdown, open in ChatGPT or Claude) up to 48% of the width, and the page from there to
-  the edge, behind one full-height hairline. Docs text is 15px and fills its column; headings are
-  16px bold, with no dividers between sections. Below 1024px the actions sit above the title. An
-  API operation has no contents or actions: Fumadocs' operation keeps its own example column.
+- **Sidebar, page, contents:** the sidebar (300px) behind its hairline, then the guide at a reading
+  width (800px), 56px below the bar and centered on the screen (not on the space beside the
+  sidebar) once the screen is wide enough, with its contents and actions (copy as Markdown, open in
+  ChatGPT or Claude) floating at the right edge from 1280px, as Fumadocs lays a page out. The bar's
+  mark sits 16px in, on the line of the sidebar's icons. Docs text is 15px; headings are 16px bold,
+  with no dividers between sections. Below 1280px the actions sit above the title. An API operation
+  has no contents or actions: Fumadocs' operation keeps its own example column. (Tried and
+  dropped: three columns on the home's 48% line, with the contents between the sidebar and the
+  text; it left a wide empty column and stretched the text.)
 - **The sidebar** (`docs-sidebar.tsx`, Figma node 8:4): a search row with its `⌘K` key cap, one
   52px row per group (line icon, label, chevron) between hairlines, the current group open, the
   current page bold in `fg`, and the theme toggle at the foot.

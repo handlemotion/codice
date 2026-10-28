@@ -12,6 +12,8 @@
     "---Conectar---",
     "http",
     "mcp",
+    "claude",
+    "grok",
     "api"
   ]
 }

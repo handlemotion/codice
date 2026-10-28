@@ -12,14 +12,15 @@ const NAV_LINKS = [
 
 /**
  * Fixed to the top. On the home it has no ground of its own (the logo strip slides under it and
- * becomes its ground); elsewhere `grounded` gives it the page's ground and a bottom hairline.
+ * becomes its ground); elsewhere `grounded` gives it the page's ground and a bottom hairline, and
+ * keeps the mark at 16px, in line with the docs sidebar's icons.
  * Narrow, it is the mark and the links side by side on the left; from 1280px the mark carries the
  * name and the links move to the text column's edge (48%), in line with the home's sections.
  */
 export function SiteBar({ grounded = false }: { grounded?: boolean }) {
   return (
     <div
-      className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center gap-6 px-4 sm:px-6 ${grounded ? "border-b border-line bg-ink" : ""}`}
+      className={`${BAR} pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center gap-6 px-4 ${grounded ? "border-b border-line bg-ink" : "sm:px-6"}`}
     >
       <a
         aria-label="Códice, inicio"
