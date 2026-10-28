@@ -50,6 +50,7 @@ export function Mark({
   strokeWidth = 1.5,
   animate = true,
   radius = 8,
+  speed = 1,
   step = 0,
 }: {
   className?: string;
@@ -57,13 +58,16 @@ export function Mark({
   animate?: boolean;
   /** The shape's radius in the 24-unit box; 8 leaves a margin, 10 nearly fills it. */
   radius?: number;
+  /** How many times the shared clock's pace it morphs at; still stepped at 12fps. */
+  speed?: number;
   /** Shapes ahead of the shared clock, so marks side by side show different shapes. */
   step?: number;
 }) {
   const path = useRef<SVGPathElement>(null);
   const offset = step * STEP_MS;
   useMarkClock(
-    (elapsed) => path.current?.setAttribute("d", markPath(elapsed + offset, 12, 12, radius)),
+    (elapsed) =>
+      path.current?.setAttribute("d", markPath(elapsed * speed + offset, 12, 12, radius)),
     animate,
   );
 

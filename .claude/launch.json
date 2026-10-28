@@ -4,17 +4,14 @@
     {
       "name": "site",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "@codice/site",
-        "exec",
-        "vite",
-        "dev",
-        "--port",
-        "5179",
-        "--strictPort"
-      ],
+      "runtimeArgs": ["--filter", "@codice/site", "dev", "--port", "5179", "--strictPort"],
       "port": 5179
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@codice/app", "dev"],
+      "port": 5173
     }
   ]
 }
