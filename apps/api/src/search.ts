@@ -64,6 +64,9 @@ export type SearchInput = {
   readonly keywordMatchMode?: "and" | "or";
   /** Overrides `RERANKING_THRESHOLD`; the retrieval eval compares values. */
   readonly rerankingThreshold?: number;
+  /** Overrides the instance's reranking and query rewriting; the retrieval eval compares them. */
+  readonly reranking?: boolean;
+  readonly queryRewrite?: boolean;
 };
 
 /**
@@ -91,7 +94,13 @@ export function searchRequest(input: SearchInput) {
         return_on_failure: false,
         ...(input.keywordMatchMode ? { keyword_match_mode: input.keywordMatchMode } : {}),
       },
-      reranking: { match_threshold: input.rerankingThreshold ?? RERANKING_THRESHOLD },
+      reranking: {
+        match_threshold: input.rerankingThreshold ?? RERANKING_THRESHOLD,
+        ...(input.reranking === undefined ? {} : { enabled: input.reranking }),
+      },
+      ...(input.queryRewrite === undefined
+        ? {}
+        : { query_rewrite: { enabled: input.queryRewrite } }),
     },
   } satisfies AiSearchSearchRequest;
 }

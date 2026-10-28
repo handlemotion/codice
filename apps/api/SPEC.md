@@ -335,6 +335,12 @@ that call the same handlers as the MCP tools (`search`, `read_passage`, `lookup_
 the stack Transitive's Agent uses. A tool refusal goes back to the model as
 `{ error: { code, message } }`.
 
+Effort `low` was compared on 2026-10-28: the same 6 questions, run locally against the real AI
+Search, finished in 58.9 s against 68.5 s at `medium` (median 11.7 s against 14.6 s; most of a
+turn is the searches and model turns, not thinking). The answers were as good or better, except
+that one named a law article that no tool had returned ("artículo 29-A del CFF"), which breaks
+"only from the tools", so `medium` stays.
+
 - The site calls it server-side: the browser's `useChat` posts to the site's `POST /_site/chat`,
   which forwards the turn over the site's `API` service binding with the site's own key
   (`CODICE_SITE_API_KEY`) and the visitor's `cf-connecting-ip`. The key never reaches the browser.
@@ -724,6 +730,21 @@ The eight misses left, none fixed by changing expected passages:
   `apendice-7-pregunta-25-2` passage), _"Si la factura ya estaba pagada cuando la emití, ¿también
   tengo que hacer complemento de pago?"_ and _"¿Cómo hago una nota de crédito que aplique a varias
   facturas?"_. Four of the eight are plain-language questions.
+
+### Reranking and latency (2026-10-28)
+
+The eval now times each query (from the machine that runs it, through the REST API) and takes
+`--rerank on|off` and `--rewrite on|off`. Both runs on the 172 questions, `asOf` 2026-10-27, the
+instance as configured (query rewriting off, reranking on with the default model):
+
+| Reranking   | Top 3 | Top 1 | MRR@10 | Latency p50 | Latency p95 |
+| ----------- | ----: | ----: | -----: | ----------: | ----------: |
+| on (as now) |   161 |   141 |  0.879 |    2,455 ms |    4,460 ms |
+| off         |   153 |   133 |  0.838 |    1,052 ms |    1,898 ms |
+
+Reranking costs more than half of a search's time and earns 8 questions in the top 3 (the
+corpus workflow's floor is 155), so it stays on. The 161 of 172 is the first measurement on the
+172 questions.
 
 ## Infrastructure
 

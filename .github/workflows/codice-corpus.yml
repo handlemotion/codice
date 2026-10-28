@@ -34,8 +34,8 @@ permissions:
   contents: read
 
 env:
-  # Provisional, not yet measured on the 172 questions: see apps/api/SPEC.md, "Retrieval eval",
-  # "150 questions and the `kind` filter". Set it from the first corpus run after the RMF ingest.
+  # 161 of 172 measured on 2026-10-28 (apps/api/SPEC.md, "Retrieval eval", "Reranking and
+  # latency"); the floor leaves room for AI Search's occasional empty answer.
   EVAL_MIN_TOP3: 155
   REFRESH_BRANCH: codice/sat-md-refresh
 

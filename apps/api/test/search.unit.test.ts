@@ -100,6 +100,22 @@ describe("searchRequest", () => {
     expect(request.ai_search_options.reranking).toEqual({ match_threshold: 0.4 });
   });
 
+  it("turns reranking and query rewriting on or off only when the eval asks", () => {
+    const request = searchRequest({
+      q: "x",
+      asOf: 20261024,
+      limit: 3,
+      reranking: false,
+      queryRewrite: false,
+    });
+    expect(request.ai_search_options.reranking).toEqual({ match_threshold: 0, enabled: false });
+    expect(request.ai_search_options).toMatchObject({ query_rewrite: { enabled: false } });
+
+    const worker = searchRequest({ q: "x", asOf: 20261024, limit: 3 });
+    expect(worker.ai_search_options.reranking).toEqual({ match_threshold: 0 });
+    expect(worker.ai_search_options).not.toHaveProperty("query_rewrite");
+  });
+
   it("narrows to a source's folder and can override the keyword match mode", () => {
     const request = searchRequest({
       q: "x",

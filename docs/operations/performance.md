@@ -156,8 +156,8 @@ spans above. None changes an answer.
    AI Search plus our code only. The Agent's `search_knowledge` runs `search`, `lookupError` and
    `listCatalog` in parallel, so its wait drops by one D1 round trip.
 3. **Read D1 from the nearest replica** (code done 2026-10-28: every query goes through a
-   `first-unconstrained` session. Left: enable read replication on `codice`, which needs a token
-   with D1 Edit on Handle and explicit approval). Every Worker query is a read of data that changes only at
+   `first-unconstrained` session. Read replication was enabled on `codice` the same day,
+   `read_replication.mode: auto`; its primary runs in `WNAM`). Every Worker query is a read of data that changes only at
    ingestion, so enable D1 read replication and query through a session
    (`env.CODICE_DATABASE.withSession("first-unconstrained")`). Expected gain: each remaining D1
    round trip goes to a replica near the calling colo instead of the primary; it is largest when
