@@ -160,6 +160,48 @@ The Worker maps each returned chunk to a result: `item.key` → passage id, `tex
 source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
 holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
+### Search cache
+
+`search()` (`src/handlers.ts`, the one path of `/v1/search`, `/mcp`, `POST /v1/chat` and the
+`CodiceKnowledge` entrypoint) keeps AI Search's chunks for a repeated search in the Cache API
+(`src/search-cache.ts`), so a hit makes no AI Search call; the provenance is still read from D1 each
+time. The key is the validated input `searchRequest` reads, `q` (trimmed), `asOf` (today in Mexico
+City when absent), `source`, `kind` and `limit`, plus the corpus version: a hash of every source's
+`sha256` and every passage's `sha256`, `kind` and validity in D1 (`corpusVersion`, `src/records.ts`),
+which the isolate rereads every `SOURCES_CACHE_MS` (5 minutes). The ingestion writes those rows
+after it uploads, and a re-split changes passages under the same source hash, so an ingestion
+misses within 5 minutes. An entry lives `SEARCH_CACHE_SECONDS` (1 hour), which bounds a result
+cached while AI Search still indexed an upload. The caller is not in the key: every key sees the
+same passages. A failed search is not kept. Entries are per data center.
+
+Chosen 2026-10-28 over two alternatives:
+
+- **AI Search's own cache** (`ai_search_options.cache`, instance `cache`): its similarity cache
+  matches prompts by MinHash and LSH; even `super_strict_match` is "near-identical matches only",
+  not an exact match, so a hit can carry another question's passages. On the instance (see
+  [Open questions](#open-questions)) a repeat read `cf-ai-search-cache: hit-exact` and still took
+  623–727 ms over REST, against 1,266–3,356 ms for a miss.
+- **Workers Caching** in front of an inner `fetch` entrypoint (tiered, collapses concurrent
+  requests): it caches only `fetch` invocations, so the entrypoint's RPC, `/mcp` and the chat would
+  each need a loopback `fetch`, and local Miniflare does not emulate it, so a hit could not be
+  shown before production.
+
+Local measurement on `pnpm dev:up` (the real instance), two questions asked 5 times each, `asOf`
+2026-10-27, times are the Worker's `server-timing` `total` in ms:
+
+| Question                                   | Before: run 1, runs 2–5           | After: run 1 (miss), runs 2–5 (hit) |
+| ------------------------------------------ | --------------------------------- | ----------------------------------- |
+| "¿Qué UsoCFDI lleva el comprobante con …?" | 6,748; 2,708, 2,458, 1,511, 732   | 3,205; 16, 14, 16, 15               |
+| `CFDI40149`                                | 4,153; 2,778, 2,351, 1,300, 1,076 | 3,656; 16, 18, 16, 18               |
+
+A hit's `server-timing` reads `total;dur=16.0, cache;dur=2.0` (no `search`), its `data` equal to
+the miss's, and `/mcp`'s `search` answered the same `data` from the entry in 34 ms. The cache costs a
+miss 7–21 ms (`cache`). Two real AI Search calls ten minutes apart differed only in one
+`keywordScore` (14.4379, then 14.4411): a hit holds one answer for up to an hour. The retrieval eval
+calls AI Search directly, so the cache never touches it; no instance setting changed and no eval
+ran. In production the Cache API needs the Worker to run on a zone: `codice-api` has no route yet
+(Go-live checklist), so check the `cache` metric once `codice.io` serves traffic.
+
 ## Records and provenance (D1)
 
 D1 database `codice`, binding `CODICE_DATABASE`, schema in Drizzle (`db:generate`, never
@@ -244,7 +286,8 @@ Responses use the repo envelope (`{ data, meta: { requestId } }`, `apiJson` in `
 errors are `application/problem+json`. Every response, including `/health` and `/ready`, carries
 `x-request-id`: the caller's when it is 1–128 characters, else a new UUID, and `server-timing`:
 `total` (the Worker's time to the response headers) and, when it called AI Search, `search` (the
-time spent in its calls, a Sentry span each; `src/timing.ts`). Every `/v1` route takes
+time spent in its calls, a Sentry span each; `src/timing.ts`), and, for a search, `cache` (the
+[search cache](#search-cache)'s reads and writes; a hit has no `search`). Every `/v1` route takes
 an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 
 | Method and path                                | Backed by                                                 |
@@ -904,5 +947,9 @@ to match.
 
 ## Open questions
 
+- The instance's similarity cache is on (`cache: true`, `cache_threshold: close_enough`, `cache_ttl`
+  48 hours, read 2026-10-28). It can answer a similar question with another question's passages;
+  turning it off, or `super_strict_match` per request, needs an eval run. The
+  [search cache](#search-cache) already serves exact repeats.
 - Legal review of republishing government texts (LFDA art. 14 fr. VIII) and the disclaimer wording.
 - IMPI trademark search for "Códice".
