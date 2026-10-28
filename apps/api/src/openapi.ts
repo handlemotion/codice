@@ -218,7 +218,7 @@ function searchParameters() {
       ? {
           ...parameter,
           description:
-            "Only these sources: repeat it for several (`?source=anexo-20-guia-de-llenado&source=matriz-de-errores-cfdi-40`). The ids are `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` and `rmf-2026`.",
+            "Only these sources: repeat it for several (`?source=anexo-20-guia-de-llenado&source=matriz-de-errores-cfdi-40`). The ids are the ones `/v1/sources` lists, such as `rmf-2026`.",
           schema: { type: "array", items: { type: "string" }, maxItems: SEARCH_SOURCES_MAX },
           style: "form",
           explode: true,

@@ -54,7 +54,7 @@ export type SearchParameters = {
 
 const QUERY_MAX = 1000;
 const SOURCE = /^[a-z0-9][a-z0-9-]{0,63}$/u;
-/** The most sources one search takes; Códice holds four searchable ones. */
+/** The most sources one search takes. */
 export const SEARCH_SOURCES_MAX = 10;
 /** An AI Search item key, `<source>/<anchor>.md`, at most 128 characters (SPEC.md, "Items"). */
 const PASSAGE_ID = /^[a-z0-9][a-z0-9-]{0,63}\/[a-z0-9][a-z0-9.-]*\.md$/u;

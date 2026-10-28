@@ -38,7 +38,7 @@ export const SearchArguments = z.object({
     .union([z.string(), z.array(z.string()).min(1).max(SEARCH_SOURCES_MAX)])
     .optional()
     .describe(
-      'Only these sources, one id or a list: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40`, `rmf-2026`. `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]` searches the CFDI 4.0 guide and the error matrix.',
+      'Only these sources, one id or a list, by the ids `list_sources` gives: `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]` searches the CFDI 4.0 guide and the error matrix; `rmf-2026` only the RMF.',
     ),
   kind: z
     .enum(PASSAGE_KINDS)
