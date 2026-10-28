@@ -96,6 +96,40 @@ export async function sourcesById(
   );
 }
 
+let corpusCache: { readonly at: number; readonly version: string } = { at: -Infinity, version: "" };
+
+/**
+ * A hash of what a search can return: each source's hash and each passage's hash, kind and
+ * validity, the rows the ingestion writes after it uploads (a re-split changes passages under the
+ * same source hash). It keys the search cache (`search-cache.ts`); the isolate keeps it
+ * `SOURCES_CACHE_MS`.
+ */
+export async function corpusVersion(db: Database): Promise<string> {
+  if (Date.now() - corpusCache.at < SOURCES_CACHE_MS) return corpusCache.version;
+  const [sourceRows, passageRows] = await Promise.all([
+    db.select({ id: sources.id, sha256: sources.sha256 }).from(sources).orderBy(asc(sources.id)),
+    db
+      .select({
+        key: passages.key,
+        sha256: passages.sha256,
+        kind: passages.kind,
+        validFrom: passages.validFrom,
+        validUntil: passages.validUntil,
+      })
+      .from(passages)
+      .orderBy(asc(passages.key)),
+  ]);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify([sourceRows, passageRows])),
+  );
+  const version = Array.from(new Uint8Array(digest, 0, 16), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  corpusCache = { at: Date.now(), version };
+  return version;
+}
+
 /**
  * The sources by id as they read on `date` (`YYYYMMDD`): the version in force, or the superseded
  * version that applied that day (SPEC.md, "Versions"). A source D1 does not hold is left out; one
