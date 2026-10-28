@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { searchInput } from "../src/handlers";
+import { searchFormat, searchInput } from "../src/handlers";
 import {
+  briefResult,
+  excerpt,
+  EXCERPT_LENGTH,
+  excerptTerms,
   parseAsOf,
   searchRequest,
   searchResults,
@@ -215,5 +219,136 @@ describe("searchResults", () => {
         scoring: { keywordScore: null, vectorScore: null, rerankingScore: null },
       },
     ]);
+  });
+});
+
+describe("searchFormat", () => {
+  it("defaults to full and accepts brief", () => {
+    expect(searchFormat(undefined)).toBe("full");
+    expect(searchFormat("")).toBe("full");
+    expect(searchFormat("brief")).toBe("brief");
+  });
+
+  it("refuses another format", () => {
+    expect(() => searchFormat("short")).toThrow(
+      expect.objectContaining({ status: 400, detail: "`format` is one of full, brief." }),
+    );
+  });
+});
+
+describe("excerptTerms", () => {
+  it("folds case and accents and drops short and common words", () => {
+    expect(excerptTerms("¿Qué UsoCFDI lleva el comprobante de gastos médicos?")).toEqual([
+      "usocfdi",
+      "lleva",
+      "comprobante",
+      "gastos",
+      "medicos",
+    ]);
+  });
+});
+
+describe("excerpt", () => {
+  // A long passage whose match sits far from its start, as an RMF regla's often does.
+  const filler = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(12);
+  const rule =
+    "Para los efectos del artículo 29-A, el contribuyente que reciba un CFDI con el atributo RFC genérico XAXX010101000 deberá registrar el código postal del lugar de expedición.";
+  const text = `${filler}${rule} ${filler}`;
+
+  it("cuts an exact substring around the question's words, at whole words", () => {
+    const { excerpt: cut, truncated } = excerpt(
+      text,
+      "código postal del receptor con RFC genérico",
+    );
+
+    expect(text).toContain(cut);
+    expect(cut.length).toBeLessThanOrEqual(EXCERPT_LENGTH);
+    // From the start of the rule's sentence, the nearest before its first matching word.
+    expect(cut.startsWith("Para los efectos del artículo 29-A")).toBe(true);
+    expect(cut).toContain("RFC genérico XAXX010101000");
+    expect(cut).toContain("código postal");
+    expect(truncated).toEqual({ before: true, after: true });
+    // Whole words: the characters beside the cut are whitespace.
+    const start = text.indexOf(cut);
+    expect(text[start - 1]).toMatch(/\s/u);
+    expect(text[start + cut.length]).toMatch(/\s/u);
+  });
+
+  it("starts a little before the match, at a whole word, when no sentence starts near it", () => {
+    const run = `${"palabra ".repeat(60)}CFDI40149 ${"palabra ".repeat(60)}`;
+    const { excerpt: cut, truncated } = excerpt(run, "CFDI40149");
+    const start = run.indexOf(cut);
+
+    expect(run[start - 1]).toBe(" ");
+    expect(cut.startsWith("palabra")).toBe(true);
+    expect(cut.indexOf("CFDI40149")).toBeGreaterThan(40);
+    expect(cut.indexOf("CFDI40149")).toBeLessThanOrEqual(60);
+    expect(truncated).toEqual({ before: true, after: true });
+  });
+
+  it("matches a code without regard to case", () => {
+    const { excerpt: cut } = excerpt(text, "xaxx010101000");
+
+    expect(cut).toContain("XAXX010101000");
+  });
+
+  it("keeps the start when no word of the question appears (a match by meaning)", () => {
+    const { excerpt: cut, truncated } = excerpt(text, "¿cuándo se cancela una factura?");
+
+    expect(text.startsWith(cut)).toBe(true);
+    expect(truncated).toEqual({ before: false, after: true });
+  });
+
+  it("returns a short text whole, untruncated", () => {
+    expect(excerpt("Código: CFDI40149\n", "CFDI40149")).toEqual({
+      excerpt: "Código: CFDI40149",
+      truncated: { before: false, after: false },
+    });
+  });
+
+  it("prefers the window holding the most distinct words", () => {
+    const scattered = `UsoCFDI aparece sola. ${filler}El atributo UsoCFDI del receptor con régimen 616. ${filler}`;
+    const { excerpt: cut } = excerpt(scattered, "UsoCFDI receptor régimen");
+
+    expect(cut).toContain("UsoCFDI del receptor con régimen 616.");
+  });
+});
+
+describe("briefResult", () => {
+  it("drops the heading line from the excerpt and gives the heading path apart", () => {
+    const [result] = searchResults([
+      {
+        id: "chunk-1",
+        type: "text",
+        score: 0.8,
+        text: "# Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149\n\nCódigo: CFDI40149\n",
+        item: {
+          key: "matriz-de-errores-cfdi-40/cfdi40149.md",
+          metadata: {
+            authority: "SAT",
+            kind: "anexo",
+            valid_from: 20260325,
+            valid_until: 99991231,
+          },
+        },
+      },
+    ]);
+
+    expect(
+      briefResult(
+        result!,
+        "CFDI40149",
+        "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
+      ),
+    ).toEqual({
+      passageId: "matriz-de-errores-cfdi-40/cfdi40149.md",
+      heading: "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
+      excerpt: "Código: CFDI40149",
+      truncated: { before: false, after: false },
+      kind: "anexo",
+      validFrom: "2026-03-25",
+      validUntil: null,
+      score: 0.8,
+    });
   });
 });
