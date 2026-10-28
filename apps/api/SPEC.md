@@ -727,8 +727,13 @@ fetch source → sha256 → unchanged? stop
   wait for stuck items, and stops waiting after 120 minutes. Then it still writes D1 for what did
   index (`settledRecords` in `scripts/corpus.ts`): an unfinished current passage keeps its earlier
   record, or none, and drops a dated copy made from it in this run; superseded records are always
-  written. It then fails the run, naming each unfinished item, and the next run uploads only those
-  again. Before 2026-10-28 a single stuck item stopped the whole D1 write, so each retry uploaded
+  written. It then fails the run, naming each unfinished item. Those items keep indexing after the
+  run, so the next run first downloads each passage to upload whose item is not stuck and has its
+  validity (`heldCandidates`), and records instead of uploading one whose text has the passage's
+  hash: uploading it again would queue it again. On 2026-10-28 a run that stopped after 120 minutes
+  left 442 RMF reglas unrecorded; all had indexed with the current text within hours. Requests back
+  off on `429`, following `retry-after`, past the API's 1,200 requests in five minutes, which these
+  downloads can spend. Before 2026-10-28 a single stuck item stopped the whole D1 write, so each retry uploaded
   every changed passage again (1,214 RMF reglas on 2026-10-27) and met new stuck items. `--instance <name>` loads a comparison instance for an eval of
   other settings: every passage it lacks, no D1 and no catalogs. A change to the splitter changes
   passage keys, and with them the Agent's citations: prove the corpus with

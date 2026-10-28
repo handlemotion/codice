@@ -8,6 +8,7 @@ import {
   buildCorpus,
   catalogEntryRows,
   dayBefore,
+  heldCandidates,
   ingestionPlan,
   ITEM_KEY_MAX,
   stuckItem,
@@ -606,6 +607,43 @@ describe("stuckItem", () => {
     for (const status of ["queued", "running", "completed", "skipped"]) {
       expect(stuckItem(item(status, null))).toBe(false);
     }
+  });
+});
+
+describe("heldCandidates", () => {
+  const passage = (key: string, validFrom = 20250101): Passage => ({
+    key,
+    sourceId: "a",
+    heading: "A",
+    body: "text",
+    sha256: "text",
+    metadata: { authority: "SAT", kind: "regla", valid_from: validFrom, valid_until: 99_991_231 },
+  });
+  const item = (key: string, status: string, validFrom = 20250101) => ({
+    id: `i-${key}`,
+    key,
+    status,
+    next_action: status === "outdated" ? null : "index",
+    metadata: { valid_from: validFrom, valid_until: 99_991_231 },
+  });
+
+  it("checks a passage whose item is indexed or indexing with its validity", () => {
+    const candidates = heldCandidates(
+      [passage("a/done.md"), passage("a/queued.md")],
+      [item("a/done.md", "completed"), item("a/queued.md", "queued")],
+    );
+    expect(candidates.map(({ passage, item }) => [passage.key, item.id])).toEqual([
+      ["a/done.md", "i-a/done.md"],
+      ["a/queued.md", "i-a/queued.md"],
+    ]);
+  });
+
+  it("uploads a passage with no item, a stuck item or other validity without checking it", () => {
+    const candidates = heldCandidates(
+      [passage("a/new.md"), passage("a/stuck.md"), passage("a/amended.md", 20260301)],
+      [item("a/stuck.md", "outdated"), item("a/amended.md", "completed")],
+    );
+    expect(candidates).toEqual([]);
   });
 });
 

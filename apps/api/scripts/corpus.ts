@@ -523,7 +523,27 @@ export type RemoteItem = {
   readonly status?: string;
   /** What AI Search will do with the item next; `null` when it will do nothing. */
   readonly next_action?: string | null;
+  readonly metadata?: { readonly valid_from?: unknown; readonly valid_until?: unknown };
 };
+
+/**
+ * The passages to upload whose item may already hold them: not stuck, with the passage's validity.
+ * A run that stopped waiting before AI Search indexed its uploads records none of them, though they
+ * keep indexing; the next run checks each one's text (`ingest.ts`) instead of uploading it again,
+ * which would put it back in the queue.
+ */
+export function heldCandidates(upload: readonly Passage[], items: readonly RemoteItem[]) {
+  const healthy = new Map(
+    items.filter((item) => !stuckItem(item)).map((item) => [item.key, item] as const),
+  );
+  return upload.flatMap((passage) => {
+    const item = healthy.get(passage.key);
+    return item?.metadata?.valid_from === passage.metadata.valid_from &&
+      item.metadata.valid_until === passage.metadata.valid_until
+      ? [{ passage, item }]
+      : [];
+  });
+}
 
 /**
  * An item AI Search will never finish indexing: one that failed (`error`), or one `outdated` with

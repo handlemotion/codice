@@ -37,6 +37,7 @@ import {
   buildCorpus,
   CATALOG_SOURCE_ID,
   catalogEntryRows,
+  heldCandidates,
   ingestionPlan,
   passageRecord,
   settledRecords,
@@ -99,28 +100,36 @@ type ApiEnvelope<T> = {
   readonly result_info?: { readonly total_count?: number };
 };
 
-async function api<T>(url: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
+/**
+ * Rate limits and transient failures: back off and retry. The API allows 1,200 requests in five
+ * minutes, which a run checking many items (`heldPassages`) can spend, so the waits add up to more
+ * than that window, or follow `retry-after`.
+ */
+async function request(url: string, init: RequestInit = {}) {
   for (let attempt = 1; ; attempt += 1) {
     const response = await fetch(url, {
       ...init,
       headers: { authorization: `Bearer ${token()}`, ...init.headers },
     });
-    // Rate limits and transient failures: back off and retry, a few times.
-    if ((response.status === 429 || response.status >= 500) && attempt < 5) {
-      await new Promise((done) => setTimeout(done, 1000 * 2 ** attempt));
-      continue;
-    }
-    const body = (await response.json()) as ApiEnvelope<T>;
-    if (!response.ok || !body.success) {
-      throw Object.assign(
-        new Error(
-          `${init.method ?? "GET"} ${url}: HTTP ${response.status} ${JSON.stringify(body.errors)}`,
-        ),
-        { codes: (body.errors ?? []).map((error) => error.code) },
-      );
-    }
-    return body;
+    if ((response.status !== 429 && response.status < 500) || attempt === 10) return response;
+    const after = Number(response.headers.get("retry-after"));
+    const seconds = after > 0 ? after : Math.min(2 ** attempt, 60);
+    await new Promise((done) => setTimeout(done, seconds * 1000));
   }
+}
+
+async function api<T>(url: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
+  const response = await request(url, init);
+  const body = (await response.json()) as ApiEnvelope<T>;
+  if (!response.ok || !body.success) {
+    throw Object.assign(
+      new Error(
+        `${init.method ?? "GET"} ${url}: HTTP ${response.status} ${JSON.stringify(body.errors)}`,
+      ),
+      { codes: (body.errors ?? []).map((error) => error.code) },
+    );
+  }
+  return body;
 }
 
 /**
@@ -138,8 +147,9 @@ async function listItems(status?: string) {
         `${ITEMS}?source=builtin&per_page=${PAGE_SIZE}&page=${page}${status ? `&status=${status}` : ""}`,
       );
       total = body.result_info?.total_count ?? 0;
-      for (const { id, key, status, next_action } of body.result) {
-        items.set(id, { id, key, status, next_action });
+      for (const { id, key, status, next_action, metadata } of body.result) {
+        const { valid_from, valid_until } = metadata ?? {};
+        items.set(id, { id, key, status, next_action, metadata: { valid_from, valid_until } });
       }
       if (body.result.length < PAGE_SIZE) break;
     }
@@ -177,11 +187,7 @@ async function supersededCopy({
   record,
 }: Supersession): Promise<Pick<Passage, "key" | "body" | "metadata">> {
   const { result: item } = await api<{ metadata?: Record<string, unknown> }>(`${ITEMS}/${from.id}`);
-  const response = await fetch(`${ITEMS}/${from.id}/download`, {
-    headers: { authorization: `Bearer ${token()}` },
-  });
-  if (!response.ok) throw new Error(`Download ${from.key}: HTTP ${response.status}`);
-  const body = await response.text();
+  const body = await download(from);
   if (sha256(body) !== record.sha256) {
     throw new Error(`${from.key} no longer holds the text D1 recorded; its old version is lost`);
   }
@@ -199,6 +205,24 @@ async function supersededCopy({
       valid_until: record.validUntil,
     },
   };
+}
+
+async function download(item: { readonly id: string; readonly key: string }) {
+  const response = await request(`${ITEMS}/${item.id}/download`);
+  if (!response.ok) throw new Error(`Download ${item.key}: HTTP ${response.status}`);
+  return response.text();
+}
+
+/**
+ * The keys of the passages to upload whose item already holds their text and validity: uploaded by
+ * a run that stopped waiting before they indexed, so D1 never recorded them (`heldCandidates`).
+ */
+async function heldPassages(upload: readonly Passage[], items: readonly RemoteItem[]) {
+  const held = new Set<string>();
+  await each(heldCandidates(upload, items), async ({ passage, item }) => {
+    if (sha256(await download(item)) === passage.sha256) held.add(passage.key);
+  });
+  return held;
 }
 
 async function remove(id: string) {
@@ -409,15 +433,19 @@ async function main() {
   const recorded = comparison
     ? new Map(corpus.passages.map((passage) => [passage.key, passageRecord(passage)]))
     : recordedPassages();
+  const items = await listItems();
   const plan = ingestionPlan({
     passages: corpus.passages,
     sources: corpus.sources,
     recordedSources: comparison ? corpus.sources : recordedSources(),
     recorded,
-    items: await listItems(),
+    items,
   });
+  const held = await heldPassages(plan.upload, items);
+  const uploads = plan.upload.filter((passage) => !held.has(passage.key));
+  // `codice-corpus.yml` reads this line: a run with held passages has changes to record and eval.
   console.log(
-    `AI Search${comparison ? ` ${values.instance}` : ""}: ${plan.supersede.length} to keep as superseded, ${plan.repair.length} stuck to delete and upload again, ${plan.upload.length} to upload, ${plan.remove.length} to delete, ${plan.unchanged} unchanged`,
+    `AI Search${comparison ? ` ${values.instance}` : ""}: ${plan.supersede.length} to keep as superseded, ${plan.repair.length} stuck to delete and upload again, ${uploads.length} to upload${held.size > 0 ? ` (${held.size} already uploaded)` : ""}, ${plan.remove.length} to delete, ${plan.unchanged} unchanged`,
   );
   for (const version of plan.sourceVersions) {
     console.log(
@@ -451,7 +479,7 @@ async function main() {
   );
   // Uploads before deletes: D1 records a passage's hash only once AI Search holds that version,
   // so a failed run plans the same changes again next time.
-  await each(plan.upload, upload);
+  await each(uploads, upload);
   await each(plan.remove, (item) => remove(item.id));
   if (comparison) {
     if (wait) failUnfinished(await waitForIndexing());
