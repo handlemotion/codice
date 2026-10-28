@@ -161,6 +161,33 @@ The Worker maps each returned chunk to a result: `item.key` → passage id, `tex
 source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
 holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
+**Relative reranking floor.** `search()` then drops each result whose `rerankingScore` is under
+2% of the first result's (`RERANKING_RELATIVE_FLOOR` and `aboveRerankingFloor` in
+`src/search.ts`), so a search can return fewer than `limit` results. The first result is always
+kept, and so is every result when the first has no positive reranking score (reranking off). The
+floor is relative because the absolute threshold is 0 (a correct Spanish answer can score 0.34
+first; see [Retrieval eval](#retrieval-eval)). The cache keeps every chunk; the floor applies to
+each answer. It is a fraction of the first result, not a reranking setting, so the retrieval eval,
+which ranks the instance's raw chunks, does not measure it.
+
+The fraction comes from searches on the local Worker (the real instance), `asOf` 2026-10-28, since
+no recorded eval run keeps reranking scores. Share of the first result's `rerankingScore`:
+
+| Question                                                                    | Kept by the floor                                          | Dropped                                   |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------- |
+| "¿Cómo hago una nota de crédito que aplique a varias facturas?"             | the Pagos appendix 6 question 2 (0.40)                     | 9 passages at 1.7% to 0.2%, all off topic |
+| "¿Qué tipo de factura hago para una nota de crédito?"                       | appendix 2 (0.25) and 4 at 5.5% to 3.0%, the last expected | 5 at 1.5% to 0.5%                         |
+| "Si el pago se recibe después de emitir la factura, ¿PUE…?"                 | `MetodoPago` and regla 2.7.1.39, both at 98% or more       | 8 at 1.8% to 0.1%                         |
+| "Opinión del cumplimiento…", UsoCFDI with Pagos, `TotalImpuestosRetenidos…` | all 10: every result at 63% or more                        | none                                      |
+
+The lowest correct answer seen, Anexo 20 question 21 ("Se debe de emitir un CFDI de egresos") for
+the second question, scored 3.0% of the first, and every result under it 1.8% or less, so the floor
+sits at 2%. With the SAT's field names (`CfdiRelacionados`, `TipoRelacion 01`) the first question
+finds the Anexo 20 appendix 5 passages the eval expects, at 41% to 71% of the first. The
+reranker's scores in this low band do not order relevance well (noise at 5.5% above the answer at
+3.0%), so a higher floor would trade correct answers for less noise; check the fraction against
+a run that records each result's `rerankingScore`.
+
 ### Search cache
 
 `search()` (`src/handlers.ts`, the one path of `/v1/search`, `/mcp`, `POST /v1/chat` and the
@@ -726,8 +753,9 @@ Decisions:
 - **Keyword match mode `and`** (instance default, kept). `or` never scored better.
 - **Reranking threshold 0** (sent with every request, `RERANKING_THRESHOLD` in `src/search.ts`).
   The default reranker scores Spanish passages low: a correct first result scored 0.34, so the
-  default 0.4 returned no results at all for 4 questions. At 0, a search always returns `limit`
-  results; each carries its `rerankingScore` for the caller to weigh.
+  default 0.4 returned no results at all for 4 questions. At 0, AI Search always returns `limit`
+  results; each carries its `rerankingScore`, and the Worker drops those under 2% of the first
+  result's (the relative floor, [Query](#query)).
 
 The three misses at these settings: _"¿Qué UsoCFDI lleva el comprobante con complemento para
 recepción de pagos?"_ (rank 6) and _"¿Cuándo es obligatorio el tipo de cambio en un CFDI en
