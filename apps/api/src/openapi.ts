@@ -54,13 +54,33 @@ const SearchResult = z.object({
   sourcePublishedAt: z.string().nullable(),
 });
 
-const Search = z.object({
+const BriefSearchResult = z.object({
+  passageId: z.string().describe("Pass it to `/v1/passages/{id}` to read the whole passage."),
+  heading: z.string().nullable().describe("The passage's heading path."),
+  excerpt: z
+    .string()
+    .describe(
+      "Up to about 300 characters of the matched text around the question's words, an exact substring of it.",
+    ),
+  truncated: z
+    .object({ before: z.boolean(), after: z.boolean() })
+    .describe("Whether the matched text continues before or after the excerpt."),
+  kind: z.string().nullable(),
+  ...Validity,
+  score: z.number(),
+});
+
+const SearchQuery = {
   query: z.string(),
   asOf: z.string(),
   source: z.string().nullable(),
   kind: z.string().nullable(),
-  results: z.array(SearchResult),
-});
+};
+
+const Search = z.discriminatedUnion("format", [
+  z.object({ ...SearchQuery, format: z.literal("full"), results: z.array(SearchResult) }),
+  z.object({ ...SearchQuery, format: z.literal("brief"), results: z.array(BriefSearchResult) }),
+]);
 
 const Passage = z.object({
   passageId: z.string(),
@@ -229,7 +249,7 @@ export function openApiDocument() {
           tags: ["Búsqueda"],
           summary: "Buscar reglas",
           description:
-            "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source.",
+            "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source; `format=brief` returns each one's heading path and an excerpt instead.",
           parameters: parametersOf(SearchArguments, "query"),
           responses: {
             200: success(Search, "The matching passages, best first."),
