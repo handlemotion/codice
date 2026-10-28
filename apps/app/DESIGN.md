@@ -43,17 +43,20 @@ This file records only where the dashboard adds to it or departs from it. Values
   Hovering a day dims the others to 40% and shows its counts beside it. Series colors are
   Transitive's (`--series-1`…`4` in `styles.css`), taken by rank. No meters: a bar reads as
   something being used up, and usage has no cap.
-- **Tables**: a `muted` 13px heading row, then rows of a name and right-aligned figures in fixed
-  columns (calls in `fg`, the rest `muted`). On a phone the middle column goes.
+- **Tables** sit on their own island. The first row is both the title (in `fg`, over the names)
+  and the column names (`muted` 13px, over the figures); then rows of a name and right-aligned
+  figures in fixed columns (calls in `fg`, the rest `muted`). On a phone the middle column goes.
+- **A headline number** (28px) takes more room than a row: 24px from the edge to its capitals,
+  32px from its baseline to what follows.
 
 ## Pages
 
 - **Uso** (`/`): 7 or 30 Mexico City days (`?dias=30`), stepped with the bordered date control
   (`?hasta=YYYY-MM-DD`). One card with tabs along its top, Claves (the team's keys) and Miembros
   (each member through their MCP clients, `?vista=miembros`): the period's total, large, with its
-  change against the period before, the error rate and mean time beside it, the chart, then a
-  table of the series (calls, share, change). Then "Operaciones" for the same scope (calls,
-  errors, change).
+  change against the period before, the error rate and mean time beside it, and the chart. Under
+  it, the series' table (calls, share, change) and "Operaciones" for the same scope (calls,
+  errors, change), each its own island.
 - **Claves** (`/keys`): a new key (shown once, with copy), the team's keys (revoke asks in place,
   no dialog), and "Conectar": the API and MCP URLs and the header to copy.
 - **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected

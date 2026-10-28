@@ -177,13 +177,14 @@ function ScopeTabs({ scope }: { scope: Scope }) {
 }
 
 /**
- * The period's total, large, with its change, and the error rate and mean time beside it. 28px on
- * a 32px line leaves 5px over the capitals: 15px over the box puts them 20px under the tabs.
+ * The period's total, large, with its change, and the error rate and mean time beside it. The
+ * large number takes more room than a row's 20px: 28px on a 32px line leaves 5px over the
+ * capitals, so 19px over the box puts them 24px under the tabs.
  */
 function Headline({ view, days }: { view: UsageView; days: UsagePeriod }) {
   const { totals, previous } = view;
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-5 pt-[15px]">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-5 pt-[19px]">
       <div className="flex items-baseline gap-2">
         <span className="text-[28px] leading-8 tabular-nums">
           {numberFormat.format(totals.requests)}
@@ -211,16 +212,34 @@ function Headline({ view, days }: { view: UsageView; days: UsagePeriod }) {
 const TABLE =
   "grid grid-cols-[minmax(0,1fr)_4.5rem_4rem] items-baseline gap-x-4 sm:grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_4rem]";
 
-function TableHead({ name, columns }: { name: string; columns: string[] }) {
+/**
+ * A table on its own island. Its first row is both its title and its column names: the title in
+ * `fg` over the names, the columns' names in `muted` over the figures.
+ */
+function TableIsland({
+  title,
+  columns,
+  children,
+}: {
+  title: string;
+  columns: string[];
+  children: ReactNode;
+}) {
   return (
-    <div className={`${TABLE} ${ROW} text-[13px] text-muted`}>
-      <span>{name}</span>
-      {columns.map((column, index) => (
-        <span className={`text-right ${index === 1 ? "max-sm:hidden" : ""}`} key={column}>
-          {column}
-        </span>
-      ))}
-    </div>
+    <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+      <div className={`${TABLE} ${ROW}`}>
+        <h2>{title}</h2>
+        {columns.map((column, index) => (
+          <span
+            className={`text-right text-[13px] text-muted ${index === 1 ? "max-sm:hidden" : ""}`}
+            key={column}
+          >
+            {column}
+          </span>
+        ))}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -274,27 +293,28 @@ function UsageCard({ usage, scope }: { usage: UsagePeriodData; scope: Scope }) {
   const view = scope === "claves" ? usage.keys : usage.members;
   const series = view.series.map((entry, index) => ({ ...entry, color: seriesColor(index) }));
   return (
-    <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
-      <ScopeTabs scope={scope} />
-      <div>
-        <Headline days={usage.days} view={view} />
-        {/* The number's line ends 7px under its baseline and the top tick's capitals sit 4.5px
-            over its line, so 18px between puts them 20px under the baseline. The day labels end
-            2px over their box: 18px under them leaves 20px to the divider. */}
-        {series.length === 0 ? (
-          <p className="px-5 pt-[13px] pb-3.5 leading-5 text-muted">{EMPTY[scope]}</p>
-        ) : (
-          <figure aria-label="Solicitudes por día" className="min-w-0 px-5 pt-[18px] pb-[18px]">
-            <UsageBars days={view.days} series={series} />
-          </figure>
-        )}
-      </div>
+    <>
+      <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+        <ScopeTabs scope={scope} />
+        <div>
+          <Headline days={usage.days} view={view} />
+          {/* The number's line ends 7px under its baseline and the top tick's capitals sit 4.5px
+              over its line, so 20px between leaves 32px from the number to the chart. The day
+              labels end 2px over their box: 18px under them leaves 20px to the island's edge. */}
+          {series.length === 0 ? (
+            <p className="px-5 pt-[21px] pb-3.5 leading-5 text-muted">{EMPTY[scope]}</p>
+          ) : (
+            <figure aria-label="Solicitudes por día" className="min-w-0 px-5 pt-5 pb-[18px]">
+              <UsageBars days={view.days} series={series} />
+            </figure>
+          )}
+        </div>
+      </section>
       {series.length > 0 && (
-        <>
-          <TableHead
-            columns={["Solicitudes", "Parte", "Cambio"]}
-            name={scope === "claves" ? "Clave" : "Miembro"}
-          />
+        <TableIsland
+          columns={["Solicitudes", "Parte", "Cambio"]}
+          title={scope === "claves" ? "Claves" : "Miembros"}
+        >
           {series.map((entry) => (
             <TableRow
               figures={[
@@ -314,17 +334,16 @@ function UsageCard({ usage, scope }: { usage: UsagePeriodData; scope: Scope }) {
               }
             />
           ))}
-        </>
+        </TableIsland>
       )}
-    </section>
+    </>
   );
 }
 
 function Operations({ view }: { view: UsageView }) {
   if (view.operations.length === 0) return null;
   return (
-    <Group title="Operaciones">
-      <TableHead columns={["Solicitudes", "Errores", "Cambio"]} name="Operación" />
+    <TableIsland columns={["Solicitudes", "Errores", "Cambio"]} title="Operaciones">
       {view.operations.map((operation) => (
         <TableRow
           figures={[
@@ -344,7 +363,7 @@ function Operations({ view }: { view: UsageView }) {
           }
         />
       ))}
-    </Group>
+    </TableIsland>
   );
 }
 
