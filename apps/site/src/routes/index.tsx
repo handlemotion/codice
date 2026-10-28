@@ -140,11 +140,12 @@ function Home() {
       <main className="relative">
         <Section id="que-es" title="Qué es">
           <p>
-            Un índice de las reglas fiscales de México. Cada respuesta trae el texto de la regla tal
-            como lo publicó el SAT, el documento donde está y las fechas en que aplica.
+            Un índice de las reglas fiscales de México que tus agentes consultan por MCP y tu
+            software por API.
           </p>
-          <p>Para un periodo anterior, indica la fecha y obtienes la regla vigente entonces.</p>
-          <p>No es asesoría fiscal: es la fuente.</p>
+          <p>
+            Cada regla sabe desde cuándo aplica: una consulta sobre 2025 recibe la regla de 2025.
+          </p>
           <div className="flex gap-2 pt-2">
             <a
               className="rounded-[2px] bg-electric px-3 py-2.5 font-bold text-white hover:bg-fg hover:text-ink"
@@ -180,7 +181,7 @@ function Home() {
         </Section>
 
         <Section id="desarrolladores" title="Para tu software">
-          <p>Las mismas consultas por API HTTP y por MCP, para tu sistema o tu asistente de IA.</p>
+          <p>Las mismas consultas por MCP para tus agentes y por API HTTP para tu sistema.</p>
           <p>
             <a className={LINK} href="/docs">
               Leer la documentación

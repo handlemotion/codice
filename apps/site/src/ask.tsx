@@ -223,7 +223,7 @@ export function Ask() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <h1 className="self-start bg-ink text-[20px] leading-snug">
-        Resuelve tus dudas del SAT con la regla exacta y su fuente.
+        El contexto fiscal de México para tus agentes.
       </h1>
 
       {open && (
