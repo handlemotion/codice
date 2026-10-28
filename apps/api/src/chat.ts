@@ -34,6 +34,11 @@ export const CHAT_MODEL = "claude-sonnet-5-5";
 export const CHAT_MAX_OUTPUT_TOKENS = 2048;
 /** Model turns per request: enough for a search, a read or two, and the answer. */
 export const CHAT_MAX_ITERATIONS = 6;
+/**
+ * Searches per request. A question the rules do not cover otherwise keeps searching up to the
+ * iteration limit; past this, `search` tells the model to answer from what it has.
+ */
+export const CHAT_MAX_SEARCHES = 4;
 export const CHAT_MAX_BODY_BYTES = 64 * 1024;
 export const CHAT_MAX_MESSAGES = 24;
 
@@ -63,8 +68,13 @@ function toolError(cause: unknown) {
 /** The chat quotes the passages it finds, so its search stays full (SPEC.md, "Chat"). */
 const ChatSearchArguments = SearchArguments.omit({ format: true });
 
-/** Each tool calls the `/v1` handler; a refusal goes back to the model as data, not a failure. */
+/**
+ * Each tool calls the `/v1` handler; a refusal goes back to the model as data, not a failure. The
+ * chat searches without reranking: the model reads every result, not only the first few, and
+ * reranking costs most of a search's time (SPEC.md, "Chat").
+ */
 function chatTools(env: CodiceBindings) {
+  let searches = 0;
   const run =
     <T>(handler: (args: T) => Promise<unknown>) =>
     async (args: T) => {
@@ -80,7 +90,20 @@ function chatTools(env: CodiceBindings) {
       description:
         "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF (catalog keys are not searched: use lookup_catalog). Returns passages quoted verbatim, each with its passage id, heading, source title and URL, validity dates and relevance score.",
       inputSchema: ChatSearchArguments,
-    }).server(run((args: z.output<typeof ChatSearchArguments>) => search(env, args))),
+    }).server(
+      run(async (args: z.output<typeof ChatSearchArguments>) => {
+        searches += 1;
+        if (searches > CHAT_MAX_SEARCHES) {
+          return {
+            error: {
+              code: "search_limit",
+              message: `This answer has used its ${CHAT_MAX_SEARCHES} searches: answer from what they returned, or say the rules do not cover it.`,
+            },
+          };
+        }
+        return search(env, args, { reranking: false });
+      }),
+    ),
     toolDefinition({
       name: "read_passage",
       description: "Read one passage in full, verbatim, by the passage id a search result gives.",

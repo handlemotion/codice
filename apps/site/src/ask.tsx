@@ -35,6 +35,28 @@ const SUGGESTIONS = [
 ];
 const ROTATE_MS = 4000;
 
+// The finished conversation, kept for the tab so a refresh shows it again; "Empezar de nuevo"
+// forgets it. Storage can be missing or refuse (private windows), so every access is guarded.
+const SAVED = "codice-ask";
+
+function savedMessages(): ChatMessage[] | null {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(SAVED) ?? "null");
+    return Array.isArray(saved) && saved.length > 0 ? (saved as ChatMessage[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(messages: readonly ChatMessage[] | null) {
+  try {
+    if (messages) sessionStorage.setItem(SAVED, JSON.stringify(messages));
+    else sessionStorage.removeItem(SAVED);
+  } catch {
+    // Not kept: the chat works the same, only a refresh starts over.
+  }
+}
+
 /** Matches the API's limit on one question (`CHAT_MAX_BODY_BYTES` bounds the whole conversation). */
 const MAX_QUESTION_LENGTH = 2000;
 
@@ -108,16 +130,49 @@ function splitSources(text: string, live: boolean): { body: string; sources: Sou
   return { body: lines.slice(0, start).join("\n").trimEnd(), sources };
 }
 
+// What Códice is doing, by the tool it runs (the API's tools, apps/api/src/chat.ts).
+const STEPS: Record<string, string> = {
+  search: "Buscando en las reglas",
+  read_passage: "Leyendo el pasaje",
+  lookup_error: "Consultando la matriz de errores",
+  lookup_catalog: "Consultando el catálogo",
+  list_sources: "Revisando las fuentes",
+};
+
+/** The step Códice is on: the tool it runs now, reading what tools returned, or thinking. */
+function step(parts: readonly Part[]): { label: string; tool: boolean } {
+  // A call with no part after it yet is the one running.
+  const tail = parts.at(-1);
+  if (tail?.type === "tool-call" && tail.state !== "error") {
+    return { label: STEPS[tail.name] ?? "Consultando", tool: true };
+  }
+  if (parts.some((part) => part.type === "tool-call")) {
+    return { label: "Leyendo los resultados", tool: false };
+  }
+  return { label: "Pensando", tool: false };
+}
+
 /**
- * Códice's three shapes, turning while it works: twice the page's pace while it only thinks. No
- * words beside them, so the row keeps one size from the first token to the last.
+ * Códice's three shapes, turning while it works (twice the page's pace while it only thinks),
+ * and the step it is on in small shimmering text. One fixed-height, single-line row: a label
+ * that changes never moves what is around it.
  */
-function Working({ tool }: { tool: boolean }) {
+function Working({ parts }: { parts: readonly Part[] }) {
+  const { label, tool } = step(parts);
   return (
-    <span aria-label="Respondiendo" className="flex gap-1.5" role="status">
-      {[0, 1, 2].map((step) => (
-        <Mark className="size-3.5" key={step} speed={tool ? 1 : 2} step={step} strokeWidth={1.5} />
-      ))}
+    <span className="flex h-4 items-center gap-3" role="status">
+      <span aria-hidden className="flex shrink-0 gap-1.5">
+        {[0, 1, 2].map((index) => (
+          <Mark
+            className="size-3.5"
+            key={index}
+            speed={tool ? 1 : 2}
+            step={index}
+            strokeWidth={1.5}
+          />
+        ))}
+      </span>
+      <span className="shimmer truncate text-[12px] leading-4 text-muted">{label}</span>
     </span>
   );
 }
@@ -136,21 +191,21 @@ const Answer = memo(function Answer({
   failed: boolean;
 }) {
   const reveal = useStreamedReveal(textOf(parts), live);
-  const { body } = splitSources(reveal.text, live);
-  // The tool Códice is running now, if any: a call with no part after it yet.
+  // Still revealing counts as live: a half-shown "Fuente:" line has no whole link yet, and shown as
+  // text it would jump away once its pills appear.
+  const { body } = splitSources(reveal.text, live || reveal.revealing);
+  // The step shows in the answer's place until its first words, which take that place; after
+  // words, only while a tool runs, under them. Either way it comes and goes at the bottom.
   const tail = parts.at(-1);
-  const running =
-    live && tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
-      ? tail
-      : undefined;
+  const working = live && (!body || tail?.type === "tool-call");
   return (
     <div className="flex flex-col gap-3">
-      {live && <Working tool={Boolean(running)} />}
       {body && (
         <Streamdown className={ANSWER} isAnimating={reveal.revealing}>
           {body}
         </Streamdown>
       )}
+      {working && <Working parts={parts} />}
       {failed && <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>}
     </div>
   );
@@ -163,7 +218,9 @@ const Answer = memo(function Answer({
  * icon actions (copy, start over; Esc too) and, past a divider, the sources as pills.
  */
 export function Ask() {
-  const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
+  const { messages, sendMessage, isLoading, error, stop, clear, setMessages } = useChat({
+    connection,
+  });
   const [query, setQuery] = useState("");
   const [rotation, setRotation] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -173,6 +230,16 @@ export function Ask() {
   const last = messages.at(-1);
   const pending = isLoading && last?.role === "user";
   const answer = last?.role === "assistant" ? textOf(last.parts) : "";
+
+  // The page renders on the server without the tab's storage, so the saved answer comes back
+  // after hydration; it is saved again once each answer has finished.
+  useEffect(() => {
+    const saved = savedMessages();
+    if (saved) setMessages(saved);
+  }, [setMessages]);
+  useEffect(() => {
+    if (!isLoading && !error && last?.role === "assistant") save(messages);
+  }, [messages, isLoading, error, last]);
 
   // While nothing is typed, the offered question changes every few seconds; it holds still while
   // the bubble has the keyboard, so the question there is the one Enter sends.
@@ -199,6 +266,7 @@ export function Ask() {
   function reset() {
     stop();
     clear();
+    save(null);
     setQuery("");
     setRotation((count) => count + 1);
     requestAnimationFrame(() => input.current?.focus());
@@ -230,22 +298,21 @@ export function Ask() {
 
   return (
     <div className="flex flex-col gap-10">
-      {/* Balanced, so its two lines run about the same length; the ground sits behind the lines only,
-          so the field shows past where each line ends. */}
+      {/* Balanced, so its two lines run about the same length. No ground: the field shows through. */}
       <h1 className="text-[20px] leading-snug text-balance">
-        <span className="box-decoration-clone bg-ink">
-          Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente
-          o intégrala en tu producto.
-        </span>
+        Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente o
+        intégrala en tu producto.
       </h1>
 
       <div aria-label="Conversación con Códice" className="flex flex-col gap-6" role="log">
         {messages.map((message, index) => (
-          <div className="message-in" key={message.id}>
+          // The answer does not rise in: it takes the place of the pending row, which already
+          // did, so the step's row stays where it is.
+          <div className={message.role === "user" ? "message-in" : undefined} key={message.id}>
             {message.role === "user" ? (
               <Bubble>{textOf(message.parts)}</Bubble>
             ) : (
-              <div className="mt-4 bg-ink">
+              <div className="mt-4">
                 <Answer
                   failed={Boolean(error) && !isLoading && index === messages.length - 1}
                   live={isLoading && index === messages.length - 1}
@@ -257,12 +324,12 @@ export function Ask() {
         ))}
         {pending && (
           <div className="message-in mt-4">
-            <Working tool={false} />
+            <Working parts={[]} />
           </div>
         )}
         {error && !isLoading && last?.role === "user" && (
           <div className="mt-4">
-            <p className="bg-ink text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
+            <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
           </div>
         )}
         {!open && (
@@ -277,7 +344,7 @@ export function Ask() {
                 setQuery={setQuery}
               />
               {/* Under the bubble, in small raw text: how to send it. */}
-              <span className={`${HINT} bg-ink`}>
+              <span className={HINT}>
                 <IconArrowCornerDownLeft size={14} />
                 Enviar
               </span>

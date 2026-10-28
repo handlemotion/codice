@@ -15,6 +15,7 @@ import {
   todayInMexicoCity,
   validityFilter,
 } from "../src/search";
+import { searchCacheKey } from "../src/search-cache";
 
 describe("todayInMexicoCity", () => {
   it("reads the date in Mexico City, not UTC", () => {
@@ -417,5 +418,15 @@ describe("briefResult", () => {
       validUntil: null,
       score: 0.8,
     });
+  });
+});
+
+describe("searchCacheKey", () => {
+  it("keeps an unreranked search apart from a reranked one", () => {
+    const input = { q: "uso cfdi", asOf: 20261028, limit: 5 };
+    const reranked = searchCacheKey(input, "v1");
+
+    expect(searchCacheKey({ ...input, reranking: true }, "v1")).toBe(reranked);
+    expect(searchCacheKey({ ...input, reranking: false }, "v1")).not.toBe(reranked);
   });
 });
