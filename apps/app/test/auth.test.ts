@@ -404,7 +404,7 @@ describe("collaboration", () => {
     ).rejects.toThrow("A key's metadata is not editable");
   });
 
-  it("splits a team's usage by the person who created each key", async () => {
+  it("splits a team's usage by the member who created each key", async () => {
     const { owner, invitee: member, team } = await teamWith("usage-people", "member");
     const ownerKey = await auth.api.createApiKey({
       headers: owner.headers,
@@ -435,13 +435,13 @@ describe("collaboration", () => {
     ]);
 
     const usage = await readUsage(bindings, member.headers, { organizationId: team.id });
-    expect(usage.people.map((entry) => [entry.id, entry.label, entry.requests])).toEqual([
-      [`user:${member.userId}`, "Usage People Member", 2],
-      [`user:${owner.userId}`, "Usage People Owner", 1],
-      ["user:", "Claves sin autor", 1],
+    expect(usage.members.series.map((entry) => [entry.id, entry.label, entry.requests])).toEqual([
+      [`member:${member.userId}`, "Usage People Member", 2],
+      [`member:${owner.userId}`, "Usage People Owner", 1],
+      ["member:", "Claves sin autor", 1],
     ]);
-    expect(usage.series.find((entry) => entry.id === `api_key:${ownerKey.id}`)?.person).toBe(
-      "Usage People Owner",
+    expect(usage.keys.series.find((entry) => entry.id === `api_key:${ownerKey.id}`)?.hint).toBe(
+      `${ownerKey.start} · Usage People Owner`,
     );
   });
 });
@@ -702,37 +702,29 @@ describe("MCP authorization", () => {
 });
 
 describe("usage", () => {
-  it("counts reported calls per day and reads the week of the team's keys and the user's clients", async () => {
+  it("counts reported calls per day and reads the team's keys and its members' keys and clients", async () => {
     const { cookie } = await signIn("usage@example.com");
     const headers = new Headers({ cookie, origin: ORIGIN });
     const [team] = await auth.api.listOrganizations({ headers });
     const session = await auth.api.getSession({ headers });
+    const userId = session!.user.id;
     const key = await auth.api.createApiKey({
       headers,
       body: { organizationId: team!.id, name: "producción" },
     });
     const now = Date.now();
-    const userId = session!.user.id;
-    const byKey = {
-      kind: "api_key" as const,
-      keyId: key.id,
-      organizationId: team!.id,
-      userId,
-    };
+    const lastWeek = now - 7 * 24 * 60 * 60 * 1000;
+    const byKey = { kind: "api_key" as const, keyId: key.id, organizationId: team!.id, userId };
+    const byClient = { kind: "oauth" as const, userId, clientId: "https://client.test/a" };
     const call = { surface: "http" as const, durationMs: 100, at: now };
 
     await recordUsage(env.ACCOUNTS_DATABASE, [
       { ...call, caller: byKey, operation: "search", status: 200 },
       { ...call, caller: byKey, operation: "search", status: 200, durationMs: 300 },
       { ...call, caller: byKey, operation: "lookup_error", status: 404 },
-      {
-        ...call,
-        caller: { kind: "oauth", userId, clientId: "https://client.test/a" },
-        surface: "mcp",
-        operation: "search",
-        status: 200,
-      },
-      // Another team's key and another user's client stay out of this user's page.
+      { ...call, caller: byKey, operation: "search", status: 200, at: lastWeek },
+      { ...call, caller: byClient, surface: "mcp", operation: "search", status: 200 },
+      // Another team's key and someone outside the team stay out of this team's page.
       {
         ...call,
         caller: { ...byKey, organizationId: "other-team" },
@@ -741,7 +733,7 @@ describe("usage", () => {
       },
       {
         ...call,
-        caller: { kind: "oauth", userId: "someone-else", clientId: "https://client.test/a" },
+        caller: { ...byClient, userId: "someone-else" },
         surface: "mcp",
         operation: "search",
         status: 200,
@@ -750,47 +742,42 @@ describe("usage", () => {
 
     const usage = await readUsage(bindings, headers, { organizationId: team!.id });
 
+    expect(usage.days).toBe(7);
     expect(usage.end).toBe(mexicoDay(now));
-    expect(usage.days).toHaveLength(7);
-    expect(usage.days.at(-1)?.requests).toEqual({
-      [`api_key:${key.id}`]: 3,
-      "oauth:https://client.test/a": 1,
-      [`user:${userId}`]: 4,
-    });
-    expect(usage.series).toEqual([
+    expect(usage.keys.days).toHaveLength(7);
+    expect(usage.keys.days.at(-1)?.requests).toEqual({ [`api_key:${key.id}`]: 3 });
+    expect(usage.keys.series).toEqual([
       {
         id: `api_key:${key.id}`,
-        kind: "api_key",
         label: "producción",
-        hint: key.start,
-        person: "Usage",
+        hint: `${key.start} · Usage`,
+        image: null,
         requests: 3,
-      },
-      {
-        id: "oauth:https://client.test/a",
-        kind: "oauth",
-        label: "Asistente desconectado",
-        hint: "client.test",
-        person: "Usage",
-        requests: 1,
+        previous: 1,
       },
     ]);
-    expect(usage.people).toEqual([
+    expect(usage.keys.operations).toEqual([
+      { operation: "search", requests: 2, errors: 0, previous: 1 },
+      { operation: "lookup_error", requests: 1, errors: 1, previous: 0 },
+    ]);
+    expect(usage.keys.totals).toEqual({ requests: 3, errors: 1, meanMs: 167 });
+    expect(usage.keys.previous).toEqual({ requests: 1, errors: 0, meanMs: 100 });
+    expect(usage.members.series).toEqual([
       {
-        id: `user:${userId}`,
-        kind: "user",
+        id: `member:${userId}`,
+        // Signed in by email code with no name yet: the email's local part stands in.
         label: "Usage",
         hint: "usage@example.com",
-        person: null,
         image: null,
+        // The key they created and their MCP client.
         requests: 4,
+        previous: 1,
       },
     ]);
-    expect(usage.operations).toEqual([
-      { operation: "search", requests: 3, errors: 0 },
-      { operation: "lookup_error", requests: 1, errors: 1 },
-    ]);
-    expect(usage.totals).toEqual({ requests: 4, errors: 1, meanMs: 150 });
+
+    const month = await readUsage(bindings, headers, { organizationId: team!.id, days: 30 });
+    expect(month.keys.days).toHaveLength(30);
+    expect(month.keys.totals.requests).toBe(4);
     await expect(readUsage(bindings, headers, { organizationId: "other-team" })).rejects.toThrow();
   });
 });

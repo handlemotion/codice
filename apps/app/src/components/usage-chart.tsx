@@ -1,11 +1,11 @@
-// The Uso page's pieces, after Transitive's settings usage (its stacked weekly columns, the series
-// rows under them and its meters), drawn in the dashboard's language without a chart library.
-import { useState, type ReactNode } from "react";
+// The Uso page's chart: each day's calls stacked per series, after Transitive's settings usage,
+// drawn without a chart library.
+import { useState } from "react";
 
 export const numberFormat = new Intl.NumberFormat("es-MX");
 
-/** A day as the axis shows it: "lun 26", or "26" on a phone. */
 const AXIS_WEEKDAY = new Intl.DateTimeFormat("es-MX", { weekday: "short", timeZone: "UTC" });
+const AXIS_MONTH = new Intl.DateTimeFormat("es-MX", { month: "short", timeZone: "UTC" });
 /** A day as the tooltip shows it: "lunes, 26 de octubre". */
 const LONG_DAY = new Intl.DateTimeFormat("es-MX", {
   weekday: "long",
@@ -40,10 +40,29 @@ function scale(max: number) {
   return { top: whole * 4, ticks: [4, 3, 2, 1, 0].map((index) => index * whole) };
 }
 
-const Y_AXIS_WIDTH = 32;
-const HEIGHT = 220;
+/** The y axis: its labels start at the block's padding, like every other line of text. */
+const Y_AXIS_WIDTH = 40;
+const HEIGHT = 200;
 
-/** Each day's calls, stacked per series into a column; hovering a day shows its counts. */
+/** A day's label: "lun 26" for a week ("26" on a phone); for a month, every fifth day. */
+function axisLabel(day: string, index: number, length: number) {
+  const date = usageDay(day);
+  if (length <= 7) {
+    return (
+      <>
+        <span className="max-sm:hidden">{AXIS_WEEKDAY.format(date).replace(".", "")} </span>
+        {date.getUTCDate()}
+      </>
+    );
+  }
+  if ((length - 1 - index) % 5 !== 0) return null;
+  return `${date.getUTCDate()} ${AXIS_MONTH.format(date).replace(".", "")}`;
+}
+
+/**
+ * Each day's calls, stacked per series into a column. Hovering a day keeps it lit, dims the
+ * others and shows its counts.
+ */
 export function UsageBars({
   days,
   series,
@@ -56,17 +75,25 @@ export function UsageBars({
     series.reduce((sum, entry) => sum + (day.requests[entry.id] ?? 0), 0),
   );
   const { top, ticks } = scale(Math.max(...totals));
+  const month = days.length > 7;
+  // Half the gap between bars on each side of a day's cell, so the gaps between bars and at
+  // both ends are the same.
+  const cell = month ? "px-px sm:px-0.5" : "px-1.5 sm:px-3";
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex" style={{ height: HEIGHT }}>
         <div
           aria-hidden
-          className="flex shrink-0 flex-col justify-between pr-2 text-right text-[11px] leading-none text-muted tabular-nums"
+          className="relative shrink-0 text-[11px] leading-none text-muted tabular-nums"
           style={{ width: Y_AXIS_WIDTH }}
         >
-          {ticks.map((tick) => (
-            <span className="-my-[0.5em]" key={tick}>
+          {ticks.map((tick, index) => (
+            <span
+              className="absolute left-0 -translate-y-1/2"
+              key={tick}
+              style={{ top: `${(index / (ticks.length - 1)) * 100}%` }}
+            >
               {numberFormat.format(tick)}
             </span>
           ))}
@@ -80,27 +107,29 @@ export function UsageBars({
               style={{ top: `${(index / (ticks.length - 1)) * 100}%` }}
             />
           ))}
-          <div className="absolute inset-0 flex gap-3 sm:gap-6">
+          <div className="absolute inset-0 flex">
             {days.map((day, index) => (
               <div
-                className={`relative flex flex-1 cursor-crosshair flex-col-reverse ${hovered === index ? "bg-fg/5" : ""}`}
+                className={`flex flex-1 cursor-crosshair transition-opacity duration-150 ${cell} ${hovered !== null && hovered !== index ? "opacity-40" : ""}`}
                 key={day.date}
                 onMouseEnter={() => setHovered(index)}
               >
-                {series.map((entry) => {
-                  const value = day.requests[entry.id] ?? 0;
-                  if (value === 0) return null;
-                  return (
-                    <div
-                      key={entry.id}
-                      style={{ height: `${(value / top) * 100}%`, background: entry.color }}
-                    />
-                  );
-                })}
+                <div className="flex flex-1 flex-col-reverse">
+                  {series.map((entry) => {
+                    const value = day.requests[entry.id] ?? 0;
+                    if (value === 0) return null;
+                    return (
+                      <div
+                        key={entry.id}
+                        style={{ height: `${(value / top) * 100}%`, background: entry.color }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
-          {hovered !== null && totals[hovered]! > 0 && (
+          {hovered !== null && (
             <DayTooltip
               date={days[hovered]!.date}
               left={(hovered + 0.5) / days.length}
@@ -114,15 +143,16 @@ export function UsageBars({
       </div>
       <div
         aria-hidden
-        className="flex gap-3 text-center text-[11px] text-muted sm:gap-6"
+        className="flex text-[11px] leading-none whitespace-nowrap text-muted"
         style={{ paddingLeft: Y_AXIS_WIDTH }}
       >
-        {days.map((day) => (
-          <span className="min-w-0 flex-1 truncate" key={day.date}>
-            <span className="max-sm:hidden">
-              {AXIS_WEEKDAY.format(usageDay(day.date)).replace(".", "")}{" "}
+        {days.map((day, index) => (
+          // A month's labels are wider than their day: centered on it, overflowing both ways.
+          <span className={`relative flex min-w-0 flex-1 justify-center ${cell}`} key={day.date}>
+            <span className={month ? "absolute" : undefined}>
+              {axisLabel(day.date, index, days.length)}
             </span>
-            {usageDay(day.date).getUTCDate()}
+            {month && <span className="invisible">0</span>}
           </span>
         ))}
       </div>
@@ -142,20 +172,21 @@ function DayTooltip({
   // It sits beside the column, on whichever side has room.
   const side =
     left > 0.5
-      ? { right: `calc(${(1 - left) * 100}% + 16px)` }
-      : { left: `calc(${left * 100}% + 16px)` };
+      ? { right: `calc(${(1 - left) * 100}% + 12px)` }
+      : { left: `calc(${left * 100}% + 12px)` };
   return (
     <div
-      className="pointer-events-none absolute top-1 z-10 flex min-w-44 flex-col gap-1.5 rounded-[4px] border border-line bg-island px-3 py-2 text-[13px]"
+      className="pointer-events-none absolute top-0 z-10 flex min-w-44 flex-col gap-2 rounded-[4px] border border-line bg-island px-3 py-2.5 text-[13px] leading-4"
       style={side}
     >
       <span className="first-letter:uppercase">{LONG_DAY.format(usageDay(date))}</span>
+      {rows.length === 0 && <span className="text-muted">Sin solicitudes</span>}
       {rows.map((row) => (
         <div className="flex items-center justify-between gap-4" key={row.id}>
           <span className="flex min-w-0 items-center gap-2 text-muted">
             <span
               aria-hidden
-              className="size-2 shrink-0 rounded-full"
+              className="h-1 w-3 shrink-0 rounded-full"
               style={{ background: row.color }}
             />
             <span className="truncate">{row.label}</span>
@@ -164,77 +195,5 @@ function DayTooltip({
         </div>
       ))}
     </div>
-  );
-}
-
-/**
- * One series of the chart, as a row under it: its color, its name (and a muted hint such as the
- * key's start), and what it used in the week.
- */
-export function SeriesRow({
-  color,
-  hint,
-  label,
-  value,
-}: {
-  color: string;
-  hint?: ReactNode;
-  label: ReactNode;
-  value: ReactNode;
-}) {
-  return (
-    <li className="flex min-h-12 items-center gap-3 py-2">
-      <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: color }} />
-      <span className="min-w-0 flex-1 truncate">
-        {label}
-        {hint ? <span className="text-muted"> ({hint})</span> : null}
-      </span>
-      <span className="shrink-0 text-[13px] text-muted tabular-nums">{value}</span>
-    </li>
-  );
-}
-
-/**
- * A share of a whole: the name (and a muted hint) and the amount on one line, the bar under both.
- */
-export function MeterRow({
-  amount,
-  hint,
-  label,
-  max,
-  value,
-}: {
-  amount: ReactNode;
-  hint?: ReactNode;
-  label: string;
-  max: number;
-  value: number;
-}) {
-  return (
-    <li className="flex flex-col justify-center gap-3 py-3.5">
-      <div className="flex min-w-0 items-baseline gap-3">
-        <span className="min-w-0 flex-1 truncate">
-          {label}
-          {hint ? <span className="text-muted"> ({hint})</span> : null}
-        </span>
-        <span className="shrink-0 text-[13px] text-muted tabular-nums">{amount}</span>
-      </div>
-      <div
-        aria-label={label}
-        aria-valuemax={max}
-        aria-valuemin={0}
-        aria-valuenow={value}
-        className="h-1.5 overflow-hidden rounded-full bg-fg/10"
-        role="meter"
-      >
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${max > 0 ? Math.min(100, (value / max) * 100) : 0}%`,
-            background: seriesColor(0),
-          }}
-        />
-      </div>
-    </li>
   );
 }

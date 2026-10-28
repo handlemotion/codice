@@ -30,6 +30,11 @@ This file records only where the dashboard adds to it or departs from it. Values
   tooltip to its right with its number key; `1`–`6` go there when no field has focus.
 - **Pages.** A 20px title, then islands, each with its name and an optional `muted`
   note on the right.
+- **Padding is measured to the letters, 20px on every side.** Radio Grotesk at 14px on a 20px
+  line leaves 4.5px over the capitals and 5.5px under the baseline, so a one-line row (`ROW` in
+  `ui.tsx`) pads 16px over and 14px under; the headline, the chart and the tabs are measured the
+  same way (the reasoning sits in comments beside each). The chart's y axis numbers start at the
+  side padding, like the text.
 - **People, after Transitive's members settings** (`trstv/transitive`,
   `components/settings/organization-members-settings-section.tsx`): a row per person with their
   photo or initial in a hairline circle (dashed while only invited), the name with a `muted`
@@ -38,25 +43,33 @@ This file records only where the dashboard adds to it or departs from it. Values
   its own, a plus and the action ("Invitar a alguien"), first in the list. Transitive's dialogs
   and "⋯" menus become in-place rows here: the add row turns into the form, "Editar" turns the
   role label into a select with "Quitar", and every removal asks in place.
-- **Usage, after Transitive's settings usage** (`trstv/transitive`,
-  `components/settings/workspace-settings-usage.tsx`), drawn without a chart library
-  (`src/components/usage-chart.tsx`): a week of stacked daily columns (220px, a 32px y axis,
-  dashed `line` grid, square bars, a hovered day lit in `fg`/5 with its tooltip beside it), then
-  in the same island one row per series (a 2px-rounded color square, its name, a `muted` hint,
-  its calls on the right). Series colors are Transitive's (`--series-1`…`4` in `styles.css`): the
-  saturated pair by day, the softer one at night, taken by rank. Meters are a 6px round bar on
-  `fg`/10 in `--series-1`.
+- **Groups (Uso)**: `Group` in `ui.tsx`, an island whose first row is its name, then its rows,
+  divided edge to edge by `line`/60 in both themes. Islands are 24px apart, as on every page.
+- **The usage chart** (`src/components/usage-chart.tsx`, after Transitive's
+  `workspace-settings-usage.tsx`, drawn without a chart library): stacked daily columns (200px,
+  dashed `line` grid, square bars). Each day is an equal cell with half the bar gap on either
+  side, so the gaps between bars and at both ends match; a month labels every fifth day.
+  Hovering a day dims the others to 40% and shows its counts beside it. Series colors are
+  Transitive's (`--series-1`…`4` in `styles.css`), taken by rank. No meters: a bar reads as
+  something being used up, and usage has no cap.
+- **Tables** sit on their own island. The first row is both the title (in `fg`, over the names)
+  and the column names (`muted` 13px, over the figures); then rows of a name and right-aligned
+  figures in fixed columns (calls in `fg`, the rest `muted`). On a phone the middle column goes.
+- **A headline number** (28px) takes more room than a row: 24px from the edge to its capitals,
+  40px from its baseline to the chart under it.
 
 ## Pages
 
-- **Uso** (`/`): a week (Mexico City days) ending today, stepped with the chevrons by the title
-  (`?hasta=YYYY-MM-DD`): the totals (calls, error rate, mean time), the "Solicitudes" chart of the
-  team's keys and the user's MCP clients with their rows (each key's hint names its creator), or,
-  with "Por persona" in the island's note (`?por=personas`), the same calls by the person behind
-  them, and "Operaciones", a meter per
-  operation against the busiest.
+- **Uso** (`/`): 7 or 30 Mexico City days (`?dias=30`), stepped with the bordered date control
+  (`?hasta=YYYY-MM-DD`). One card with tabs along its top, Claves (the team's keys) and Miembros
+  (each member through the keys they created and their MCP clients, `?vista=miembros`; a key's
+  row names its creator): the period's total, large, with its
+  change against the period before, the error rate and mean time beside it, and the chart. Under
+  it, the series' table (calls, share, change) and "Operaciones" for the same scope (calls,
+  errors, change), each its own island.
 - **Claves** (`/keys`): a new key (shown once, with copy), the team's keys with who created each
-  ("Tuya", or "De Ana"; revoke asks in place, no dialog, and shows only where the user may), and "Conectar": the API and MCP URLs and the header to copy.
+  ("Tuya", or "De Ana"; revoke asks in place, no dialog, and shows only where the user may), and
+  "Conectar": the API and MCP URLs and the header to copy.
 - **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected
   in place, and the MCP URL to connect another.
 - **Equipo** (`/team`): the active team's settings. "General" (its name, editable by owners and

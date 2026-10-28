@@ -11,7 +11,7 @@ import {
   PRIMARY,
   Page,
   ROLE_LABELS,
-  ROW,
+  LIST_ROW,
   RoleBadge,
   SECONDARY,
   Section,
@@ -122,7 +122,7 @@ function Account() {
         <Section title="Invitaciones">
           <ul className={LIST}>
             {invitations.map((invitation) => (
-              <li className={ROW} key={invitation.id}>
+              <li className={LIST_ROW} key={invitation.id}>
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate">{invitation.team}</span>
                   <span className="truncate text-[13px] text-muted">
@@ -156,7 +156,7 @@ function Account() {
       <Section title="Tus equipos">
         <ul className={LIST}>
           {dashboard.teams.map((team) => (
-            <li className={ROW} key={team.id}>
+            <li className={LIST_ROW} key={team.id}>
               <div className="flex min-w-0 items-center gap-3">
                 <span className="truncate">{team.name}</span>
                 <RoleBadge role={team.role} />
@@ -204,13 +204,13 @@ function Account() {
 
       <Section title="Preferencias">
         <ul className={LIST}>
-          <li className={ROW}>
+          <li className={LIST_ROW}>
             <span>Tema</span>
             <button className={SECONDARY} onClick={() => setTheme(toggleTheme())} type="button">
               {theme === "dark" ? "Oscuro" : "Claro"}
             </button>
           </li>
-          <li className={ROW}>
+          <li className={LIST_ROW}>
             <span>Sesión</span>
             <button className={SECONDARY} onClick={() => void signOut()} type="button">
               Cerrar sesión

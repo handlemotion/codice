@@ -11,7 +11,7 @@ import {
   Page,
   PersonAvatar,
   ROLE_LABELS,
-  ROW,
+  LIST_ROW,
   RoleBadge,
   SECONDARY,
   Section,
@@ -275,7 +275,7 @@ function TeamSettings() {
             </li>
           )}
           {people.members.map((member) => (
-            <li className={ROW} key={member.id}>
+            <li className={LIST_ROW} key={member.id}>
               <div className="flex min-w-0 items-center gap-3">
                 <PersonAvatar person={member} />
                 <div className="flex min-w-0 flex-col">
@@ -302,7 +302,7 @@ function TeamSettings() {
         ) : (
           <ul className={LIST}>
             {people.invitations.map((invitation) => (
-              <li className={ROW} key={invitation.id}>
+              <li className={LIST_ROW} key={invitation.id}>
                 <div className="flex min-w-0 items-center gap-3">
                   <PersonAvatar pending person={invitation} />
                   <div className="flex min-w-0 flex-col">

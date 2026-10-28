@@ -16,7 +16,7 @@ import {
   type ReceivedInvitation,
   type TeamPeople,
 } from "./teams";
-import { readUsage, type UsageWeek } from "./usage";
+import { readUsage, type UsagePeriodData } from "./usage";
 
 /**
  * The dashboard's server functions. Each one acts as the signed-in user through Better Auth's
@@ -206,10 +206,11 @@ export const revokeKey = createServerFn({ method: "POST" })
     await forgetLastUse(env.API_KEYS, keyId);
   });
 
-/** A week of the team's and the user's usage, ending on `end` (by default, today). */
+/** A period of the team's usage (7 or 30 days), ending on `end` (by default, today). */
 export const getUsage = createServerFn({ method: "GET" })
-  .validator((input: { organizationId: string; end?: string }) => ({
+  .validator((input: { organizationId: string; end?: string; days?: number }) => ({
     organizationId: input.organizationId,
     end: input.end && /^\d{4}-\d{2}-\d{2}$/u.test(input.end) ? input.end : undefined,
+    days: input.days === 30 ? 30 : 7,
   }))
-  .handler(async ({ data }): Promise<UsageWeek> => readUsage(env, getRequestHeaders(), data));
+  .handler(async ({ data }): Promise<UsagePeriodData> => readUsage(env, getRequestHeaders(), data));
