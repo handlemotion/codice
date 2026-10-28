@@ -1,16 +1,22 @@
+import {
+  IconCheckmark1Small,
+  IconSquareBehindSquare1,
+} from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import {
   Copyable,
   dateFormat,
   FIELD,
   GHOST,
+  ISLAND,
   ORIGIN,
   PRIMARY,
+  PRIMARY_SMALL,
   Page,
+  ROW,
   SECONDARY,
-  Section,
 } from "../../components/ui";
 import {
   Dialog,
@@ -78,7 +84,7 @@ function NewKey({ teamId }: { teamId: string }) {
   return (
     <Dialog onOpenChange={toggle} open={open}>
       <DialogTrigger asChild>
-        <button className={PRIMARY} type="button">
+        <button className={PRIMARY_SMALL} type="button">
           Nueva clave
         </button>
       </DialogTrigger>
@@ -135,35 +141,85 @@ function NewKey({ teamId }: { teamId: string }) {
   );
 }
 
-/** A row's removal, asked in place: the action, then Cancelar and the action again. */
-function Confirm({
-  label,
+/**
+ * A table's rows: a name column, two muted figures of fixed width and the row's action, the same
+ * columns in both islands so they line up. On a phone the figures go, so the names keep room.
+ */
+const TABLE =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_7rem_6.5rem_5.5rem]";
+const FIGURE = "truncate text-[13px] text-muted max-sm:hidden";
+
+/** An island whose first row is its title over the names and the columns' names over the rest. */
+function TableIsland({
+  title,
+  columns,
+  children,
+}: {
+  title: string;
+  columns: [string, string];
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+      <div className={`${TABLE} ${ROW}`}>
+        <h2 className="truncate">{title}</h2>
+        <span className={FIGURE}>{columns[0]}</span>
+        <span className={FIGURE}>{columns[1]}</span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * A row: its name, two figures and a quiet action. Asked to confirm, the action takes the
+ * figures' room: Cancelar and the action again.
+ */
+function TableRow({
+  name,
+  figures,
+  action,
   asking,
   busy,
   onAsk,
   onCancel,
   onConfirm,
 }: {
-  label: string;
+  name: ReactNode;
+  figures: [string, string];
+  action?: string;
   asking: boolean;
   busy: boolean;
   onAsk: () => void;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  return asking ? (
-    <span className="flex shrink-0 items-center gap-3">
-      <button className={GHOST} onClick={onCancel} type="button">
-        Cancelar
-      </button>
-      <button className={PRIMARY} disabled={busy} onClick={onConfirm} type="button">
-        {label}
-      </button>
-    </span>
-  ) : (
-    <button className={GHOST} disabled={busy} onClick={onAsk} type="button">
-      {label}
-    </button>
+  return (
+    <div className={`${TABLE} ${ROW}`}>
+      <span className="min-w-0 truncate">{name}</span>
+      {asking ? (
+        <span className="flex items-center justify-end gap-4 sm:col-span-3">
+          <button className={GHOST} onClick={onCancel} type="button">
+            Cancelar
+          </button>
+          <button className={`${GHOST} text-fg`} disabled={busy} onClick={onConfirm} type="button">
+            {action} definitivamente
+          </button>
+        </span>
+      ) : (
+        <>
+          <span className={FIGURE}>{figures[0]}</span>
+          <span className={FIGURE}>{figures[1]}</span>
+          <span className="text-right">
+            {action && (
+              <button className={GHOST} disabled={busy} onClick={onAsk} type="button">
+                {action}
+              </button>
+            )}
+          </span>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -174,6 +230,7 @@ function Keys() {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -189,87 +246,92 @@ function Keys() {
     }
   }
 
+  async function copyMcp() {
+    await navigator.clipboard.writeText(`${ORIGIN}/mcp`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   // Owners and admins revoke any key; members, the ones they created (`permissions.ts`).
   function revocable(key: KeyRow) {
     return team?.manages || key.createdBy?.id === dashboard.user.id;
   }
 
+  function lastUse(at: string | Date | null | undefined) {
+    return at ? dateFormat.format(new Date(at)) : "Sin usar";
+  }
+
   return (
     <Page action={team && <NewKey teamId={team.id} />} title="Claves">
-      <Section note={team?.name} title="Claves del equipo">
-        {!team ? (
-          <p className="text-muted">Únete a un equipo para crear claves.</p>
-        ) : keys.length === 0 ? (
-          <p className="text-muted">Aún no hay claves.</p>
-        ) : (
-          <ul className="-my-3 flex flex-col divide-y divide-edge">
-            {keys.map((key) => (
-              <li className="flex items-center justify-between gap-4 py-3" key={key.id}>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{key.name}</span>
-                  <span className="truncate text-[13px] text-muted">
-                    <code className="font-mono text-[12px]">{key.start}…</code>
-                    {" · "}
-                    {key.createdBy
-                      ? key.createdBy.id === dashboard.user.id
-                        ? "Tuya · "
-                        : `De ${key.createdBy.name} · `
-                      : ""}
-                    {key.lastUsedAt
-                      ? `Usada el ${dateFormat.format(new Date(key.lastUsedAt))}`
-                      : `Creada el ${dateFormat.format(new Date(key.createdAt))}, sin usar`}
-                  </span>
-                </div>
-                {revocable(key) && (
-                  <Confirm
-                    asking={confirming === key.id}
-                    busy={busy}
-                    label="Revocar"
-                    onAsk={() => setConfirming(key.id)}
-                    onCancel={() => setConfirming(null)}
-                    onConfirm={() => void run(() => revokeKey({ data: key.id }))}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Asistentes conectados">
-        {clients.length === 0 ? (
-          <p className="text-muted">
-            Agrega la URL de MCP como conector en Claude, ChatGPT o Cursor y entra con tu cuenta.
+      <TableIsland columns={["Creada por", "Último uso"]} title="Claves del equipo">
+        {!team || keys.length === 0 ? (
+          <p className={`${ROW} text-muted`}>
+            {team ? "Aún no hay claves." : "Únete a un equipo para crear claves."}
           </p>
         ) : (
-          <ul className="-my-3 flex flex-col divide-y divide-edge">
-            {clients.map((client) => (
-              <li className="flex items-center justify-between gap-4 py-3" key={client.clientId}>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{client.name}</span>
-                  <span className="truncate text-[13px] text-muted">
-                    Conectado el {dateFormat.format(new Date(client.connectedAt))}
-                    {client.lastActiveAt
-                      ? ` · Activo el ${dateFormat.format(new Date(client.lastActiveAt))}`
-                      : " · Sin usar"}
-                  </span>
-                </div>
-                <Confirm
-                  asking={confirming === client.clientId}
-                  busy={busy}
-                  label="Desconectar"
-                  onAsk={() => setConfirming(client.clientId)}
-                  onCancel={() => setConfirming(null)}
-                  onConfirm={() =>
-                    void run(() => disconnectConnectedClient({ data: client.clientId }))
-                  }
-                />
-              </li>
-            ))}
-          </ul>
+          keys.map((key) => (
+            <TableRow
+              action={revocable(key) ? "Revocar" : undefined}
+              asking={confirming === key.id}
+              busy={busy}
+              figures={[
+                key.createdBy
+                  ? key.createdBy.id === dashboard.user.id
+                    ? "Tú"
+                    : key.createdBy.name
+                  : "–",
+                lastUse(key.lastUsedAt),
+              ]}
+              key={key.id}
+              name={
+                <>
+                  {key.name}{" "}
+                  <code className="font-mono text-[12px] leading-none text-muted">
+                    {key.start}…
+                  </code>
+                </>
+              }
+              onAsk={() => setConfirming(key.id)}
+              onCancel={() => setConfirming(null)}
+              onConfirm={() => void run(() => revokeKey({ data: key.id }))}
+            />
+          ))
         )}
-        <Copyable label="la URL de MCP" value={`${ORIGIN}/mcp`} />
-      </Section>
+      </TableIsland>
+
+      <TableIsland columns={["Conectado", "Último uso"]} title="Asistentes">
+        {clients.map((client) => (
+          <TableRow
+            action="Desconectar"
+            asking={confirming === client.clientId}
+            busy={busy}
+            figures={[
+              dateFormat.format(new Date(client.connectedAt)),
+              lastUse(client.lastActiveAt),
+            ]}
+            key={client.clientId}
+            name={client.name}
+            onAsk={() => setConfirming(client.clientId)}
+            onCancel={() => setConfirming(null)}
+            onConfirm={() => void run(() => disconnectConnectedClient({ data: client.clientId }))}
+          />
+        ))}
+        {/* The MCP URL to connect another, one row. */}
+        <div className={`flex items-center justify-between gap-4 ${ROW}`}>
+          <span className="min-w-0 truncate">
+            <span className="text-muted">URL de MCP</span>{" "}
+            <code className="font-mono text-[12px] leading-none">{ORIGIN}/mcp</code>
+          </span>
+          <button
+            aria-label={copied ? "Copiado" : "Copiar la URL de MCP"}
+            className="-my-1 grid size-7 shrink-0 place-items-center text-muted hover:text-fg"
+            onClick={() => void copyMcp()}
+            type="button"
+          >
+            {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
+          </button>
+        </div>
+      </TableIsland>
       {error && <p className="text-[13px] text-muted">{error}</p>}
     </Page>
   );

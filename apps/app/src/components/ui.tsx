@@ -25,6 +25,8 @@ const BUTTON =
   "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[2px] px-3 text-[13px] disabled:pointer-events-none disabled:opacity-50";
 export const PRIMARY = `${BUTTON} bg-electric text-white hover:bg-fg hover:text-ink`;
 export const SECONDARY = `${BUTTON} border border-edge bg-ink hover:border-fg`;
+/** The primary at 28px, for a page header's action beside its 20px title. */
+export const PRIMARY_SMALL = PRIMARY.replace("h-8", "h-7");
 /** Raw text that brightens on hover, for a row's quiet action. */
 export const GHOST = "text-[13px] text-muted hover:text-fg disabled:opacity-50";
 
