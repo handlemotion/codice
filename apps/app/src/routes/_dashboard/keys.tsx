@@ -1,46 +1,104 @@
+import {
+  IconCheckmark1Small,
+  IconSquareBehindSquare1,
+} from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import {
   Copyable,
   dateFormat,
   FIELD,
   GHOST,
+  ISLAND,
   ORIGIN,
   PRIMARY,
+  PRIMARY_SMALL,
+  DANGER_SMALL,
+  SECONDARY_SMALL,
   Page,
+  ROW,
   SECONDARY,
-  Section,
 } from "../../components/ui";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { createKey, listKeys, revokeKey } from "../../server/functions";
+import { disconnectConnectedClient, getConnectedClients } from "../../server/oauth-functions";
 import type { KeyRow } from "../../server/teams";
 
 export const Route = createFileRoute("/_dashboard/keys")({
   head: () => ({ meta: [{ title: "Claves · Códice" }] }),
   loader: async ({ context }) => {
     const team = context.dashboard.team;
-    return { team, keys: team ? await listKeys({ data: team.id }) : [] };
+    const [keys, clients] = await Promise.all([
+      team ? listKeys({ data: team.id }) : [],
+      getConnectedClients(),
+    ]);
+    return { team, keys, clients };
   },
   component: Keys,
 });
 
 const FAILED = "No se pudo completar. Intenta de nuevo.";
 
-function Keys() {
-  const { dashboard } = Route.useRouteContext();
-  const { team, keys } = Route.useLoaderData();
+/** Connecting an assistant is adding the MCP URL as a connector: one button copies it. */
+function CopyMcpUrl() {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await navigator.clipboard.writeText(`${ORIGIN}/mcp`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button className={SECONDARY_SMALL} onClick={() => void copy()} type="button">
+          {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
+          {copied ? "Copiada" : "URL de MCP"}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="font-mono" side="bottom">
+        {ORIGIN}/mcp
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** "Nueva clave": a dialog that names the key, then shows it once to copy. */
+function NewKey({ teamId }: { teamId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [created, setCreated] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function run(action: () => Promise<void>) {
+  function toggle(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setName("");
+      setCreated(null);
+      setError(null);
+    }
+  }
+
+  async function create(event: FormEvent) {
+    event.preventDefault();
+    if (!name.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await action();
+      const { key } = await createKey({ data: { organizationId: teamId, name } });
+      setCreated(key);
       await router.invalidate();
     } catch {
       setError(FAILED);
@@ -49,14 +107,173 @@ function Keys() {
     }
   }
 
-  function create(event: FormEvent) {
-    event.preventDefault();
-    if (!team || !name.trim()) return;
-    void run(async () => {
-      const { key } = await createKey({ data: { organizationId: team.id, name } });
-      setCreated(key);
-      setName("");
-    });
+  return (
+    <Dialog onOpenChange={toggle} open={open}>
+      <DialogTrigger asChild>
+        <button className={PRIMARY_SMALL} type="button">
+          Nueva clave
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        {created ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Clave creada</DialogTitle>
+              <DialogDescription>Cópiala ahora: no se vuelve a mostrar.</DialogDescription>
+            </DialogHeader>
+            <Copyable label="la clave" value={created} />
+            <DialogFooter>
+              <DialogClose asChild>
+                <button className={SECONDARY} type="button">
+                  Listo
+                </button>
+              </DialogClose>
+            </DialogFooter>
+          </>
+        ) : (
+          <form className="grid gap-4" onSubmit={(event) => void create(event)}>
+            <DialogHeader>
+              <DialogTitle>Nueva clave</DialogTitle>
+              <DialogDescription>
+                Para la API:{" "}
+                <code className="font-mono text-[12px]">Authorization: Bearer cdc_…</code>
+              </DialogDescription>
+            </DialogHeader>
+            <input
+              aria-label="Nombre de la clave"
+              autoFocus
+              className={FIELD}
+              maxLength={32}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Nombre, por ejemplo producción"
+              required
+              value={name}
+            />
+            {error && <p className="text-[13px] text-muted">{error}</p>}
+            <DialogFooter>
+              <DialogClose asChild>
+                <button className={SECONDARY} type="button">
+                  Cancelar
+                </button>
+              </DialogClose>
+              <button className={PRIMARY} disabled={busy || !name.trim()} type="submit">
+                Crear clave
+              </button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * A table's rows: a name column, two muted figures of fixed width and the row's action, the same
+ * columns in both islands so they line up. On a phone the figures go, so the names keep room.
+ */
+const TABLE =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_7rem_6.5rem_5.5rem]";
+const FIGURE = "truncate text-[13px] text-muted max-sm:hidden";
+
+/** An island whose first row is its title over the names and the columns' names over the rest. */
+function TableIsland({
+  title,
+  columns,
+  children,
+}: {
+  title: string;
+  columns: [string, string];
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+      <div className={`${TABLE} ${ROW}`}>
+        <h2 className="truncate">{title}</h2>
+        <span className={FIGURE}>{columns[0]}</span>
+        <span className={FIGURE}>{columns[1]}</span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * A row: its name, two figures and a quiet action. Asked to confirm, the action takes the
+ * figures' room: Cancelar and the action again.
+ */
+function TableRow({
+  name,
+  figures,
+  action,
+  asking,
+  busy,
+  onAsk,
+  onCancel,
+  onConfirm,
+}: {
+  name: ReactNode;
+  figures: [string, string];
+  action?: string;
+  asking: boolean;
+  busy: boolean;
+  onAsk: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className={`${TABLE} ${ROW}`}>
+      <span className="min-w-0 truncate">{name}</span>
+      {asking ? (
+        <span className="flex items-center justify-end gap-4 sm:col-span-3">
+          <button className={GHOST} onClick={onCancel} type="button">
+            Cancelar
+          </button>
+          {/* 28px in a 20px line: the row keeps its height. */}
+          <button
+            className={`${DANGER_SMALL} -my-1`}
+            disabled={busy}
+            onClick={onConfirm}
+            type="button"
+          >
+            {action}
+          </button>
+        </span>
+      ) : (
+        <>
+          <span className={FIGURE}>{figures[0]}</span>
+          <span className={FIGURE}>{figures[1]}</span>
+          <span className="text-right">
+            {action && (
+              <button className={GHOST} disabled={busy} onClick={onAsk} type="button">
+                {action}
+              </button>
+            )}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Keys() {
+  const { dashboard } = Route.useRouteContext();
+  const { team, keys, clients } = Route.useLoaderData();
+  const router = useRouter();
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      setConfirming(null);
+      await router.invalidate();
+    } catch {
+      setError(FAILED);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Owners and admins revoke any key; members, the ones they created (`permissions.ts`).
@@ -64,129 +281,76 @@ function Keys() {
     return team?.manages || key.createdBy?.id === dashboard.user.id;
   }
 
-  function revoke(keyId: string) {
-    void run(async () => {
-      await revokeKey({ data: keyId });
-      setConfirming(null);
-    });
+  function lastUse(at: string | Date | null | undefined) {
+    return at ? dateFormat.format(new Date(at)) : "Sin usar";
   }
 
   return (
-    <Page title="Claves">
-      {team ? (
-        <Section title="Nueva clave">
-          {created ? (
-            <div className="flex flex-col gap-3">
-              <Copyable label="la clave" value={created} />
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-[13px] text-muted">Cópiala ahora: no se vuelve a mostrar.</p>
-                <button className={SECONDARY} onClick={() => setCreated(null)} type="button">
-                  Listo
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form className="flex gap-2" onSubmit={create}>
-              <input
-                aria-label="Nombre de la clave"
-                className={`${FIELD} flex-1`}
-                maxLength={32}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Nombre, por ejemplo producción"
-                required
-                value={name}
-              />
-              <button className={PRIMARY} disabled={busy || !name.trim()} type="submit">
-                Crear clave
-              </button>
-            </form>
-          )}
-          {error && <p className="text-[13px] text-muted">{error}</p>}
-        </Section>
-      ) : (
-        <Section title="Nueva clave">
-          <p className="text-muted">Únete a un equipo para crear claves.</p>
-        </Section>
-      )}
-
-      <Section note={team?.name} title="Claves del equipo">
-        {keys.length === 0 ? (
-          <p className="text-muted">Aún no hay claves.</p>
+    <Page
+      action={
+        <div className="flex items-center gap-2">
+          <CopyMcpUrl />
+          {team && <NewKey teamId={team.id} />}
+        </div>
+      }
+      title="Claves"
+    >
+      <TableIsland columns={["Creada por", "Último uso"]} title="Claves del equipo">
+        {!team || keys.length === 0 ? (
+          <p className={`${ROW} text-muted`}>
+            {team ? "Aún no hay claves." : "Únete a un equipo para crear claves."}
+          </p>
         ) : (
-          <ul className="-my-3 flex flex-col divide-y divide-edge">
-            {keys.map((key) => (
-              <li className="flex items-center justify-between gap-4 py-3" key={key.id}>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{key.name}</span>
-                  <span className="truncate text-[13px] text-muted">
-                    <code className="font-mono text-[12px]">{key.start}…</code>
-                    {" · "}
-                    {key.createdBy
-                      ? key.createdBy.id === dashboard.user.id
-                        ? "Tuya · "
-                        : `De ${key.createdBy.name} · `
-                      : ""}
-                    {key.lastUsedAt
-                      ? `Usada el ${dateFormat.format(new Date(key.lastUsedAt))}`
-                      : `Creada el ${dateFormat.format(new Date(key.createdAt))}, sin usar`}
-                  </span>
-                </div>
-                {!revocable(key) ? null : confirming === key.id ? (
-                  <span className="flex shrink-0 items-center gap-3">
-                    <button className={GHOST} onClick={() => setConfirming(null)} type="button">
-                      Cancelar
-                    </button>
-                    <button
-                      className={PRIMARY}
-                      disabled={busy}
-                      onClick={() => revoke(key.id)}
-                      type="button"
-                    >
-                      Revocar
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    className={GHOST}
-                    disabled={busy}
-                    onClick={() => setConfirming(key.id)}
-                    type="button"
-                  >
-                    Revocar
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+          keys.map((key) => (
+            <TableRow
+              action={revocable(key) ? "Revocar" : undefined}
+              asking={confirming === key.id}
+              busy={busy}
+              figures={[
+                key.createdBy
+                  ? key.createdBy.id === dashboard.user.id
+                    ? "Tú"
+                    : key.createdBy.name
+                  : "–",
+                lastUse(key.lastUsedAt),
+              ]}
+              key={key.id}
+              name={
+                <>
+                  {key.name}{" "}
+                  <code className="font-mono text-[12px] leading-none text-muted">
+                    {key.start}…
+                  </code>
+                </>
+              }
+              onAsk={() => setConfirming(key.id)}
+              onCancel={() => setConfirming(null)}
+              onConfirm={() => void run(() => revokeKey({ data: key.id }))}
+            />
+          ))
         )}
-      </Section>
+      </TableIsland>
 
-      <Section
-        note={
-          <a
-            className="underline decoration-line underline-offset-4 hover:text-fg"
-            href="/docs/primeros-pasos"
-          >
-            Guía de inicio
-          </a>
-        }
-        title="Conectar"
-      >
-        <dl className="grid items-center gap-x-4 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)]">
-          <dt className="text-muted">API</dt>
-          <dd>
-            <Copyable label="la URL de la API" value={`${ORIGIN}/v1`} />
-          </dd>
-          <dt className="text-muted">MCP</dt>
-          <dd>
-            <Copyable label="la URL de MCP" value={`${ORIGIN}/mcp`} />
-          </dd>
-          <dt className="text-muted">Encabezado</dt>
-          <dd>
-            <Copyable label="el encabezado" value="Authorization: Bearer cdc_…" />
-          </dd>
-        </dl>
-      </Section>
+      <TableIsland columns={["Conectado", "Último uso"]} title="Asistentes">
+        {clients.map((client) => (
+          <TableRow
+            action="Desconectar"
+            asking={confirming === client.clientId}
+            busy={busy}
+            figures={[
+              dateFormat.format(new Date(client.connectedAt)),
+              lastUse(client.lastActiveAt),
+            ]}
+            key={client.clientId}
+            name={client.name}
+            onAsk={() => setConfirming(client.clientId)}
+            onCancel={() => setConfirming(null)}
+            onConfirm={() => void run(() => disconnectConnectedClient({ data: client.clientId }))}
+          />
+        ))}
+        {clients.length === 0 && <p className={`${ROW} text-muted`}>Ningún asistente conectado.</p>}
+      </TableIsland>
+      {error && <p className="text-[13px] text-muted">{error}</p>}
     </Page>
   );
 }

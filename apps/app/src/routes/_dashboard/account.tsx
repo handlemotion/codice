@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { authClient } from "../../auth-client";
 import { Avatar } from "../../components/dashboard-shell";
 import {
-  AddRow,
   FIELD,
   GHOST,
   LIST,
@@ -12,17 +11,14 @@ import {
   Page,
   ROLE_LABELS,
   LIST_ROW,
-  RoleBadge,
   SECONDARY,
   Section,
 } from "../../components/ui";
 import {
   acceptInvitation,
-  createTeam,
   getReceivedInvitations,
   rejectInvitation,
   renameUser,
-  setActiveTeam,
 } from "../../server/functions";
 import { currentTheme, toggleTheme, type Theme } from "../../theme";
 
@@ -33,9 +29,9 @@ export const Route = createFileRoute("/_dashboard/account")({
 });
 
 /**
- * The user's own account, behind the avatar: their profile, invitations waiting for them, the
- * teams they belong to (to switch to or create one), and preferences. The active team's own
- * settings are on Equipo (`team.tsx`).
+ * The user's own account, behind the avatar: their profile, invitations waiting for them and
+ * preferences. Teams are switched and created from the rail's top (`team-switcher.tsx`); the
+ * active team's own settings are on Configuración (`settings.tsx`).
  */
 function Account() {
   const { dashboard } = Route.useRouteContext();
@@ -46,8 +42,6 @@ function Account() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("dark");
-  const [creating, setCreating] = useState(false);
-  const [teamName, setTeamName] = useState("");
 
   // The theme lives on <html>, so it is read once mounted; T may change it from anywhere.
   useEffect(() => {
@@ -73,15 +67,6 @@ function Account() {
   function rename(event: FormEvent) {
     event.preventDefault();
     void run(() => renameUser({ data: name }));
-  }
-
-  function create(event: FormEvent) {
-    event.preventDefault();
-    void run(async () => {
-      await createTeam({ data: teamName });
-      setTeamName("");
-      setCreating(false);
-    });
   }
 
   async function signOut() {
@@ -152,55 +137,6 @@ function Account() {
           </ul>
         </Section>
       )}
-
-      <Section title="Tus equipos">
-        <ul className={LIST}>
-          {dashboard.teams.map((team) => (
-            <li className={LIST_ROW} key={team.id}>
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="truncate">{team.name}</span>
-                <RoleBadge role={team.role} />
-              </div>
-              {team.id === dashboard.team?.id ? (
-                <span className="text-[13px] text-muted">Actual</span>
-              ) : (
-                <button
-                  className={GHOST}
-                  disabled={busy}
-                  onClick={() => void run(() => setActiveTeam({ data: team.id }))}
-                  type="button"
-                >
-                  Cambiar
-                </button>
-              )}
-            </li>
-          ))}
-          <li>
-            {creating ? (
-              <form className="flex gap-2 py-3" onSubmit={create}>
-                <input
-                  aria-label="Nombre del equipo"
-                  autoFocus
-                  className={`${FIELD} flex-1`}
-                  maxLength={64}
-                  onChange={(event) => setTeamName(event.target.value)}
-                  placeholder="Nombre, por ejemplo tu empresa"
-                  required
-                  value={teamName}
-                />
-                <button className={GHOST} onClick={() => setCreating(false)} type="button">
-                  Cancelar
-                </button>
-                <button className={PRIMARY} disabled={busy || !teamName.trim()} type="submit">
-                  Crear
-                </button>
-              </form>
-            ) : (
-              <AddRow disabled={busy} label="Crear un equipo" onClick={() => setCreating(true)} />
-            )}
-          </li>
-        </ul>
-      </Section>
 
       <Section title="Preferencias">
         <ul className={LIST}>

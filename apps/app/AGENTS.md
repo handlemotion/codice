@@ -5,10 +5,12 @@ see their usage and manage their API keys. The root `AGENTS.md` applies here. It
 target of `apps/edge`: every path that is not the API's, the site's `/` or `/_site/*` reaches it.
 
 - Read `DESIGN.md` before changing anything visible; it extends `apps/site/DESIGN.md`.
-- Pages: usage (`/`), the team's keys (`/keys`), the user's MCP clients (`/clients`), the active
-  team's settings (`/team`) and the user's own account (`/account`, the avatar, last), under a
-  left rail (`src/components/dashboard-shell.tsx`). `/invitacion/$id`, outside the rail, accepts
-  an emailed invitation; signed out, it goes through `/login?siguiente=` and back.
+- Pages: usage (`/`), the team's keys with the user's MCP clients (`/keys`), the active team's
+  settings (`/settings`, where its billing will go too) and the user's own account (`/account`,
+  the avatar, last), under a left rail (`src/components/dashboard-shell.tsx`) whose top is the
+  team switcher (`src/components/team-switcher.tsx`: switch, create, the team's settings and the
+  site). `/invitacion/$id`, outside the rail, accepts an emailed invitation; signed out, it goes
+  through `/login?siguiente=` and back.
 - Never use `/v1`, `/mcp`, `/health`, `/ready` or `/_site/*`: the edge sends them elsewhere.
 - The session cookie is `__Secure-codice-session` (`apps/edge/src/route.ts`); with it, `/` is the
   dashboard. Answer `/` without a valid session with a redirect to `/login`, and the edge serves the

@@ -14,9 +14,8 @@ import { Route as ConsentRouteImport } from "./routes/consent";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as DashboardIndexRouteImport } from "./routes/_dashboard/index";
 import { Route as DashboardAccountRouteImport } from "./routes/_dashboard/account";
-import { Route as DashboardClientsRouteImport } from "./routes/_dashboard/clients";
 import { Route as DashboardKeysRouteImport } from "./routes/_dashboard/keys";
-import { Route as DashboardTeamRouteImport } from "./routes/_dashboard/team";
+import { Route as DashboardSettingsRouteImport } from "./routes/_dashboard/settings";
 import { Route as InvitacionIdRouteImport } from "./routes/invitacion.$id";
 import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
 
@@ -44,19 +43,14 @@ const DashboardAccountRoute = DashboardAccountRouteImport.update({
   path: "/account",
   getParentRoute: () => DashboardRoute,
 } as any);
-const DashboardClientsRoute = DashboardClientsRouteImport.update({
-  id: "/clients",
-  path: "/clients",
-  getParentRoute: () => DashboardRoute,
-} as any);
 const DashboardKeysRoute = DashboardKeysRouteImport.update({
   id: "/keys",
   path: "/keys",
   getParentRoute: () => DashboardRoute,
 } as any);
-const DashboardTeamRoute = DashboardTeamRouteImport.update({
-  id: "/team",
-  path: "/team",
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: "/settings",
+  path: "/settings",
   getParentRoute: () => DashboardRoute,
 } as any);
 const InvitacionIdRoute = InvitacionIdRouteImport.update({
@@ -75,9 +69,8 @@ export interface FileRoutesByFullPath {
   "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
   "/account": typeof DashboardAccountRoute;
-  "/clients": typeof DashboardClientsRoute;
   "/keys": typeof DashboardKeysRoute;
-  "/team": typeof DashboardTeamRoute;
+  "/settings": typeof DashboardSettingsRoute;
   "/invitacion/$id": typeof InvitacionIdRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
 }
@@ -85,9 +78,8 @@ export interface FileRoutesByTo {
   "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
   "/account": typeof DashboardAccountRoute;
-  "/clients": typeof DashboardClientsRoute;
   "/keys": typeof DashboardKeysRoute;
-  "/team": typeof DashboardTeamRoute;
+  "/settings": typeof DashboardSettingsRoute;
   "/invitacion/$id": typeof InvitacionIdRoute;
   "/": typeof DashboardIndexRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
@@ -98,9 +90,8 @@ export interface FileRoutesById {
   "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
   "/_dashboard/account": typeof DashboardAccountRoute;
-  "/_dashboard/clients": typeof DashboardClientsRoute;
   "/_dashboard/keys": typeof DashboardKeysRoute;
-  "/_dashboard/team": typeof DashboardTeamRoute;
+  "/_dashboard/settings": typeof DashboardSettingsRoute;
   "/invitacion/$id": typeof InvitacionIdRoute;
   "/_dashboard/": typeof DashboardIndexRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
@@ -112,9 +103,8 @@ export interface FileRouteTypes {
     | "/consent"
     | "/login"
     | "/account"
-    | "/clients"
     | "/keys"
-    | "/team"
+    | "/settings"
     | "/invitacion/$id"
     | "/api/auth/$";
   fileRoutesByTo: FileRoutesByTo;
@@ -122,9 +112,8 @@ export interface FileRouteTypes {
     | "/consent"
     | "/login"
     | "/account"
-    | "/clients"
     | "/keys"
-    | "/team"
+    | "/settings"
     | "/invitacion/$id"
     | "/"
     | "/api/auth/$";
@@ -134,9 +123,8 @@ export interface FileRouteTypes {
     | "/consent"
     | "/login"
     | "/_dashboard/account"
-    | "/_dashboard/clients"
     | "/_dashboard/keys"
-    | "/_dashboard/team"
+    | "/_dashboard/settings"
     | "/invitacion/$id"
     | "/_dashboard/"
     | "/api/auth/$";
@@ -187,13 +175,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof DashboardAccountRouteImport;
       parentRoute: typeof DashboardRoute;
     };
-    "/_dashboard/clients": {
-      id: "/_dashboard/clients";
-      path: "/clients";
-      fullPath: "/clients";
-      preLoaderRoute: typeof DashboardClientsRouteImport;
-      parentRoute: typeof DashboardRoute;
-    };
     "/_dashboard/keys": {
       id: "/_dashboard/keys";
       path: "/keys";
@@ -201,11 +182,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof DashboardKeysRouteImport;
       parentRoute: typeof DashboardRoute;
     };
-    "/_dashboard/team": {
-      id: "/_dashboard/team";
-      path: "/team";
-      fullPath: "/team";
-      preLoaderRoute: typeof DashboardTeamRouteImport;
+    "/_dashboard/settings": {
+      id: "/_dashboard/settings";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof DashboardSettingsRouteImport;
       parentRoute: typeof DashboardRoute;
     };
     "/invitacion/$id": {
@@ -227,17 +208,15 @@ declare module "@tanstack/react-router" {
 
 interface DashboardRouteChildren {
   DashboardAccountRoute: typeof DashboardAccountRoute;
-  DashboardClientsRoute: typeof DashboardClientsRoute;
   DashboardKeysRoute: typeof DashboardKeysRoute;
-  DashboardTeamRoute: typeof DashboardTeamRoute;
+  DashboardSettingsRoute: typeof DashboardSettingsRoute;
   DashboardIndexRoute: typeof DashboardIndexRoute;
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAccountRoute: DashboardAccountRoute,
-  DashboardClientsRoute: DashboardClientsRoute,
   DashboardKeysRoute: DashboardKeysRoute,
-  DashboardTeamRoute: DashboardTeamRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 };
 
