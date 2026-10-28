@@ -47,7 +47,7 @@ This file records only where the dashboard adds to it or departs from it. Values
   and the column names (`muted` 13px, over the figures); then rows of a name and right-aligned
   figures in fixed columns (calls in `fg`, the rest `muted`). On a phone the middle column goes.
 - **A headline number** (28px) takes more room than a row: 24px from the edge to its capitals,
-  32px from its baseline to what follows.
+  40px from its baseline to the chart under it.
 
 ## Pages
 

@@ -299,12 +299,12 @@ function UsageCard({ usage, scope }: { usage: UsagePeriodData; scope: Scope }) {
         <div>
           <Headline days={usage.days} view={view} />
           {/* The number's line ends 7px under its baseline and the top tick's capitals sit 4.5px
-              over its line, so 20px between leaves 32px from the number to the chart. The day
+              over its line, so 28px between leaves 40px from the number to the chart. The day
               labels end 2px over their box: 18px under them leaves 20px to the island's edge. */}
           {series.length === 0 ? (
-            <p className="px-5 pt-[21px] pb-3.5 leading-5 text-muted">{EMPTY[scope]}</p>
+            <p className="px-5 pt-[29px] pb-3.5 leading-5 text-muted">{EMPTY[scope]}</p>
           ) : (
-            <figure aria-label="Solicitudes por día" className="min-w-0 px-5 pt-5 pb-[18px]">
+            <figure aria-label="Solicitudes por día" className="min-w-0 px-5 pt-7 pb-[18px]">
               <UsageBars days={view.days} series={series} />
             </figure>
           )}
