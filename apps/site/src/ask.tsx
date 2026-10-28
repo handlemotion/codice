@@ -200,8 +200,9 @@ export function Ask() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      {/* The ground sits behind the lines only, so the field shows past where each line ends. */}
-      <h1 className="text-[20px] leading-snug">
+      {/* Balanced, so its two lines run about the same length; the ground sits behind the lines only,
+          so the field shows past where each line ends. */}
+      <h1 className="text-[20px] leading-snug text-balance">
         <span className="box-decoration-clone bg-ink">
           Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente
           o intégrala en tu producto.

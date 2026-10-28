@@ -103,7 +103,7 @@ marks turning while Códice answers), and the favicon.
 ### First screen: the chat, alone
 
 - A fixed height (`85svh`, at least 560px), so a conversation scrolls inside it.
-- The hero title (the page's `h1`, 20px, two lines on desktop) and the chat under it (max 38rem)
+- The hero title (the page's `h1`, 20px, two lines on desktop) and the chat under it (max 32rem, the title balanced on two lines)
   start on the sections' text column (48%, the line of the bar's links), a little above the
   middle, over the wave field; on phones they start under the bar. No section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the

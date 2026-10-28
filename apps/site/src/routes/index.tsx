@@ -131,7 +131,7 @@ function Home() {
       <header className="relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 lg:justify-center lg:pb-[12vh] lg:pl-[calc(48%+24px)]">
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
         <div
-          className="relative flex min-h-0 w-full max-w-[38rem] flex-1 flex-col lg:max-h-[440px]"
+          className="relative flex min-h-0 w-full max-w-[32rem] flex-1 flex-col lg:max-h-[440px]"
           id="preguntar"
         >
           <Ask />
