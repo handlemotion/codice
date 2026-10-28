@@ -1,0 +1,295 @@
+import { z } from "zod";
+
+import {
+  LookupCatalogArguments,
+  LookupErrorArguments,
+  MCP_SERVER_VERSION,
+  ReadPassageArguments,
+  SearchArguments,
+} from "./mcp";
+
+/**
+ * The public HTTP API as an OpenAPI 3.1 document, for the docs' API reference (apps/site renders
+ * it with fumadocs-openapi). Parameters reuse the MCP tools' Zod schemas, so their limits and
+ * descriptions stay one source; responses mirror `@codice/contracts`. `/v1/chat` is the site's own
+ * endpoint and stays out. `pnpm --filter @codice/api openapi` writes it to the site; a test fails
+ * when the written file or the route list drifts from this.
+ */
+
+const Source = z.object({
+  id: z.string(),
+  title: z.string(),
+  authority: z.string(),
+  url: z.string().describe("Where the SAT publishes the document."),
+  sha256: z
+    .string()
+    .describe("Hash of the document Códice read, to check it against the original."),
+  publishedAt: z.string().nullable(),
+  retrievedAt: z.string(),
+  validFrom: z.string(),
+  validUntil: z.string().nullable(),
+});
+
+const Validity = {
+  validFrom: z.string().nullable().describe("First day the rule applies, YYYY-MM-DD."),
+  validUntil: z.string().nullable().describe("Last day it applies; null while in force."),
+};
+
+const SearchResult = z.object({
+  passageId: z.string().describe("Pass it to `/v1/passages/{id}` to read the whole passage."),
+  source: z.string(),
+  quote: z.string().describe("The matched text, verbatim as the SAT wrote it."),
+  authority: z.string().nullable(),
+  kind: z.string().nullable(),
+  ...Validity,
+  score: z.number(),
+  scoring: z.object({
+    keywordScore: z.number().nullable(),
+    vectorScore: z.number().nullable(),
+    rerankingScore: z.number().nullable(),
+  }),
+  sourceTitle: z.string().nullable(),
+  sourceUrl: z.string().nullable(),
+  sourcePublishedAt: z.string().nullable(),
+});
+
+const Search = z.object({
+  query: z.string(),
+  asOf: z.string(),
+  source: z.string().nullable(),
+  kind: z.string().nullable(),
+  results: z.array(SearchResult),
+});
+
+const Passage = z.object({
+  passageId: z.string(),
+  heading: z.string(),
+  text: z.string().describe("The whole passage: its heading path, then the verbatim text."),
+  authority: z.string().nullable(),
+  kind: z.string().nullable(),
+  ...Validity,
+  source: Source.nullable(),
+});
+
+const ErrorCode = z.object({
+  code: z.string(),
+  sourceId: z.string(),
+  node: z.string(),
+  attribute: z.string(),
+  validation: z.string().describe("The SAT's validation rule, verbatim."),
+  message: z.string().describe("The message the SAT returns, verbatim."),
+  passageId: z.string(),
+  source: Source.nullable(),
+});
+
+const CatalogFields = z.record(z.string(), z.string().nullable());
+
+const CatalogEntry = z.object({
+  catalog: z.string(),
+  key: z.string(),
+  entries: z.array(
+    z.object({ fields: CatalogFields, validFrom: z.string(), validUntil: z.string().nullable() }),
+  ),
+  source: Source.nullable(),
+});
+
+const Catalog = z.object({
+  catalog: z.string(),
+  entries: z.array(
+    z.object({
+      key: z.string(),
+      fields: CatalogFields,
+      validFrom: z.string(),
+      validUntil: z.string().nullable(),
+    }),
+  ),
+  truncated: z.boolean().describe("True when the catalog has more than the 500 entries returned."),
+  source: Source.nullable(),
+});
+
+const Problem = z.object({
+  type: z.string(),
+  title: z.string(),
+  status: z.number().int(),
+  detail: z.string().optional(),
+  code: z
+    .string()
+    .describe(
+      "Stable, machine-readable: `unauthorized`, `rate_limited`, `invalid_request`, `…_not_found`.",
+    ),
+  requestId: z.string(),
+});
+
+type Schema = Record<string, unknown>;
+
+function jsonSchema(schema: z.ZodType): Schema {
+  const { $schema: _, ...rest } = z.toJSONSchema(schema, { io: "input" }) as Schema;
+  return rest;
+}
+
+// The `{ data, meta }` envelope every success uses.
+function success(data: z.ZodType, description: string) {
+  return {
+    description,
+    content: {
+      "application/json": {
+        schema: jsonSchema(z.object({ data, meta: z.object({ requestId: z.string() }) })),
+      },
+    },
+  };
+}
+
+function problems(...statuses: number[]) {
+  const described: Record<number, string> = {
+    400: "The request is malformed.",
+    401: "Missing, unknown, revoked or expired API key.",
+    404: "Nothing by that id, code or key.",
+    429: "Over 60 requests a minute for this key. Retry after `retry-after` seconds.",
+    502: "The search service failed.",
+  };
+  return Object.fromEntries(
+    [...statuses, 401, 429].map((status) => [
+      String(status),
+      {
+        description: described[status],
+        content: {
+          "application/problem+json": { schema: { $ref: "#/components/schemas/Problem" } },
+        },
+      },
+    ]),
+  );
+}
+
+// Each field of an object schema as a parameter in `where` (`query` or `path`).
+function parametersOf(schema: z.ZodObject, where: "query" | "path", only?: string[]) {
+  const { properties, required = [] } = jsonSchema(schema) as {
+    properties: Record<string, Schema & { description?: string }>;
+    required?: string[];
+  };
+  return Object.entries(properties)
+    .filter(([name]) => !only || only.includes(name))
+    .map(([name, { description, ...property }]) => ({
+      name,
+      in: where,
+      required: where === "path" || required.includes(name),
+      description,
+      schema: property,
+    }));
+}
+
+export function openApiDocument() {
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Códice API",
+      version: MCP_SERVER_VERSION,
+      description:
+        "Las reglas del SAT, citadas textualmente con su fuente y vigencia. Every response is `{ data, meta }`; errors are `application/problem+json`.",
+    },
+    servers: [{ url: "https://codice.io" }],
+    security: [{ bearer: [] }, { apiKey: [] }],
+    tags: [
+      { name: "Búsqueda", description: "Find rules by question or code." },
+      { name: "Registros", description: "Exact lookups: error codes, catalogs and sources." },
+    ],
+    paths: {
+      "/v1/search": {
+        get: {
+          operationId: "search",
+          tags: ["Búsqueda"],
+          summary: "Buscar reglas",
+          description:
+            "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source.",
+          parameters: parametersOf(SearchArguments, "query"),
+          responses: {
+            200: success(Search, "The matching passages, best first."),
+            ...problems(400, 502),
+          },
+        },
+      },
+      "/v1/passages/{id}": {
+        get: {
+          operationId: "readPassage",
+          tags: ["Búsqueda"],
+          summary: "Leer un pasaje",
+          description:
+            "The whole passage a search result points to. The id holds a slash; send it plain or encoded (`%2F`).",
+          parameters: parametersOf(ReadPassageArguments, "path"),
+          responses: { 200: success(Passage, "The passage."), ...problems(400, 404, 502) },
+        },
+      },
+      "/v1/errors/{code}": {
+        get: {
+          operationId: "lookupError",
+          tags: ["Registros"],
+          summary: "Consultar un código de error",
+          description: "A row of the SAT's CFDI 4.0 validation matrix, verbatim, with its source.",
+          parameters: parametersOf(LookupErrorArguments, "path"),
+          responses: { 200: success(ErrorCode, "The matrix row."), ...problems(404) },
+        },
+      },
+      "/v1/catalogs/{name}": {
+        get: {
+          operationId: "listCatalog",
+          tags: ["Registros"],
+          summary: "Listar un catálogo",
+          description: "A SAT catalog in the SAT's order, at most 500 entries.",
+          parameters: parametersOf(LookupCatalogArguments, "path", ["name"]),
+          responses: { 200: success(Catalog, "The catalog."), ...problems(404) },
+        },
+      },
+      "/v1/catalogs/{name}/{key}": {
+        get: {
+          operationId: "lookupCatalog",
+          tags: ["Registros"],
+          summary: "Consultar una clave de catálogo",
+          description:
+            "Every entry of a key in a SAT catalog. Any other query parameter filters by a column, named as in the SAT's catalog (`?c_CodigoPostal=01000`).",
+          parameters: parametersOf(LookupCatalogArguments, "path", ["name", "key"]),
+          responses: { 200: success(CatalogEntry, "The key's entries."), ...problems(400, 404) },
+        },
+      },
+      "/v1/sources": {
+        get: {
+          operationId: "listSources",
+          tags: ["Registros"],
+          summary: "Listar las fuentes",
+          description: "Every document Códice reads, with its provenance.",
+          responses: {
+            200: success(z.object({ sources: z.array(Source) }), "The sources."),
+            ...problems(),
+          },
+        },
+      },
+      "/v1/sources/{id}": {
+        get: {
+          operationId: "readSource",
+          tags: ["Registros"],
+          summary: "Leer una fuente",
+          description: "One source document's provenance.",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+              description: "The source's id, such as `anexo-20-guia-de-llenado`.",
+            },
+          ],
+          responses: { 200: success(Source, "The source."), ...problems(404) },
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        bearer: {
+          type: "http",
+          scheme: "bearer",
+          description: "An API key from the dashboard (`/keys`), `cdc_…`.",
+        },
+        apiKey: { type: "apiKey", in: "header", name: "x-api-key" },
+      },
+      schemas: { Problem: jsonSchema(Problem) },
+    },
+  };
+}
