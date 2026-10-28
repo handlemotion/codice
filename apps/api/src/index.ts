@@ -23,6 +23,7 @@ import {
 import { apiJson, problem, requestIdFor } from "./http";
 import { createCodiceMcpServer } from "./mcp";
 import { timedRequest } from "./timing";
+import { recordUsage } from "./usage";
 
 /**
  * Códice: the indexed SAT and Mexican customs knowledge service. Search is AI Search's (binding
@@ -206,8 +207,9 @@ const chatRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
 };
 
 // Hono's `/x/*` also matches `/x` itself.
-app.use("/v1/*", requireApiKey, keyRateLimit);
-app.use("/mcp/*", requireMcpCredential, keyRateLimit);
+// Each answered call counts toward the caller's usage, a refusal of the rate limit included.
+app.use("/v1/*", requireApiKey, recordUsage, keyRateLimit);
+app.use("/mcp/*", requireMcpCredential, recordUsage, keyRateLimit);
 app.use("/v1/chat", chatRateLimit);
 
 app.get("/", (context) => context.json({ service: SERVICE, status: "ok" }));

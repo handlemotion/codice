@@ -160,13 +160,13 @@ not Fumadocs' defaults:
   width (800px), 56px below the bar and centered on the screen (not on the space beside the
   sidebar) once the screen is wide enough, with its contents and actions (copy as Markdown, open in
   ChatGPT or Claude) floating at the right edge from 1280px, as Fumadocs lays a page out. The bar's
-  mark sits 16px in, on the line of the sidebar's icons. Docs text is 15px; headings are 16px bold,
+  mark sits 20px in, on the line of the sidebar's icons. Docs text is 15px; headings are 16px bold,
   with no dividers between sections. Below 1280px the actions sit above the title. An API operation
   has no contents or actions: Fumadocs' operation keeps its own example column. (Tried and
   dropped: three columns on the home's 48% line, with the contents between the sidebar and the
   text; it left a wide empty column and stretched the text.)
 - **The sidebar** (`docs-sidebar.tsx`, Figma node 8:4): a search row with its `⌘K` key cap, one
-  52px row per group (line icon, label, chevron) between hairlines, the current group open, the
+  52px row per group (line icon, label, chevron, 20px in from either side) between hairlines, the current group open, the
   current page bold in `fg`, and the theme toggle at the foot.
 - **Hover only brightens:** `muted` goes to `fg`; text already in `fg` gets an underline (the bar's
   links) or brightens its icons (sidebar groups). Nothing dims on hover.

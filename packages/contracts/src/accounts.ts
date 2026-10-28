@@ -34,4 +34,27 @@ export interface CodiceAccountsService {
    */
   verifyAccessToken(token: string): Promise<AccessTokenVerification>;
   mcpAuthorization(): McpAuthorization;
+  /** Counts calls into the team's or the user's usage, which the dashboard's Uso page shows. */
+  recordUsage(events: UsageEvent[]): Promise<void>;
+}
+
+/** Who made a `/v1` or `/mcp` call: a team's API key, or a user through an MCP client (OAuth). */
+export type UsageCaller =
+  | { kind: "api_key"; keyId: string; organizationId: string }
+  | { kind: "oauth"; userId: string; clientId: string };
+
+/**
+ * One call to `/v1` or one MCP tool call, as `codice-api` reports it after answering
+ * (apps/api/SPEC.md, "Usage"). `operation` names the handler the same way on both surfaces: the
+ * MCP tool's name (`search`, `read_passage`…), which `/v1` routes map to.
+ */
+export interface UsageEvent {
+  caller: UsageCaller;
+  surface: "http" | "mcp";
+  operation: string;
+  /** The HTTP status `codice-api` answered with (for an MCP tool call, its `/mcp` request's). */
+  status: number;
+  durationMs: number;
+  /** When the call arrived, epoch milliseconds. */
+  at: number;
 }

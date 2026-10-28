@@ -1,11 +1,12 @@
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
 import { env, WorkerEntrypoint } from "cloudflare:workers";
 
-import type { CodiceAccountsService, McpAuthorization } from "@codice/contracts";
+import type { CodiceAccountsService, McpAuthorization, UsageEvent } from "@codice/contracts";
 
 import { verifyAccessToken } from "./server/access-tokens";
 import { verifyApiKey } from "./server/api-key-store";
 import { createAuth, MCP_SCOPE, oauthIssuer } from "./server/auth";
+import { recordUsage } from "./server/usage";
 
 /**
  * The authorization server's metadata (RFC 8414) sits at the root, outside `/api/auth`:
@@ -27,7 +28,8 @@ export default createServerEntry({
 
 /**
  * Bound by `codice-api` as `ACCOUNTS` (apps/api/SPEC.md, "Auth"). `verifyApiKey` reads only KV;
- * `verifyAccessToken` reads KV and, once per isolate, the signing keys from D1.
+ * `verifyAccessToken` reads KV and, once per isolate, the signing keys from D1. `recordUsage`
+ * writes D1, after `codice-api` has answered the call it counts.
  */
 export class CodiceAccounts
   extends WorkerEntrypoint<CloudflareBindings>
@@ -41,5 +43,8 @@ export class CodiceAccounts
   }
   mcpAuthorization(): McpAuthorization {
     return { issuer: oauthIssuer(this.env), resource: this.env.MCP_RESOURCE, scope: MCP_SCOPE };
+  }
+  recordUsage(events: UsageEvent[]) {
+    return recordUsage(this.env.ACCOUNTS_DATABASE, events);
   }
 }

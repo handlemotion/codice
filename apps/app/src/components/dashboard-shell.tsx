@@ -1,6 +1,6 @@
 import {
   IconBook,
-  IconBubble2,
+  IconChart4,
   IconContrast,
   IconKey2,
   IconPlugin1,
@@ -19,18 +19,18 @@ type Destination = { label: string; key: string } & (
 );
 
 // The rail's places, in order, each on its number key. The account is the avatar, last.
-const CHAT: Destination = { to: "/", label: "Chat", key: "1", icon: IconBubble2 };
+const USAGE: Destination = { to: "/", label: "Uso", key: "1", icon: IconChart4 };
 const KEYS: Destination = { to: "/keys", label: "Claves", key: "2", icon: IconKey2 };
 const CLIENTS: Destination = { to: "/clients", label: "Clientes", key: "3", icon: IconPlugin1 };
 const DOCS: Destination = { href: "/docs", label: "Documentación", key: "4", icon: IconBook };
 const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "5" };
-const PLACES = [CHAT, KEYS, CLIENTS, DOCS, ACCOUNT];
+const PLACES = [USAGE, KEYS, CLIENTS, DOCS, ACCOUNT];
 
 const dashboardRoute = getRouteApi("/_dashboard");
 
-// A rail button: a 40px square that, for the current page, takes the island's look.
+// A rail button: a 32px square that, for the current page, takes the island's look.
 const ITEM =
-  "grid size-10 place-items-center rounded-[4px] border outline-none focus-visible:border-fg";
+  "grid size-8 place-items-center rounded-[4px] border outline-none focus-visible:border-fg";
 const IDLE = "border-transparent text-muted hover:text-fg";
 const CURRENT = "border-edge bg-island text-fg";
 
@@ -75,7 +75,7 @@ export function Avatar({ size = 28 }: { size?: number }) {
 function RailItem({ place, current }: { place: Destination; current: boolean }) {
   const className = `${ITEM} ${current ? CURRENT : IDLE}`;
   const Icon = place.icon;
-  const content = Icon ? <Icon size={18} /> : <Avatar size={22} />;
+  const content = Icon ? <Icon size={18} /> : <Avatar size={20} />;
   return (
     <Hint label={place.label} shortcut={place.key}>
       {"to" in place ? (

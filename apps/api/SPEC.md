@@ -419,6 +419,28 @@ user's MCP clients. Over the limit: `429` problem+json, code `rate_limited`, `re
 `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) are not limited. A refused
 key never reaches the limiter, so a request without a valid key costs no limit and no query.
 
+### Usage
+
+Each answered `/v1` call and MCP tool call counts toward its caller's usage (`src/usage.ts`), shown
+on the dashboard's Uso page (`apps/app`, `/`).
+
+- After the credential check, the `recordUsage` middleware notes the operation, then, once the
+  response is ready, reports it with `ACCOUNTS.recordUsage([event])` in `waitUntil`, so a report
+  never delays or fails a call (a failed one goes to Sentry). A rate-limited call counts, with its
+  `429`; a refused credential does not.
+- The event (`UsageEvent` in `@codice/contracts`): the caller (a key's id and team, or the OAuth
+  user and client), the surface (`http` or `mcp`), the operation, the HTTP status, the duration
+  and the time. Operations share the MCP tools' names: `/v1/search` is `search`, `/v1/passages/:id`
+  `read_passage`, `/v1/errors/:code` `lookup_error`, `/v1/catalogs/:name/:key` `lookup_catalog`,
+  `/v1/sources` `list_sources`; the routes without a tool are `list_catalog`, `read_source` and
+  `chat`. On `/mcp` only `tools/call` messages count (each in a batch), by the tool's name;
+  initialize, listing tools and notifications are the client's bookkeeping.
+- `codice-app` adds each event to a counter row in D1 `codice-accounts` (`api_usage`): per Mexico
+  City day, credential (a key, owned by its team, or an MCP client, owned by its user), surface
+  and operation, with calls, errors (status 400 and up) and the summed duration. One upsert per
+  call; at today's volume a D1 write per call is well within its limits. If calls grow to where
+  that matters, Workers Analytics Engine is the next step (its reads need an account API token).
+
 ### Auth
 
 `/v1/*` and `/mcp/*` (each path and its subpaths) require an API key of a Códice team, issued in
@@ -1014,8 +1036,8 @@ to match.
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
     `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
-    Email Sending for `codice.io`. Next: usage per key on the overview, and member
-    roles beyond the owner.
+    Email Sending for `codice.io`. Usage per key and MCP client is on the dashboard's Uso page
+    ([Usage](#usage)). Next: member roles beyond the owner.
 11. **MCP over OAuth** (done in code, see [MCP authorization](#mcp-authorization)). MCP clients
     connect with the URL alone, by Client ID Metadata Document or Dynamic Client Registration,
     and the user's connected clients are listed and disconnected through `codice-app`'s server

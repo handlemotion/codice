@@ -30,10 +30,6 @@
       "GOOGLE_CLIENT_SECRET",
     ],
   },
-  // The chat's turns go to `POST /v1/chat` with the dashboard's key (src/routes/api/chat.ts).
-  // `CODICE_APP_API_KEY` (optional) turns it on: the key of a Códice team. Add it to Doppler
-  // `prd` and to `secrets.required` to ship it.
-  "services": [{ "binding": "API", "service": "codice-api" }],
   // Users, sessions, teams and members (Better Auth). Schema: src/db/schema.ts.
   "d1_databases": [
     {
