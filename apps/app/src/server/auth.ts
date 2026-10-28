@@ -79,8 +79,8 @@ export const SESSION_COOKIE = "__Secure-codice-session";
  * (`permissions.ts`); each new user gets a personal one, and others join by invitation. The team
  * owns its keys, and each key records the member who created it. Built once per bindings object
  * and kept for the isolate (`env` from `cloudflare:workers` is the same on every request): a
- * fresh instance runs its plugins' `init` again, and the OAuth provider's (`mcp()`) reads `oauth_resource`
- * in D1 before the first call it answers.
+ * fresh instance runs its plugins' `init` again, and the OAuth provider's (`mcp()`) reads
+ * `oauth_resource` in D1 before the first call it answers.
  */
 export function createAuth(env: AuthBindings): Auth {
   let auth = instances.get(env);
