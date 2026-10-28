@@ -1,3 +1,4 @@
+import { IN_FORCE_UNTIL } from "./db/schema";
 import type { CodiceBindings } from "./env";
 import {
   allSources,
@@ -7,6 +8,8 @@ import {
   type CatalogFilter,
   corpusVersion,
   errorCode,
+  passageChanges,
+  passageHeadings,
   passageRow,
   recordsDatabase,
   sourcesById,
@@ -14,10 +17,13 @@ import {
   validity,
 } from "./records";
 import {
+  briefResult,
   parseAsOf,
   PASSAGE_KINDS,
   SEARCH_LIMIT_DEFAULT,
+  SEARCH_FORMATS,
   SEARCH_LIMIT_MAX,
+  type SearchFormat,
   searchRequest,
   searchResults,
   todayInMexicoCity,
@@ -46,6 +52,8 @@ export type SearchParameters = {
   readonly source?: string | undefined;
   readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
+  /** `full` (the default) or `brief`. */
+  readonly format?: string | undefined;
 };
 
 const QUERY_MAX = 1000;
@@ -81,13 +89,24 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   return { q, asOf, source, kind, limit };
 }
 
+/** The result format, `full` when absent. It shapes the answer only, never the search. */
+export function searchFormat(value: string | undefined): SearchFormat {
+  const format = value?.trim() || "full";
+  if (!(SEARCH_FORMATS as readonly string[]).includes(format)) {
+    throw invalid(`\`format\` is one of ${SEARCH_FORMATS.join(", ")}.`);
+  }
+  return format as SearchFormat;
+}
+
 /**
  * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
  * each result's source as it read that day. A search asked before on the same corpus answers from
- * the cache (`search-cache.ts`); the provenance is read each time.
+ * the cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
+ * heading path and an excerpt after the cache, so both formats share one entry.
  */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
   const input = searchInput(parameters);
+  const format = searchFormat(parameters.format);
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
   const instance = env.CODICE_SEARCH;
   const db = recordsDatabase(env);
@@ -104,6 +123,25 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     }
   });
   const results = searchResults(chunks);
+  const query = {
+    query: input.q,
+    asOf: isoDate(input.asOf),
+    source: input.source ?? null,
+    kind: input.kind ?? null,
+  };
+  if (format === "brief") {
+    const headings = await passageHeadings(
+      db,
+      results.map((result) => result.passageId),
+    );
+    return {
+      ...query,
+      format,
+      results: results.map((result) =>
+        briefResult(result, input.q, headings.get(result.passageId) ?? null),
+      ),
+    };
+  }
   // The version of each source in force on `asOf`, the one a superseded passage was read from.
   const provenance = await sourcesOn(
     db,
@@ -111,10 +149,8 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     input.asOf,
   );
   return {
-    query: input.q,
-    asOf: isoDate(input.asOf),
-    source: input.source ?? null,
-    kind: input.kind ?? null,
+    ...query,
+    format,
     results: results.map((result) => {
       const source = provenance.get(result.source);
       return {
@@ -247,6 +283,40 @@ export async function listCatalog(env: CodiceBindings, name: string) {
   const listing = await catalogListing(recordsDatabase(env), name);
   if (!listing) throw new CodiceProblem(404, "catalog_not_found", "Catalog not found");
   return listing;
+}
+
+export type ChangesParameters = {
+  readonly since?: string | undefined;
+  readonly until?: string | undefined;
+  readonly source?: string | undefined;
+};
+
+/**
+ * The passages added, changed or removed from `since` through `until` (SPEC.md, "Changes"). With
+ * no `until`, every change from `since` on, including one Códice already holds for a later date.
+ * It reads D1 alone.
+ */
+export async function listChanges(env: CodiceBindings, parameters: ChangesParameters) {
+  const since = parameters.since?.trim() ? parseAsOf(parameters.since.trim()) : null;
+  if (since === null) throw invalid("`since` is required, a date as YYYY-MM-DD.");
+  const until = parameters.until?.trim() ? parseAsOf(parameters.until.trim()) : undefined;
+  if (until === null) throw invalid("`until` must be a date as YYYY-MM-DD.");
+  if (until !== undefined && until < since) throw invalid("`until` must not precede `since`.");
+  const source = parameters.source?.trim() || undefined;
+  if (source && !SOURCE.test(source)) throw invalid("`source` is not a source id.");
+  const changes = await passageChanges(
+    recordsDatabase(env),
+    since,
+    // The last day a change can apply from: the day before the in-force sentinel.
+    until ?? IN_FORCE_UNTIL - 1,
+    source,
+  );
+  return {
+    since: isoDate(since),
+    until: until === undefined ? null : isoDate(until),
+    source: source ?? null,
+    changes,
+  };
 }
 
 export async function listSources(env: CodiceBindings) {

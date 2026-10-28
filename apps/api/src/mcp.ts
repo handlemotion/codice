@@ -4,19 +4,26 @@ import { z } from "zod";
 import type { CodiceBindings } from "./env";
 import {
   CodiceProblem,
+  listChanges,
   listSources,
   lookupCatalog,
   lookupError,
   readPassage,
   search,
 } from "./handlers";
-import { PASSAGE_KINDS, SEARCH_LIMIT_DEFAULT, SEARCH_LIMIT_MAX } from "./search";
+import {
+  EXCERPT_LENGTH,
+  PASSAGE_KINDS,
+  SEARCH_FORMATS,
+  SEARCH_LIMIT_DEFAULT,
+  SEARCH_LIMIT_MAX,
+} from "./search";
 
 export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages, each as its heading path and a verbatim excerpt (whole when `truncated` is false on both sides); `read_passage` returns one in full, with its source, by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates.";
 
 export const SearchArguments = z.object({
   q: z
@@ -50,6 +57,23 @@ export const SearchArguments = z.object({
     .max(SEARCH_LIMIT_MAX)
     .optional()
     .describe(`How many passages to return; ${SEARCH_LIMIT_DEFAULT} by default.`),
+  format: z
+    .enum(SEARCH_FORMATS)
+    .optional()
+    .describe(
+      `\`full\` (the default) quotes each passage's matched text; \`brief\` gives its heading path and an excerpt of at most ${EXCERPT_LENGTH} characters around the question's words, cut from the text verbatim, for \`/v1/passages/{id}\` to read the one that answers.`,
+    ),
+});
+
+/**
+ * MCP's `search` is brief by default: an agent reads the headings and excerpts, then `read_passage`
+ * for a cut one it quotes, instead of holding every full passage in its context (SPEC.md, "MCP
+ * surface").
+ */
+export const McpSearchArguments = SearchArguments.extend({
+  format: SearchArguments.shape.format.describe(
+    `\`brief\` (the default) gives each passage's heading path and an excerpt of at most ${EXCERPT_LENGTH} characters around the question's words, cut from the text verbatim. \`full\` quotes each passage's whole matched text, with its source.`,
+  ),
 });
 
 export const ReadPassageArguments = z.object({
@@ -85,6 +109,26 @@ export const LookupCatalogArguments = z.object({
     .describe(
       "Keep only the entries whose column equals the value, by the catalog's own column names, for a key that repeats: `{ c_CodigoPostal: '01000' }` for a `c_Colonia` key, `{ c_Estado: 'JAL' }` for a `c_Municipio` or `c_Localidad` key.",
     ),
+});
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/u;
+
+export const ListChangesArguments = z.object({
+  since: z
+    .string()
+    .regex(ISO_DATE)
+    .describe("The first day of the window, YYYY-MM-DD: changes that apply from this day on."),
+  until: z
+    .string()
+    .regex(ISO_DATE)
+    .optional()
+    .describe(
+      "The last day of the window, YYYY-MM-DD. Without it, every change from `since` on, including any Códice already holds for a later date.",
+    ),
+  source: z
+    .string()
+    .optional()
+    .describe("Only one source, by the id `list_sources` gives, such as `rmf-2026`."),
 });
 
 const READ_ONLY = {
@@ -144,10 +188,10 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Search SAT rules",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF. Catalog keys are not searched; use `lookup_catalog`. Returns passages quoted verbatim, each with its passage id, source URL, validity dates and relevance score.",
-      inputSchema: SearchArguments,
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF. Catalog keys are not searched; use `lookup_catalog`. Returns the best passages, each with its passage id, heading path, an excerpt cut verbatim from its text, validity dates and relevance score. An excerpt with `truncated.before` and `truncated.after` false is the whole passage; otherwise read the one that answers with `read_passage` before quoting it, or quote the excerpt with an ellipsis (…) where it is cut. `format: full` returns each passage's whole matched text and source instead.",
+      inputSchema: McpSearchArguments,
     },
-    (args) => search(env, args),
+    (args) => search(env, { ...args, format: args.format ?? "brief" }),
   );
   registerTool(
     server,
@@ -192,6 +236,17 @@ export function createCodiceMcpServer(env: CodiceBindings) {
       inputSchema: z.object({}),
     },
     () => listSources(env),
+  );
+  registerTool(
+    server,
+    "list_changes",
+    {
+      title: "List changes",
+      description:
+        "List the passages the SAT added, changed or removed between two dates, by the day each change applies from. Each change gives the passage id of the text in force from that day and, for a change, the dated id of the text before it, which `read_passage` reads; a change with no previous id is one Códice holds no earlier text of.",
+      inputSchema: ListChangesArguments,
+    },
+    (args) => listChanges(env, args),
   );
   return server;
 }
