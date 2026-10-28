@@ -1003,6 +1003,7 @@ describe("/mcp", () => {
       "lookup_error",
       "lookup_catalog",
       "list_sources",
+      "list_changes",
     ]);
     expect(body.result.tools.every((tool) => tool.annotations.readOnlyHint)).toBe(true);
   });
@@ -1116,6 +1117,218 @@ describe("/mcp", () => {
       filters: { valid_from: { $lte: 20260601 }, valid_until: { $gte: 20260601 } },
       max_num_results: 2,
       return_on_failure: false,
+    });
+  });
+});
+
+describe("GET /v1/changes", () => {
+  // A guide replaced on 2026-06-01: one node rewritten, one added, one dropped, one the same; and an
+  // RMF that one amendment changed with no earlier text kept (the Primera RMRMF before Códice loaded
+  // the RMF) and another changed after Códice had its text (SPEC.md, "Changes").
+  const GUIDE = "pagos-prueba";
+  const RMF = "rmf-prueba";
+  const passage = (key: string, validFrom: number, validUntil?: number) => ({
+    key,
+    sourceId: key.split("/")[0]!,
+    heading: `Encabezado de ${key}`,
+    sha256: "6".repeat(64),
+    body: `Texto de ${key}`,
+    kind: key.startsWith(RMF) ? "regla" : "guia",
+    validFrom,
+    ...(validUntil === undefined ? {} : { validUntil }),
+  });
+
+  beforeAll(async () => {
+    const db = drizzle(bindings.CODICE_DATABASE!);
+    await db.insert(sources).values([
+      {
+        ...SOURCE,
+        id: GUIDE,
+        title: "Guía de llenado de Pagos (2026)",
+        url: "http://omawww.sat.gob.mx/pagos-2026.pdf",
+        publishedAt: "2026-06-01",
+        validFrom: 20260601,
+      },
+      {
+        ...SOURCE,
+        id: RMF,
+        title: "Resolución Miscelánea Fiscal (compilada)",
+        url: "http://omawww.sat.gob.mx/rmf.pdf",
+        // A compilation published after the reglas it holds start, as the real one is.
+        publishedAt: "2026-07-16",
+        validFrom: 20260716,
+      },
+    ]);
+    await db.insert(sourceVersions).values({
+      sourceId: GUIDE,
+      title: "Guía de llenado de Pagos (2022)",
+      url: "http://omawww.sat.gob.mx/pagos-2022.pdf",
+      sha256: "7".repeat(64),
+      publishedAt: "2022-01-01",
+      retrievedAt: new Date("2025-06-01T00:00:00.000Z"),
+      validFrom: 20220101,
+      validUntil: 20260531,
+    });
+    await db
+      .insert(passages)
+      .values([
+        passage(`${GUIDE}/nodo-pago.md`, 20220101),
+        passage(`${GUIDE}/nodo-pago-monto.md`, 20260601),
+        passage(`${GUIDE}/nodo-pago-monto.20220101.md`, 20220101, 20260531),
+        passage(`${GUIDE}/nodo-pago-nuevo.md`, 20260601),
+        passage(`${GUIDE}/nodo-pago-retirado.20220101.md`, 20220101, 20260531),
+        passage(`${RMF}/regla-2.1.1.md`, 20251228),
+        passage(`${RMF}/regla-2.7.1.50.md`, 20260709),
+        passage(`${RMF}/regla-3.1.1.md`, 20261001),
+        passage(`${RMF}/regla-3.1.1.20251228.md`, 20251228, 20260930),
+      ]);
+  });
+
+  const GUIDE_CHANGES = [
+    {
+      change: "added",
+      date: "2026-06-01",
+      passageId: `${GUIDE}/nodo-pago-nuevo.md`,
+      previousPassageId: null,
+      source: GUIDE,
+      heading: `Encabezado de ${GUIDE}/nodo-pago-nuevo.md`,
+      kind: "guia",
+      validFrom: "2026-06-01",
+      validUntil: null,
+    },
+    {
+      change: "changed",
+      date: "2026-06-01",
+      passageId: `${GUIDE}/nodo-pago-monto.md`,
+      previousPassageId: `${GUIDE}/nodo-pago-monto.20220101.md`,
+      source: GUIDE,
+      heading: `Encabezado de ${GUIDE}/nodo-pago-monto.md`,
+      kind: "guia",
+      validFrom: "2026-06-01",
+      validUntil: null,
+    },
+    {
+      change: "removed",
+      date: "2026-06-01",
+      passageId: `${GUIDE}/nodo-pago-retirado.20220101.md`,
+      previousPassageId: null,
+      source: GUIDE,
+      heading: `Encabezado de ${GUIDE}/nodo-pago-retirado.20220101.md`,
+      kind: "guia",
+      validFrom: "2022-01-01",
+      validUntil: "2026-05-31",
+    },
+  ].sort((a, b) => a.passageId.localeCompare(b.passageId));
+
+  async function changes(query: string) {
+    const response = await request(`/v1/changes?${query}`);
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { data: { changes: unknown[] } }).data;
+  }
+
+  it("lists a new version's added, changed and removed passages, from validity alone", async () => {
+    expect(await changes(`since=2026-01-01&source=${GUIDE}`)).toEqual({
+      since: "2026-01-01",
+      until: null,
+      source: GUIDE,
+      changes: GUIDE_CHANGES,
+    });
+  });
+
+  it("does not report the first version Códice holds of a source as a change", async () => {
+    const data = await changes(`since=2020-01-01&until=2026-06-01&source=${GUIDE}`);
+    expect(data.changes).toEqual(GUIDE_CHANGES);
+  });
+
+  it("includes both ends of the window", async () => {
+    expect((await changes(`since=2026-06-01&until=2026-06-01&source=${GUIDE}`)).changes).toEqual(
+      GUIDE_CHANGES,
+    );
+    expect((await changes(`since=2026-06-02&source=${GUIDE}`)).changes).toEqual([]);
+    expect((await changes(`since=2026-01-01&until=2026-05-31&source=${GUIDE}`)).changes).toEqual(
+      [],
+    );
+  });
+
+  it("reports an amendment Códice holds no earlier text of as a change with no previous version", async () => {
+    expect((await changes(`since=2026-07-01&source=${RMF}`)).changes).toEqual([
+      expect.objectContaining({
+        change: "changed",
+        date: "2026-07-09",
+        passageId: `${RMF}/regla-2.7.1.50.md`,
+        previousPassageId: null,
+        kind: "regla",
+        validFrom: "2026-07-09",
+        validUntil: null,
+      }),
+      expect.objectContaining({
+        change: "changed",
+        date: "2026-10-01",
+        passageId: `${RMF}/regla-3.1.1.md`,
+        previousPassageId: `${RMF}/regla-3.1.1.20251228.md`,
+      }),
+    ]);
+    expect((await changes(`since=2026-07-01&until=2026-09-30&source=${RMF}`)).changes).toHaveLength(
+      1,
+    );
+  });
+
+  it("reads the previous version of a change by its dated id", async () => {
+    const [change] = (await changes(`since=2026-10-01&source=${RMF}`)).changes as {
+      previousPassageId: string;
+    }[];
+    const response = await request(`/v1/passages/${change!.previousPassageId}`);
+
+    expect(await response.json()).toMatchObject({
+      data: {
+        text: `Texto de ${RMF}/regla-3.1.1.20251228.md`,
+        validFrom: "2025-12-28",
+        validUntil: "2026-09-30",
+      },
+    });
+  });
+
+  it.each([
+    ["", "`since` is required"],
+    ["since=2026-02-30", "`since` is required"],
+    ["since=2026-07-01&until=2026-13-01", "`until` must be a date"],
+    ["since=2026-07-01&until=2026-06-30", "`until` must not precede `since`"],
+    ["since=2026-07-01&source=RMF%202026", "`source` is not a source id"],
+  ])("refuses `%s` as 400 invalid_request", async (query, detail) => {
+    const response = await request(`/v1/changes?${query}`);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "invalid_request",
+      detail: expect.stringContaining(detail),
+    });
+  });
+
+  it("answers the MCP tool `list_changes` with the same handler", async () => {
+    const response = await app.request(
+      "http://localhost/mcp",
+      {
+        method: "POST",
+        headers: {
+          host: "localhost",
+          authorization: apiKey(),
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          "mcp-protocol-version": "2025-06-18",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "list_changes", arguments: { since: "2026-01-01", source: GUIDE } },
+        }),
+      },
+      bindings,
+    );
+    const text = await response.text();
+
+    expect(JSON.parse(/^data: (.+)$/mu.exec(text)?.[1] ?? text)).toMatchObject({
+      result: { structuredContent: { since: "2026-01-01", changes: GUIDE_CHANGES } },
     });
   });
 });
