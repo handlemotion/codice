@@ -3,37 +3,51 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { authClient } from "../../auth-client";
 import { Avatar } from "../../components/dashboard-shell";
-import { FIELD, GHOST, Page, SECONDARY, Section } from "../../components/ui";
-import { listMembers, renameUser, setActiveTeam } from "../../server/functions";
+import {
+  AddRow,
+  FIELD,
+  GHOST,
+  LIST,
+  PRIMARY,
+  Page,
+  ROLE_LABELS,
+  ROW,
+  RoleBadge,
+  SECONDARY,
+  Section,
+} from "../../components/ui";
+import {
+  acceptInvitation,
+  createTeam,
+  getReceivedInvitations,
+  rejectInvitation,
+  renameUser,
+  setActiveTeam,
+} from "../../server/functions";
 import { currentTheme, toggleTheme, type Theme } from "../../theme";
 
 export const Route = createFileRoute("/_dashboard/account")({
   head: () => ({ meta: [{ title: "Cuenta · Códice" }] }),
-  loader: async ({ context }) => {
-    const team = context.dashboard.team;
-    return { members: team ? await listMembers({ data: team.id }) : [] };
-  },
+  loader: async () => ({ invitations: await getReceivedInvitations() }),
   component: Account,
 });
 
-const ROLES: Record<string, string> = {
-  owner: "Propietario",
-  admin: "Administrador",
-  member: "Miembro",
-};
-
-const ROW = "flex items-center justify-between gap-4 py-3";
-const LIST = "-my-3 flex flex-col divide-y divide-edge";
-
+/**
+ * The user's own account, behind the avatar: their profile, invitations waiting for them, the
+ * teams they belong to (to switch to or create one), and preferences. The active team's own
+ * settings are on Equipo (`team.tsx`).
+ */
 function Account() {
   const { dashboard } = Route.useRouteContext();
-  const { members } = Route.useLoaderData();
+  const { invitations } = Route.useLoaderData();
   const router = useRouter();
   const navigate = useNavigate();
   const [name, setName] = useState(dashboard.user.name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("dark");
+  const [creating, setCreating] = useState(false);
+  const [teamName, setTeamName] = useState("");
 
   // The theme lives on <html>, so it is read once mounted; T may change it from anywhere.
   useEffect(() => {
@@ -59,6 +73,15 @@ function Account() {
   function rename(event: FormEvent) {
     event.preventDefault();
     void run(() => renameUser({ data: name }));
+  }
+
+  function create(event: FormEvent) {
+    event.preventDefault();
+    void run(async () => {
+      await createTeam({ data: teamName });
+      setTeamName("");
+      setCreating(false);
+    });
   }
 
   async function signOut() {
@@ -95,49 +118,89 @@ function Account() {
         {error && <p className="text-[13px] text-muted">{error}</p>}
       </Section>
 
-      <Section note={dashboard.team?.name} title="Equipo">
-        {members.length === 0 ? (
-          <p className="text-muted">No perteneces a ningún equipo.</p>
-        ) : (
+      {invitations.length > 0 && (
+        <Section title="Invitaciones">
           <ul className={LIST}>
-            {members.map((member) => (
-              <li className={ROW} key={member.id}>
+            {invitations.map((invitation) => (
+              <li className={ROW} key={invitation.id}>
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{member.name}</span>
-                  <span className="truncate text-[13px] text-muted">{member.email}</span>
+                  <span className="truncate">{invitation.team}</span>
+                  <span className="truncate text-[13px] text-muted">
+                    Como {(ROLE_LABELS[invitation.role] ?? invitation.role).toLocaleLowerCase("es")}
+                  </span>
                 </div>
-                <span className="shrink-0 text-[13px] text-muted">
-                  {ROLES[member.role] ?? member.role}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      {dashboard.teams.length > 1 && (
-        <Section title="Tus equipos">
-          <ul className={LIST}>
-            {dashboard.teams.map((team) => (
-              <li className={ROW} key={team.id}>
-                <span className="truncate">{team.name}</span>
-                {team.id === dashboard.team?.id ? (
-                  <span className="text-[13px] text-muted">Actual</span>
-                ) : (
+                <span className="flex shrink-0 items-center gap-3">
                   <button
                     className={GHOST}
                     disabled={busy}
-                    onClick={() => void run(() => setActiveTeam({ data: team.id }))}
+                    onClick={() => void run(() => rejectInvitation({ data: invitation.id }))}
                     type="button"
                   >
-                    Cambiar
+                    Rechazar
                   </button>
-                )}
+                  <button
+                    className={PRIMARY}
+                    disabled={busy}
+                    onClick={() => void run(() => acceptInvitation({ data: invitation.id }))}
+                    type="button"
+                  >
+                    Unirme
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
         </Section>
       )}
+
+      <Section title="Tus equipos">
+        <ul className={LIST}>
+          {dashboard.teams.map((team) => (
+            <li className={ROW} key={team.id}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="truncate">{team.name}</span>
+                <RoleBadge role={team.role} />
+              </div>
+              {team.id === dashboard.team?.id ? (
+                <span className="text-[13px] text-muted">Actual</span>
+              ) : (
+                <button
+                  className={GHOST}
+                  disabled={busy}
+                  onClick={() => void run(() => setActiveTeam({ data: team.id }))}
+                  type="button"
+                >
+                  Cambiar
+                </button>
+              )}
+            </li>
+          ))}
+          <li>
+            {creating ? (
+              <form className="flex gap-2 py-3" onSubmit={create}>
+                <input
+                  aria-label="Nombre del equipo"
+                  autoFocus
+                  className={`${FIELD} flex-1`}
+                  maxLength={64}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  placeholder="Nombre, por ejemplo tu empresa"
+                  required
+                  value={teamName}
+                />
+                <button className={GHOST} onClick={() => setCreating(false)} type="button">
+                  Cancelar
+                </button>
+                <button className={PRIMARY} disabled={busy || !teamName.trim()} type="submit">
+                  Crear
+                </button>
+              </form>
+            ) : (
+              <AddRow disabled={busy} label="Crear un equipo" onClick={() => setCreating(true)} />
+            )}
+          </li>
+        </ul>
+      </Section>
 
       <Section title="Preferencias">
         <ul className={LIST}>

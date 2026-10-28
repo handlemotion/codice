@@ -9,7 +9,9 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 export class CodiceAccounts extends WorkerEntrypoint {
   verifyApiKey(key) {
     const id = typeof key === "string" ? /^cdc_test_(\w+)$/u.exec(key)?.[1] : undefined;
-    return id ? { valid: true, keyId: id, organizationId: "team-test" } : { valid: false };
+    return id
+      ? { valid: true, keyId: id, organizationId: "team-test", userId: "user-test" }
+      : { valid: false };
   }
   verifyAccessToken(token) {
     const [, kind, user] = /^at_(test|noscope)_(\w+)$/u.exec(String(token)) ?? [];

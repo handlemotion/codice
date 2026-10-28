@@ -377,7 +377,12 @@ describe("usage", () => {
     expect(response.status).toBe(200);
     expect(events).toEqual([
       {
-        caller: { kind: "api_key", keyId: "usagehttp", organizationId: "team-test" },
+        caller: {
+          kind: "api_key",
+          keyId: "usagehttp",
+          organizationId: "team-test",
+          userId: "user-test",
+        },
         surface: "http",
         operation: "list_sources",
         status: 200,

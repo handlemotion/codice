@@ -3,6 +3,7 @@ import {
   IconChart4,
   IconContrast,
   IconKey2,
+  IconGroup1,
   IconPlugin1,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, getRouteApi, useLocation, useNavigate } from "@tanstack/react-router";
@@ -10,21 +11,26 @@ import { useEffect, type ComponentType, type ReactNode } from "react";
 
 import { Mark } from "../brand/mark";
 import { toggleTheme } from "../theme";
-import { Key } from "./ui";
+import { Key, PersonAvatar } from "./ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type Destination = { label: string; key: string } & (
-  | { to: "/" | "/keys" | "/clients" | "/account"; icon?: ComponentType<{ size?: number }> }
+  | {
+      to: "/" | "/keys" | "/clients" | "/team" | "/account";
+      icon?: ComponentType<{ size?: number }>;
+    }
   | { href: string; icon: ComponentType<{ size?: number }> }
 );
 
-// The rail's places, in order, each on its number key. The account is the avatar, last.
+// The rail's places, in order, each on its number key. The team's settings come before the
+// user's own account, which is the avatar, last.
 const USAGE: Destination = { to: "/", label: "Uso", key: "1", icon: IconChart4 };
 const KEYS: Destination = { to: "/keys", label: "Claves", key: "2", icon: IconKey2 };
 const CLIENTS: Destination = { to: "/clients", label: "Clientes", key: "3", icon: IconPlugin1 };
 const DOCS: Destination = { href: "/docs", label: "Documentación", key: "4", icon: IconBook };
-const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "5" };
-const PLACES = [USAGE, KEYS, CLIENTS, DOCS, ACCOUNT];
+const TEAM: Destination = { to: "/team", label: "Equipo", key: "5", icon: IconGroup1 };
+const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "6" };
+const PLACES = [USAGE, KEYS, CLIENTS, DOCS, TEAM, ACCOUNT];
 
 const dashboardRoute = getRouteApi("/_dashboard");
 
@@ -54,28 +60,27 @@ function Hint({
   );
 }
 
-/** The user's photo, or the first letter of their name in a hairline circle. */
+/** The signed-in user's photo or initial. */
 export function Avatar({ size = 28 }: { size?: number }) {
   const { dashboard } = dashboardRoute.useRouteContext();
-  const { name, email, image } = dashboard.user;
-  const style = { width: size, height: size };
-  if (image) {
-    return <img alt="" className="rounded-full object-cover" src={image} style={style} />;
-  }
-  return (
-    <span
-      className="grid place-items-center rounded-full border border-current/40 text-[12px]"
-      style={style}
-    >
-      {(name.trim() || email).charAt(0).toLocaleUpperCase("es")}
-    </span>
-  );
+  return <PersonAvatar person={dashboard.user} size={size} />;
 }
 
 function RailItem({ place, current }: { place: Destination; current: boolean }) {
+  const { dashboard } = dashboardRoute.useRouteContext();
   const className = `${ITEM} ${current ? CURRENT : IDLE}`;
   const Icon = place.icon;
-  const content = Icon ? <Icon size={18} /> : <Avatar size={20} />;
+  // The avatar carries an electric dot while invitations wait on the account page.
+  const content = Icon ? (
+    <Icon size={18} />
+  ) : (
+    <span className="relative">
+      <Avatar size={20} />
+      {dashboard.invitations > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-electric ring-2 ring-ink" />
+      )}
+    </span>
+  );
   return (
     <Hint label={place.label} shortcut={place.key}>
       {"to" in place ? (

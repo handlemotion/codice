@@ -5,16 +5,29 @@ see their usage and manage their API keys. The root `AGENTS.md` applies here. It
 target of `apps/edge`: every path that is not the API's, the site's `/` or `/_site/*` reaches it.
 
 - Read `DESIGN.md` before changing anything visible; it extends `apps/site/DESIGN.md`.
-- Pages: usage (`/`), the team's keys (`/keys`), the user's MCP clients (`/clients`) and the account (`/account`), under a left rail
-  (`src/components/dashboard-shell.tsx`).
+- Pages: usage (`/`), the team's keys (`/keys`), the user's MCP clients (`/clients`), the active
+  team's settings (`/team`) and the user's own account (`/account`, the avatar, last), under a
+  left rail (`src/components/dashboard-shell.tsx`). `/invitacion/$id`, outside the rail, accepts
+  an emailed invitation; signed out, it goes through `/login?siguiente=` and back.
 - Never use `/v1`, `/mcp`, `/health`, `/ready` or `/_site/*`: the edge sends them elsewhere.
 - The session cookie is `__Secure-codice-session` (`apps/edge/src/route.ts`); with it, `/` is the
   dashboard. Answer `/` without a valid session with a redirect to `/login`, and the edge serves the
   site instead. Every signed-in page sits under the pathless `_dashboard` route, which redirects.
 - Auth is Better Auth (`src/server/auth.ts`) at `/api/auth/*`: email code (Cloudflare Email Sending,
   binding `EMAIL`), Google and GitHub; users, sessions and teams (the `organization` plugin) in D1
-  `codice-accounts` (`ACCOUNTS_DATABASE`). A new user gets a personal team; only a team's owner
-  manages its keys.
+  `codice-accounts` (`ACCOUNTS_DATABASE`). A new user gets a personal team.
+- Teams (`src/server/teams.ts`, `src/server/permissions.ts`): the organization plugin with its
+  access control, roles `owner`, `admin` and `member`, plus an `apiKey` statement the api-key
+  plugin checks. Owners and admins rename the team, invite (`sendInvitationEmail`, a link to
+  `/invitacion/$id`), change roles, remove members and revoke any key; members create keys, see
+  the team's keys, people and usage, revoke their own keys, and leave. Change permissions in
+  `permissions.ts`, never by checking roles in a page: the plugin's endpoints are public at
+  `/api/auth/*`, so only what Better Auth enforces holds.
+- Each key names its creator in its metadata (`{ createdBy }`): a `hooks.before` in `auth.ts`
+  sets it on `/api-key/create` from the session (whatever the request sent), refuses metadata
+  changes on `/api-key/update`, and refuses a member deleting a key they did not create.
+  `verifyApiKey` returns it as `userId`, and usage rows keep it (`api_usage.user_id`), so a
+  revoked key's calls stay attributed.
 - API keys (`@better-auth/api-key`): owned by the team, prefix `cdc_`, stored hashed in KV only
   (`API_KEYS`, `src/server/api-key-store.ts`), with Better Auth's own per-key rate limit off.
   `codice-api` verifies them through the `CodiceAccounts` entrypoint (`src/server.ts`), which reads

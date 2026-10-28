@@ -45,6 +45,23 @@ interface StoredApiKey {
   referenceId: string;
   enabled?: boolean;
   expiresAt?: string | null;
+  /** `{ createdBy }` (`ApiKeyMetadata` in `auth.ts`), as an object or its JSON. */
+  metadata?: unknown;
+}
+
+/** The member who created a key; `null` for a key made before keys named their creator. */
+function creatorOf(metadata: unknown): string | null {
+  let value = metadata;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value !== "object" || value === null) return null;
+  const { createdBy } = value as { createdBy?: unknown };
+  return typeof createdBy === "string" ? createdBy : null;
 }
 
 const INVALID: ApiKeyVerification = { valid: false };
@@ -64,7 +81,12 @@ export async function verifyApiKey(
   if (!stored?.id || !stored.referenceId || stored.enabled === false) return INVALID;
   if (stored.expiresAt && Date.parse(stored.expiresAt) <= Date.now()) return INVALID;
   waitUntil(recordUse(kv, stored.id));
-  return { valid: true, keyId: stored.id, organizationId: stored.referenceId };
+  return {
+    valid: true,
+    keyId: stored.id,
+    organizationId: stored.referenceId,
+    userId: creatorOf(stored.metadata),
+  };
 }
 
 // Its own KV entry, never the key record: a late write to the record could restore a revoked key.

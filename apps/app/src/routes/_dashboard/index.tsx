@@ -14,16 +14,19 @@ import {
   UsageBars,
 } from "../../components/usage-chart";
 import { getUsage } from "../../server/functions";
-import type { UsageWeek } from "../../server/usage";
+import type { UsageSeries, UsageWeek } from "../../server/usage";
 
-type Search = { hasta?: string };
+/** `hasta`: the week's last day. `por`: the chart's series, keys and clients or people. */
+type Search = { hasta?: string; por?: "personas" };
 
 export const Route = createFileRoute("/_dashboard/")({
   head: () => ({ meta: [{ title: "Uso · Códice" }] }),
-  validateSearch: (search: Record<string, unknown>): Search =>
-    typeof search.hasta === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(search.hasta)
+  validateSearch: (search: Record<string, unknown>): Search => ({
+    ...(typeof search.hasta === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(search.hasta)
       ? { hasta: search.hasta }
-      : {},
+      : {}),
+    ...(search.por === "personas" ? { por: "personas" as const } : {}),
+  }),
   loaderDeps: ({ search }) => ({ end: search.hasta }),
   loader: async ({ context, deps }) => {
     const team = context.dashboard.team;
@@ -82,7 +85,12 @@ function WeekControl({ usage }: { usage: UsageWeek }) {
           <IconChevronLeftSmall size={16} />
         </span>
       ) : (
-        <Link aria-label="Semana anterior" className={step} search={{ hasta: previous }} to="/">
+        <Link
+          aria-label="Semana anterior"
+          className={step}
+          search={(current) => ({ ...current, hasta: previous })}
+          to="/"
+        >
           <IconChevronLeftSmall size={16} />
         </Link>
       )}
@@ -97,7 +105,7 @@ function WeekControl({ usage }: { usage: UsageWeek }) {
         <Link
           aria-label="Semana siguiente"
           className={step}
-          search={next >= usage.today ? {} : { hasta: next }}
+          search={(current) => ({ ...current, hasta: next >= usage.today ? undefined : next })}
           to="/"
         >
           <IconChevronRightSmall size={16} />
@@ -129,8 +137,43 @@ function Totals({ usage }: { usage: UsageWeek }) {
   );
 }
 
+/** Switches the chart between keys and clients and the people behind them. */
+function GroupControl({ byPeople }: { byPeople: boolean }) {
+  const option = "rounded-[2px] px-2 py-0.5";
+  const on = `${option} bg-fg/8 text-fg`;
+  const off = `${option} hover:text-fg`;
+  return (
+    <span className="-my-1 flex items-center gap-1">
+      <Link
+        aria-current={byPeople ? undefined : "true"}
+        className={byPeople ? off : on}
+        search={(current) => ({ ...current, por: undefined })}
+        to="/"
+      >
+        Por clave
+      </Link>
+      <Link
+        aria-current={byPeople ? "true" : undefined}
+        className={byPeople ? on : off}
+        search={(current) => ({ ...current, por: "personas" as const })}
+        to="/"
+      >
+        Por persona
+      </Link>
+    </span>
+  );
+}
+
+function seriesHint(entry: UsageSeries) {
+  if (entry.kind === "user") return entry.hint;
+  const credential = entry.kind === "oauth" ? (entry.hint ?? "MCP") : entry.hint;
+  return [credential, entry.person].filter(Boolean).join(" · ") || null;
+}
+
 function Usage() {
   const { team, usage } = Route.useLoaderData();
+  const { por } = Route.useSearch();
+  const byPeople = por === "personas";
   const pending = useRouterState({ select: (state) => state.status === "pending" });
 
   if (!team || !usage) {
@@ -143,7 +186,7 @@ function Usage() {
     );
   }
 
-  const series = usage.series.map((entry, index) => ({
+  const series = (byPeople ? usage.people : usage.series).map((entry, index) => ({
     ...entry,
     color: seriesColor(index),
   }));
@@ -154,7 +197,7 @@ function Usage() {
       <div className={`flex flex-col gap-6 transition-opacity ${pending ? "opacity-60" : ""}`}>
         <Totals usage={usage} />
         <Section
-          note={series.length > 0 ? `Claves de ${team.name} y tus asistentes` : undefined}
+          note={series.length > 0 ? <GroupControl byPeople={byPeople} /> : undefined}
           title="Solicitudes"
         >
           {series.length === 0 ? (
@@ -171,13 +214,18 @@ function Usage() {
                 {series.map((entry) => (
                   <SeriesRow
                     color={entry.color}
-                    hint={entry.kind === "oauth" ? (entry.hint ?? "MCP") : entry.hint}
+                    hint={seriesHint(entry)}
                     key={entry.id}
                     label={entry.label}
                     value={requests(entry.requests)}
                   />
                 ))}
               </ul>
+              <p className="text-[13px] text-muted">
+                {byPeople
+                  ? `Las claves de ${team.name}, por quien las creó, y tus asistentes, a tu nombre.`
+                  : `Las claves de ${team.name} y tus asistentes.`}
+              </p>
             </>
           )}
         </Section>

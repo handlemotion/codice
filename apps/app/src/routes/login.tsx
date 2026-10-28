@@ -7,10 +7,17 @@ import { GHOST, PRIMARY, SECONDARY } from "../components/ui";
 import type { SocialProvider } from "../server/auth";
 import { getDashboard, getSignInProviders } from "../server/functions";
 
+/** `siguiente`: where to go once signed in; only an invitation's page (no open redirect). */
+type Search = { siguiente?: string };
+
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Entrar · Códice" }] }),
-  beforeLoad: async () => {
-    if (await getDashboard()) throw redirect({ to: "/" });
+  validateSearch: (search: Record<string, unknown>): Search =>
+    typeof search.siguiente === "string" && /^\/invitacion\/[\w-]+$/u.test(search.siguiente)
+      ? { siguiente: search.siguiente }
+      : {},
+  beforeLoad: async ({ search }) => {
+    if (await getDashboard()) throw redirect({ href: search.siguiente ?? "/" });
   },
   loader: async () => ({ providers: await getSignInProviders() }),
   component: Login,
@@ -54,6 +61,7 @@ const PROVIDERS: Record<SocialProvider, { label: string; Logo: () => React.JSX.E
  */
 function Login() {
   const { providers } = Route.useLoaderData();
+  const { siguiente } = Route.useSearch();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -86,12 +94,12 @@ function Login() {
     );
     // During an MCP client's authorization, the sign-in answers with the next step (consent
     // or the client's redirect) and the auth client follows it.
-    if (ok && !inAuthorization()) await navigate({ to: "/" });
+    if (ok && !inAuthorization()) await navigate({ href: siguiente ?? "/" });
   }
 
   function social(provider: SocialProvider) {
     void run(
-      () => authClient.signIn.social({ provider, callbackURL: "/" }),
+      () => authClient.signIn.social({ provider, callbackURL: siguiente ?? "/" }),
       "No se pudo entrar. Intenta de nuevo.",
     );
   }

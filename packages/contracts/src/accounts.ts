@@ -3,8 +3,8 @@
  * authenticate `/v1` and `/mcp` calls (apps/api/SPEC.md, "Auth").
  */
 export type ApiKeyVerification =
-  | { valid: true; keyId: string; organizationId: string }
-  | { valid: false };
+  /** `userId`: the team member who created the key; `null` for a key from before that was kept. */
+  { valid: true; keyId: string; organizationId: string; userId: string | null } | { valid: false };
 
 /**
  * An OAuth access token `codice-app` issued to an MCP client for the `/mcp` resource: the user
@@ -38,9 +38,12 @@ export interface CodiceAccountsService {
   recordUsage(events: UsageEvent[]): Promise<void>;
 }
 
-/** Who made a `/v1` or `/mcp` call: a team's API key, or a user through an MCP client (OAuth). */
+/**
+ * Who made a `/v1` or `/mcp` call: a team's API key (with the member who created it), or a user
+ * through an MCP client (OAuth).
+ */
 export type UsageCaller =
-  | { kind: "api_key"; keyId: string; organizationId: string }
+  | { kind: "api_key"; keyId: string; organizationId: string; userId?: string | null }
   | { kind: "oauth"; userId: string; clientId: string };
 
 /**

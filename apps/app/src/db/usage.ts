@@ -16,6 +16,12 @@ export const apiUsage = sqliteTable(
     ownerId: text("owner_id").notNull(),
     /** The key's id, or the MCP client's id. */
     credentialId: text("credential_id").notNull(),
+    /**
+     * The person behind the calls: the member who created the key, or the user who connected the
+     * client. `null` for a key from before keys named their creator. One per credential, so it is
+     * not part of the key.
+     */
+    userId: text("user_id"),
     surface: text("surface", { enum: ["http", "mcp"] }).notNull(),
     operation: text("operation").notNull(),
     requests: integer("requests").notNull().default(0),
