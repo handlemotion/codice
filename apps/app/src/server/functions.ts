@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 
 import { forgetLastUse, lastUsed } from "./api-key-store";
 import { createAuth, socialProviders, type SocialProvider } from "./auth";
+import { readUsage, type UsageWeek } from "./usage";
 
 /**
  * The dashboard's server functions. Each one acts as the signed-in user through Better Auth's
@@ -135,3 +136,11 @@ export const revokeKey = createServerFn({ method: "POST" })
     await auth().api.deleteApiKey({ headers: getRequestHeaders(), body: { keyId } });
     await forgetLastUse(env.API_KEYS, keyId);
   });
+
+/** A week of the team's and the user's usage, ending on `end` (by default, today). */
+export const getUsage = createServerFn({ method: "GET" })
+  .validator((input: { organizationId: string; end?: string }) => ({
+    organizationId: input.organizationId,
+    end: input.end && /^\d{4}-\d{2}-\d{2}$/u.test(input.end) ? input.end : undefined,
+  }))
+  .handler(async ({ data }): Promise<UsageWeek> => readUsage(env, getRequestHeaders(), data));

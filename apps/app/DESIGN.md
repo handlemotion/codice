@@ -11,9 +11,8 @@ This file records only where the dashboard adds to it or departs from it. Values
 - **Regular weight only.** No bold anywhere (titles, buttons, answers) unless the owner asks for
   it in a specific place. Hierarchy comes from size (20px titles), `muted` and position.
 - Dark by default; `T` toggles and remembers (`codice-theme`, shared with the site on the same host).
-- The mark (`src/brand/`, copied from the site: keep them in step), the animated favicon, the
-  tooltips, and the chat's pieces (`src/components/chat/`, the turning marks, the electric bubble,
-  the streamed answer).
+- The mark (`src/brand/`, copied from the site: keep them in step), the animated favicon and the
+  tooltips.
 - Spanish (es-MX) copy; errors are one short sentence in `muted`, never the API's English.
 
 ## Where it departs
@@ -23,19 +22,28 @@ This file records only where the dashboard adds to it or departs from it. Values
   `island` and `edge` (`edge` is transparent by day), so "borders only at night" is one class.
   Fields and secondary buttons follow the same rule: a grey well by day, a hairline at night. Rows
   inside an island are divided by `edge`, so by day they are separated by space alone.
-- **The rail.** No top bar: a 64px rail of 18px line icons on the left (a bottom bar on phones), the
-  page in a centered column (max 42rem). Top to bottom: the mark (to the site, `/?site`), then,
-  centered, Chat, Claves, Clientes, Documentación and the avatar (Cuenta), then the theme toggle. The current
+- **The rail.** No top bar: a 64px rail of 32px buttons with 18px line icons on the left (a bottom
+  bar on phones), the page in a centered column (max 42rem). Top to bottom: the mark (to the site,
+  `/?site`), then, centered, Uso, Claves, Clientes, Documentación and the avatar (Cuenta), then the theme toggle. The current
   page's icon takes the island's look; others are `muted` and brighten on hover. Each shows a
   tooltip to its right with its number key; `1`–`5` go there when no field has focus.
 - **Pages.** A 20px title, then islands, each with its name and an optional `muted`
-  note on the right. The chat has no islands but its composer: the thread runs on the ground.
+  note on the right.
+- **Usage, after Transitive's settings usage** (`trstv/transitive`,
+  `components/settings/workspace-settings-usage.tsx`), drawn without a chart library
+  (`src/components/usage-chart.tsx`): a week of stacked daily columns (220px, a 32px y axis,
+  dashed `line` grid, square bars, a hovered day lit in `fg`/5 with its tooltip beside it), then
+  in the same island one row per series (a 2px-rounded color square, its name, a `muted` hint,
+  its calls on the right). Series colors are Transitive's (`--series-1`…`4` in `styles.css`): the
+  saturated pair by day, the softer one at night, taken by rank. Meters are a 6px round bar on
+  `fg`/10 in `--series-1`.
 
 ## Pages
 
-- **Chat** (`/`): a full conversation (up to the API's 24 messages), nothing stored. Empty, it
-  offers four questions as raw `muted` text above the composer. Enter sends, Shift+Enter breaks
-  the line, `/` focuses it; "Nueva conversación" starts over.
+- **Uso** (`/`): a week (Mexico City days) ending today, stepped with the chevrons by the title
+  (`?hasta=YYYY-MM-DD`): the totals (calls, error rate, mean time), the "Solicitudes" chart of the
+  team's keys and the user's MCP clients with their rows, and "Operaciones", a meter per
+  operation against the busiest.
 - **Claves** (`/keys`): a new key (shown once, with copy), the team's keys (revoke asks in place,
   no dialog), and "Conectar": the API and MCP URLs and the header to copy.
 - **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected

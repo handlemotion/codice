@@ -1,6 +1,13 @@
 import { env } from "cloudflare:workers";
-import { applyD1Migrations, createExecutionContext, SELF } from "cloudflare:test";
+import {
+  applyD1Migrations,
+  createExecutionContext,
+  SELF,
+  waitOnExecutionContext,
+} from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+
+import type { UsageEvent } from "@codice/contracts";
 
 import type { CodiceBindings } from "../src/env";
 import { app } from "../src/index";
@@ -330,5 +337,98 @@ describe("per-key rate limit", () => {
   it("leaves liveness and readiness unlimited", async () => {
     expect(await exhaust("/health", {})).toEqual([200, 200, 200, 200]);
     expect(await exhaust("/ready", {})).toEqual([200, 200, 200, 200]);
+  });
+});
+
+describe("usage", () => {
+  const verifier = env.ACCOUNTS as unknown as NonNullable<CodiceBindings["ACCOUNTS"]>;
+
+  /** The accounts stub's verifiers, with the usage reports kept for the test to read. */
+  function recordingAccounts() {
+    const events: UsageEvent[] = [];
+    const accounts: NonNullable<CodiceBindings["ACCOUNTS"]> = {
+      verifyApiKey: (key) => verifier.verifyApiKey(key),
+      verifyAccessToken: (token) => verifier.verifyAccessToken(token),
+      mcpAuthorization: () => verifier.mcpAuthorization(),
+      recordUsage: async (reported) => {
+        events.push(...reported);
+      },
+    };
+    return { accounts, events };
+  }
+
+  async function call(path: string, accounts: CodiceBindings["ACCOUNTS"], init: RequestInit) {
+    const context = createExecutionContext();
+    const response = await app.fetch(
+      new Request(`https://codice.test${path}`, init),
+      { ...bindings, ACCOUNTS: accounts },
+      context,
+    );
+    await waitOnExecutionContext(context);
+    return response;
+  }
+
+  it("reports a /v1 call by the operation its MCP tool shares, with the key and team", async () => {
+    const { accounts, events } = recordingAccounts();
+    const response = await call("/v1/sources", accounts, {
+      headers: { authorization: "Bearer cdc_test_usagehttp" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(events).toEqual([
+      {
+        caller: { kind: "api_key", keyId: "usagehttp", organizationId: "team-test" },
+        surface: "http",
+        operation: "list_sources",
+        status: 200,
+        durationMs: expect.any(Number),
+        at: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("reports an MCP tool call by its tool, for the OAuth user and client", async () => {
+    const { accounts, events } = recordingAccounts();
+    await call("/mcp", accounts, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer at_test_usagemcp",
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "list_sources", arguments: {} },
+      }),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      caller: {
+        kind: "oauth",
+        userId: "usagemcp",
+        clientId: "https://client.test/metadata.json",
+      },
+      surface: "mcp",
+      operation: "list_sources",
+    });
+  });
+
+  it("leaves out MCP bookkeeping and refused credentials", async () => {
+    const { accounts, events } = recordingAccounts();
+    await call("/mcp", accounts, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer at_test_usagelist",
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    await call("/v1/sources", accounts, { headers: { authorization: "Bearer nope" } });
+
+    expect(events).toEqual([]);
   });
 });

@@ -17,6 +17,7 @@ export class CodiceAccounts extends WorkerEntrypoint {
     const scopes = kind === "test" ? ["codice:read", "offline_access"] : ["offline_access"];
     return { valid: true, userId: user, clientId: "https://client.test/metadata.json", scopes };
   }
+  recordUsage() {}
   mcpAuthorization() {
     return {
       issuer: "https://codice.test/api/auth",

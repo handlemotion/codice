@@ -74,7 +74,7 @@ export function DocsSidebar({ tree }: { tree: Root }) {
   return (
     <aside className="flex h-full flex-col lg:border-r lg:border-line">
       <button
-        className="group flex h-[52px] shrink-0 items-center gap-3 border-b border-line px-4 text-muted hover:text-fg"
+        className="group flex h-[52px] shrink-0 items-center gap-3 border-b border-line px-5 text-muted hover:text-fg"
         onClick={() => setOpenSearch(true)}
         type="button"
       >
@@ -91,7 +91,7 @@ export function DocsSidebar({ tree }: { tree: Root }) {
             <div className="border-b border-line" key={group.key}>
               <button
                 aria-expanded={isOpen}
-                className="group flex h-[52px] w-full items-center gap-3 px-4 text-fg"
+                className="group flex h-[52px] w-full items-center gap-3 px-5 text-fg"
                 onClick={() => toggle(group.key)}
                 type="button"
               >
@@ -113,7 +113,7 @@ export function DocsSidebar({ tree }: { tree: Root }) {
                       <li key={page.url}>
                         <a
                           aria-current={active ? "page" : undefined}
-                          className={`flex items-center py-1.5 pr-4 pl-11 ${active ? "font-bold text-fg" : "text-muted hover:text-fg"}`}
+                          className={`flex items-center py-1.5 pr-5 pl-12 ${active ? "font-bold text-fg" : "text-muted hover:text-fg"}`}
                           href={page.url}
                         >
                           {page.name}
@@ -128,7 +128,7 @@ export function DocsSidebar({ tree }: { tree: Root }) {
         })}
       </nav>
 
-      <div className="flex h-[52px] shrink-0 items-center justify-end border-t border-line px-4">
+      <div className="flex h-[52px] shrink-0 items-center justify-end border-t border-line px-5">
         <button
           aria-label="Cambiar entre tema claro y oscuro"
           className="text-muted hover:text-fg"

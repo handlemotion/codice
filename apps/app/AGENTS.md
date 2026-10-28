@@ -5,7 +5,7 @@ see their usage and manage their API keys. The root `AGENTS.md` applies here. It
 target of `apps/edge`: every path that is not the API's, the site's `/` or `/_site/*` reaches it.
 
 - Read `DESIGN.md` before changing anything visible; it extends `apps/site/DESIGN.md`.
-- Pages: the chat (`/`), the team's keys (`/keys`), the user's MCP clients (`/clients`) and the account (`/account`), under a left rail
+- Pages: usage (`/`), the team's keys (`/keys`), the user's MCP clients (`/clients`) and the account (`/account`), under a left rail
   (`src/components/dashboard-shell.tsx`).
 - Never use `/v1`, `/mcp`, `/health`, `/ready` or `/_site/*`: the edge sends them elsewhere.
 - The session cookie is `__Secure-codice-session` (`apps/edge/src/route.ts`); with it, `/` is the
@@ -33,8 +33,8 @@ target of `apps/edge`: every path that is not the API's, the site's `/` or `/_si
   after a Better Auth upgrade.
 - Pages read and change data through server functions (`src/server/functions.ts`) that call
   Better Auth's server API with the request's cookies; the sign-in page uses the browser client.
-- D1 schema: `src/db/schema.ts`, Better Auth's tables as `npx auth@<version> generate` writes them.
-  Then `db:generate`; never hand-write `migrations/`. `deploy:production` applies them remotely.
+- D1 schema: `src/db/schema.ts`, Better Auth's tables as `npx auth@<version> generate` writes them,
+  and `src/db/usage.ts`, the dashboard's own. Then `db:generate`; never hand-write `migrations/`. `deploy:production` applies them remotely.
 - Secrets (`secrets.required`, synced from Doppler `codice` `prd`): `BETTER_AUTH_SECRET`,
   `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
   `socialProviders` in `src/server/auth.ts` turns Google and GitHub sign-in on, and shows each
@@ -42,12 +42,11 @@ target of `apps/edge`: every path that is not the API's, the site's `/` or `/_si
   `BETTER_AUTH_URL` (the public origin), `AUTH_EMAIL_FROM`. Locally, put them in `apps/app/.env`
   (git-ignored) with `BETTER_AUTH_URL=http://localhost:5173`; the local `EMAIL` binding prints
   each code to the dev server's output instead of sending it.
-- The chat (`src/chat.tsx`) posts to `POST /api/chat` (`src/routes/api/chat.ts`), which refuses
-  without a session and forwards the turn to the API's `POST /v1/chat` over the `API` service
-  binding with the dashboard's own key, `CODICE_APP_API_KEY`, and the visitor's
-  `cf-connecting-ip`, as the site does with its key. Optional: without it the chat answers
-  `503 chat_unavailable`. To turn it on, create a key for a Códice team, add it to Doppler `prd`
-  and to `secrets.required`; locally, put it in `apps/app/.env` and run the API (`pnpm dev:up`).
+- Usage (`apps/api/SPEC.md`, "Usage"): `codice-api` reports each answered `/v1` call and MCP
+  tool call to `CodiceAccounts.recordUsage`, which adds it to the day's counters in `api_usage`
+  (`src/db/usage.ts`, Mexico City days, per credential, surface and operation). The Uso page (`/`)
+  reads a week through `getUsage` (`src/server/usage.ts`): the active team's keys and the user's
+  own MCP clients. Run `test/auth.test.ts` after changing either side.
 - Keep `src/routeTree.gen.ts` generated: `pnpm --filter @codice/app generate-routes`.
 
 Commands: `pnpm --filter @codice/app dev`, `build`, `test`, `check-types`, `generate-routes`,
