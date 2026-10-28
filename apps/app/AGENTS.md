@@ -48,6 +48,10 @@ target of `apps/edge`: every path that is not the API's, the site's `/` or `/_si
   after a Better Auth upgrade.
 - Pages read and change data through server functions (`src/server/functions.ts`) that call
   Better Auth's server API with the request's cookies; the sign-in page uses the browser client.
+- The user and their teams (`getDashboard`) are kept in the browser between pages
+  (`src/dashboard-cache.ts`): after a change, call `router.invalidate()` so they are read again.
+  `createAuth` keeps one Better Auth instance per isolate; a new one per call re-runs the plugins'
+  `init`, which reads D1.
 - D1 schema: `src/db/schema.ts`, Better Auth's tables as `npx auth@<version> generate` writes them,
   and `src/db/usage.ts`, the dashboard's own. Then `db:generate`; never hand-write `migrations/`. `deploy:production` applies them remotely.
 - Secrets (`secrets.required`, synced from Doppler `codice` `prd`): `BETTER_AUTH_SECRET`,
