@@ -77,10 +77,23 @@ export const SESSION_COOKIE = "__Secure-codice-session";
  * Better Auth for the dashboard: users, sessions and teams in D1 (`codice-accounts`), API keys in
  * KV (`API_KEYS`). A team is a Better Auth organization with owners, admins and members
  * (`permissions.ts`); each new user gets a personal one, and others join by invitation. The team
- * owns its keys, and each key records the member who created it. Built per request: the bindings
- * are per request on Workers.
+ * owns its keys, and each key records the member who created it. Built once per bindings object
+ * and kept for the isolate (`env` from `cloudflare:workers` is the same on every request): a
+ * fresh instance runs its plugins' `init` again, and the OAuth provider's (`mcp()`) reads `oauth_resource`
+ * in D1 before the first call it answers.
  */
-export function createAuth(env: AuthBindings) {
+export function createAuth(env: AuthBindings): Auth {
+  let auth = instances.get(env);
+  if (!auth) {
+    auth = buildAuth(env);
+    instances.set(env, auth);
+  }
+  return auth;
+}
+
+const instances = new WeakMap<AuthBindings, Auth>();
+
+function buildAuth(env: AuthBindings) {
   const db = drizzle(env.ACCOUNTS_DATABASE, { schema });
 
   const auth = betterAuth({
@@ -239,7 +252,7 @@ export function createAuth(env: AuthBindings) {
   return auth;
 }
 
-export type Auth = ReturnType<typeof createAuth>;
+export type Auth = ReturnType<typeof buildAuth>;
 
 function personalTeamName(user: { name?: string | null; email: string }): string {
   const name = user.name?.trim() || user.email.split("@")[0];

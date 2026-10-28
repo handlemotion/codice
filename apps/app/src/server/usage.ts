@@ -1,4 +1,4 @@
-import { and, between, eq, inArray, min, or, sql } from "drizzle-orm";
+import { and, between, eq, inArray, min, notInArray, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 import type { UsageEvent } from "@codice/contracts";
@@ -206,73 +206,68 @@ export async function readUsage(
   input: { organizationId: string; end?: string; days?: number },
 ): Promise<UsagePeriodData> {
   const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers });
-  if (!session) throw new Error("Not signed in");
   const db = drizzle(env.ACCOUNTS_DATABASE, { schema });
-
-  const members = await db
-    .select({
-      userId: schema.member.userId,
-      name: schema.user.name,
-      email: schema.user.email,
-      image: schema.user.image,
-    })
-    .from(schema.member)
-    .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
-    .where(eq(schema.member.organizationId, input.organizationId));
-  if (!members.some((member) => member.userId === session.user.id)) {
-    throw new Error("Not a member of the team");
-  }
-
   const length: UsagePeriod = input.days === 30 ? 30 : 7;
   const today = mexicoDay(Date.now());
   const end = input.end && input.end < today ? input.end : today;
   const start = addDays(end, -(length - 1));
   const previousStart = addDays(start, -length);
+  const memberIds = db
+    .select({ userId: schema.member.userId })
+    .from(schema.member)
+    .where(eq(schema.member.organizationId, input.organizationId));
   const teams = or(
     and(eq(apiUsage.credentialKind, "api_key"), eq(apiUsage.ownerId, input.organizationId)),
-    and(
-      eq(apiUsage.credentialKind, "oauth"),
-      inArray(
-        apiUsage.ownerId,
-        members.map((member) => member.userId),
-      ),
-    ),
+    and(eq(apiUsage.credentialKind, "oauth"), inArray(apiUsage.ownerId, memberIds)),
   );
+  const inRange = and(teams, between(apiUsage.day, previousStart, end));
+  const person = {
+    userId: schema.user.id,
+    name: schema.user.name,
+    email: schema.user.email,
+    image: schema.user.image,
+  };
 
-  const [rows, first, keys] = await Promise.all([
-    db
-      .select()
-      .from(apiUsage)
-      .where(and(teams, between(apiUsage.day, previousStart, end))),
-    db
-      .select({ day: min(apiUsage.day) })
-      .from(apiUsage)
-      .where(teams)
-      .get(),
+  // Everything at once, the D1 reads in one batch (one round trip); nothing is returned before
+  // the session and the membership are checked.
+  const [session, [members, rows, first, former], keys] = await Promise.all([
+    auth.api.getSession({ headers }),
+    db.batch([
+      db
+        .select(person)
+        .from(schema.member)
+        .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
+        .where(eq(schema.member.organizationId, input.organizationId)),
+      db.select().from(apiUsage).where(inRange),
+      db
+        .select({ day: min(apiUsage.day) })
+        .from(apiUsage)
+        .where(teams),
+      // Keys keep their creator after the creator leaves the team.
+      db
+        .select(person)
+        .from(schema.user)
+        .where(
+          and(
+            inArray(
+              schema.user.id,
+              db.selectDistinct({ userId: apiUsage.userId }).from(apiUsage).where(inRange),
+            ),
+            notInArray(schema.user.id, memberIds),
+          ),
+        ),
+    ]),
     // Every member reads the team's keys (`permissions.ts`); a revoked key is gone from the list.
     auth.api
       .listApiKeys({ headers, query: { organizationId: input.organizationId } })
       .then(({ apiKeys }) => apiKeys)
       .catch(() => []),
   ]);
+  if (!session) throw new Error("Not signed in");
+  if (!members.some((member) => member.userId === session.user.id)) {
+    throw new Error("Not a member of the team");
+  }
 
-  // Keys keep their creator after the creator leaves the team.
-  const formerIds = [...new Set(rows.flatMap((row) => row.userId ?? []))].filter(
-    (id) => !members.some((member) => member.userId === id),
-  );
-  const former =
-    formerIds.length > 0
-      ? await db
-          .select({
-            userId: schema.user.id,
-            name: schema.user.name,
-            email: schema.user.email,
-            image: schema.user.image,
-          })
-          .from(schema.user)
-          .where(inArray(schema.user.id, formerIds))
-      : [];
   const keyNames = new Map(keys.map((key) => [key.id, key]));
   const people = new Map([...members, ...former].map((member) => [member.userId, member]));
   // A key's calls go to the member who created it; an MCP client's, to its user.
@@ -284,7 +279,7 @@ export async function readUsage(
     start,
     end,
     today,
-    earliest: first?.day ?? null,
+    earliest: first[0]?.day ?? null,
     keys: viewOf(rows, range, (row) => {
       if (row.credentialKind !== "api_key") return null;
       const key = keyNames.get(row.credentialId);

@@ -3,8 +3,8 @@ import {
   IconChevronLeftSmall,
   IconChevronRightSmall,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
-import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { Link, createFileRoute, useRouter, useRouterState } from "@tanstack/react-router";
+import { useEffect, type ReactNode } from "react";
 
 import { Group, ISLAND, Page, ROW } from "../../components/ui";
 import { numberFormat, seriesColor, usageDay, UsageBars } from "../../components/usage-chart";
@@ -25,6 +25,9 @@ export const Route = createFileRoute("/_dashboard/")({
   }),
   // The scope is a tab over data already loaded; only the period loads anew.
   loaderDeps: ({ search }) => ({ end: search.hasta, days: search.dias ?? 7 }),
+  // A period already shown comes back at once for a minute; a change (`router.invalidate()`)
+  // reads it again.
+  staleTime: 60_000,
   loader: async ({ context, deps }) => {
     const team = context.dashboard.team;
     return {
@@ -374,6 +377,15 @@ function Usage() {
   const { vista } = Route.useSearch();
   const pending = useRouterState({ select: (state) => state.status === "pending" });
   const scope: Scope = vista ?? "miembros";
+  const router = useRouter();
+
+  // The period before is read as soon as this one shows, so stepping back is immediate.
+  const before =
+    usage?.earliest && usage.start > usage.earliest ? addDays(usage.end, -usage.days) : null;
+  useEffect(() => {
+    if (before)
+      void router.preloadRoute({ to: "/", search: (current) => ({ ...current, hasta: before }) });
+  }, [router, before]);
 
   if (!team || !usage) {
     return (
