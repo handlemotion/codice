@@ -3,7 +3,8 @@
 Status: Phase 0, deployed from this repository's `main` by the Cloudflare Git build since the
 cutover on 2026-10-25, with no route of its own: since 2026-10-28 the public host `codice.io` is a
 custom domain of the edge Worker `codice-edge`, and Transitive's Agent reaches it through its
-`CODICE` service binding. Phase 1 has begun with the RMF. The Worker serves the whole
+`CODICE` service binding. Phase 1 has begun with the RMF and the Carta Porte and Comercio
+Exterior filling guides. The Worker serves the whole
 [HTTP API](#http-api-v1) and
 [MCP surface](#mcp-surface-mcp), behind a team's API key and its per-key rate limit
 ([Auth](#auth)); the ingestion has loaded
@@ -76,11 +77,11 @@ records, not prose: they go to D1, not to search.
 
 ## Corpus
 
-| Phase | Sources                                                                                                                                                                          |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.        |
-| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements. |
-| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                    |
+| Phase | Sources                                                                                                                                                                                                                                   |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | `docs/sat-md/` today (Anexo 20 guide, Pagos 2.0 guide, `CFDI40xxx` error matrix, small catalogs), plus the large catalogs (`c_ClaveProdServ`, `c_CodigoPostal`, …) in D1.                                                                 |
+| 1     | CFF, LISR, LIVA and their regulations; the current RMF and its amendments (loaded: `rmf-2026`); Ley Aduanera, RGCE, Anexo 22; the Carta Porte and Comercio Exterior complements (their filling guides in `docs/sat-md` since 2026-10-28). |
+| 2     | DOF watch for new publications; SAT FAQs, _criterios normativos_ and _criterios no vinculativos_; court rulings (SCJN, TFJA).                                                                                                             |
 
 The AI Search website crawler only crawls domains we own, so SAT and DOF pages are fetched by our
 ingestion and uploaded as items (`.html` items are converted to Markdown by AI Search).
@@ -613,6 +614,37 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   until the SAT publishes the next compilation and the corpus workflow picks it up. It also omits
   the note on 2.7.3.5, which the Primera RMRMF changed, so that regla keeps the RMF's date. One
   title is known to be wrong: 2.12.2's label starts with the previous regla's wrapped references.
+- The Carta Porte and Comercio Exterior complements (Phase 1): `sat:knowledge` reads the SAT's
+  [Carta Porte page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_carta_porte.htm)
+  and takes, for each mode of transport (autotransporte, marítimo, aéreo, ferroviario), the
+  instructivo of the highest version it links (`Instructivo_ComplementoCartaPorte_Maritimo_31.pdf`
+  for 3.1); and the guide the
+  [Comercio Exterior page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_comercio_exterior.htm)
+  links (`Guia_complemento_Comercio_Exterior.pdf`, version 2.0 of the complement with CFDI 4.0).
+  Each is a source of its own: `complemento-carta-porte-autotransporte`, `-maritimo`, `-aereo`,
+  `-ferroviario` and `complemento-comercio-exterior-guia-de-llenado`, all `kind` `guia`, valid from
+  the PDF's date. The Comercio Exterior guide has the Anexo 20's layout (parts I and II, `Nodo:`
+  tables, a questions appendix titled `Preguntas frecuentes`) and goes through the same splitter;
+  its body wraps part I's heading sooner than its contents do, so a heading also matches as up to
+  three lines, and its `Domicilio` nodes, under the Emisor, Receptor and Destinatario, are keyed
+  under their owner (`nodo-receptor-nodo-domicilio-codigopostal`). The instructivos have their own
+  layout and splitter (`instructivoSections`): MarkItDown's text without each page's footer
+  (`Página 12 de 106`) and running header (`CFDI de tipo ingreso` / `con complemento` /
+  `Carta Porte`); the headings their contents (`Índice`) list, numbered within each part (the
+  `CFDI de tipo ingreso` and `CFDI de tipo traslado` parts); and one passage a field
+  (`• Código postal (CodigoPostal): …`) with its examples and catalog excerpt, keyed by part,
+  sections and attribute (`ingreso-ubicaciones-ubicacion-domicilio-codigopostal`; the `Traslado`
+  and `Retención` fields of a tax section by that group too). An appendix is one passage a note
+  (`Nota 8: Contenedores vacíos.`) where it numbers them, else cut as any other section. oxfmt
+  leaves these files alone, as it does the RMF: it renumbers lines such as `13. ¿Qué debo…` as a
+  Markdown list. Passages, 2026-10-28: autotransporte 291, marítimo 293, aéreo 252, ferroviario
+  283, Comercio Exterior 199 (3,052 in the corpus with the 1,734 before). Not loaded yet: the
+  complements' own catalogs (`CatalogosCartaPorte31.xls`: c_ClaveProdServCP, c_Estaciones,
+  c_ConfigAutotransporte, c_TipoPermiso, c_MaterialPeligroso, c_NumAutorizacionNaviero, …; the
+  Comercio Exterior catalogs: c_FraccionArancelaria, c_UnidadAduana, c_INCOTERM, c_MotivoTraslado,
+  c_ClavePedimento, …), their error matrices (`Matriz_Errores_CCP_V31.xls`,
+  `Matriz_de_Errores_CCE_v2.0.xls`) and the Carta Porte questions
+  (`Preguntas_frecuentes_CartaPorte_31.pdf`); see [Next steps](#next-steps).
 - The large catalogs skip `docs/sat-md`: the ingestion downloads the catCFDI file
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
@@ -652,7 +684,7 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   `eval --min-top3 155` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~170 AI Search queries. Job `alert` turns a failed run into
+  runs on pull requests: each run spends ~215 AI Search queries. Job `alert` turns a failed run into
   the GitHub issue "Códice corpus failed", with the failed step and the unfinished item keys, and
   closes it on the next green run ([Monitoring and deploy](#monitoring-and-deploy)).
 - Indexing time, measured 2026-10-25 on a comparison instance with `codice`'s settings: the 1,734
@@ -761,10 +793,12 @@ by its own limit.
   tests check request shaping and response mapping; they are not evidence of retrieval.
 - **Retrieval eval:** a fixed question set, each with the passage it must return in the top 3,
   run against the real instance (start from the rules in `docs/sat-md/README.md`). It decides the
-  tokenizer, match mode and embedding model, and runs after every ingestion change. ~170 questions
+  tokenizer, match mode and embedding model, and runs after every ingestion change. ~215 questions
   per run stays inside the free query allowance. `pnpm --filter @codice/api eval`
   (`scripts/eval.ts`, questions in `scripts/eval-questions.json`) sends the Worker's own request;
-  `--match or` overrides the match mode for one run. Results: [Retrieval eval](#retrieval-eval).
+  `--match or` overrides the match mode for one run, and `--source <prefix>` asks only the
+  questions that expect a passage of a source whose id starts so (`complemento-carta-porte`), to
+  measure a new source for a few queries. Results: [Retrieval eval](#retrieval-eval).
 
 ## Retrieval eval
 
@@ -938,6 +972,27 @@ Reranking costs more than half of a search's time and earns 8 questions in the t
 corpus workflow's floor is 155), so it stays on. The 161 of 172 is the first measurement on the
 172 questions.
 
+### Carta Porte and Comercio Exterior (2026-10-28, not yet run)
+
+42 questions added (214 in all), each expected passage read before it was chosen: 22 for the
+Carta Porte instructivos (the complement's own fields, such as IdCCP, IDUbicacion, PermSCT,
+ConfigVehicular, NumAutorizacionNaviero, NumeroGuia and TipoCarro, the CFDI de traslado's zero
+Subtotal and its receptor, the appendices on parcels, breakdowns, local transport and empty
+containers) and 20 for the Comercio Exterior guide (its complement's fields, and the questions of
+its appendix 3). A field the four instructivos share (Version, IdCCP, material peligroso) expects
+the passage of every mode and part that has it. Nothing has measured them: the passages reach
+`codice` with the next corpus ingestion from `main`, whose eval then runs all 214, and
+`eval --source complemento-carta-porte` and `eval --source complemento-comercio-exterior` measure
+each source alone (22 and 20 queries).
+
+Known risk to the 172 before: part I of the Comercio Exterior guide quotes the Anexo 20's rules
+nearly word for word (FormaPago, MetodoPago, Moneda, TipoCambio, Fecha, LugarExpedicion,
+RegimenFiscalReceptor, UsoCFDI, ClaveUnidad, Impuesto, TipoFactor, TasaOCuota, ResidenciaFiscal…),
+and 27 of the 172 questions expect an Anexo 20 or Pagos passage with such a twin. A twin that
+ranks above the expected passage can push it out of the top 3. Their expected passages are left as
+they were, so the run compares with the ones before; read the misses of the first run with this in
+mind. The floor stays 155 of what are now 214 questions until that run sets it again.
+
 ## Infrastructure
 
 Created 2026-10-24 on the Jaantonio account; Phase 0 loaded the same day. Moved on 2026-10-27 to
@@ -1100,8 +1155,13 @@ to match.
 9. **Corpus Phases 1 and 2**, and the open questions below before a public launch. Phase 1 so far:
    the RMF (`rmf-2026`, 2026-10-25; see [Ingestion](#ingestion) and
    [Retrieval eval](#retrieval-eval)), loaded into `codice` by the corpus workflow once on `main`.
-   Next, one at a time and in the same pattern (a source in `sources.json`, a splitter in
-   `sections.ts`, ~20 questions, an eval run): the CFF, the LISR and the LIVA.
+   The Carta Porte instructivos and the Comercio Exterior guide (2026-10-28, in `docs/sat-md`;
+   loaded by the next corpus ingestion, then measured: see
+   [Retrieval eval](#retrieval-eval), "Carta Porte and Comercio Exterior"). Left for them: their
+   catalogs, error matrices and the Carta Porte questions PDF (see [Ingestion](#ingestion)); the
+   catalogs need the large-catalog load to take a second workbook. Next, one at a time and in the
+   same pattern (a source in `sources.json`, a splitter in `sections.ts`, ~20 questions, an eval
+   run): the CFF, the LISR and the LIVA.
 10. **API keys** (see [Auth](#auth)). The dashboard (`codice-app`) signs users in by email code
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV

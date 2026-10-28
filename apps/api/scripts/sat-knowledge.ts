@@ -1,6 +1,7 @@
 /**
  * Regenerates Códice's SAT corpus in `docs/sat-md` from the SAT's published files (the Phase 0
- * Anexo 20 files, and the current RMF as the SAT compiles it) and records each file's version in
+ * Anexo 20 files; the current RMF as the SAT compiles it; the current Carta Porte instructivos, one
+ * a mode of transport; the Comercio Exterior guide) and records each file's version in
  * `docs/sat-md/sources.json`.
  *
  *   pnpm --filter @codice/api sat:knowledge            regenerate what changed
@@ -17,6 +18,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import {
+  CARTA_PORTE_MODES,
+  cartaPorteFile,
+  type CartaPorteSourceId,
+  type SatSourceId,
+} from "./sat-documents";
+import {
   SAT_CORPUS_CATALOGS,
   type SatCatalogSet,
   type SatErrorMatrix,
@@ -24,6 +31,7 @@ import {
 } from "./sat-records";
 import {
   catalogXsdDifferences,
+  instructivoMarkdown,
   parseCatalogSheet,
   parseErrorMatrix,
   provenanceHeader,
@@ -45,9 +53,14 @@ const RMF_SITE = "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE";
 const RMF_YEAR = 2026;
 const RMF_PAGE = `${RMF_SITE}/normatividad_rmf_rgce${RMF_YEAR}.html`;
 const RMF_FILE = `resolucion-miscelanea-fiscal-${RMF_YEAR}.md`;
+/** The SAT's pages for the Carta Porte and Comercio Exterior complements. */
+const CARTA_PORTE_PAGE =
+  "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_carta_porte.htm";
+const COMERCIO_EXTERIOR_PAGE =
+  "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_comercio_exterior.htm";
+const COMERCIO_EXTERIOR_FILE = "complemento-comercio-exterior-guia-de-llenado.md";
 
-type SourceId = "anexo20" | "pagos" | "matrix" | "catalogs" | "rmf";
-type Manifest = Record<SourceId, SatSource & { readonly outputs: readonly string[] }>;
+type Manifest = Record<SatSourceId, SatSource & { readonly outputs: readonly string[] }>;
 
 const args = new Set(process.argv.slice(2));
 const today = new Date().toISOString().slice(0, 10);
@@ -69,11 +82,29 @@ function fileNameDate(url: string) {
   return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
 }
 
-/** The current file the Anexo 20 page links, such as `catCFDI_V_4_20261015.xls`. */
+/** The current file a SAT page links, such as `catCFDI_V_4_20261015.xls`. */
 function linked(page: string, pattern: RegExp) {
   const match = pattern.exec(page);
-  if (!match) throw new Error(`The Anexo 20 page no longer links ${pattern}`);
+  if (!match) throw new Error(`The SAT's page no longer links ${pattern}`);
   return `${DOCUMENTS}/${match[0]}`;
+}
+
+/**
+ * The current Carta Porte instructivo for a mode of transport: the page links one a version of the
+ * complement (`…_Maritimo_31.pdf` for 3.1, `…_Maritimo_3.0.pdf` for 3.0, and 2.0's unnumbered), and
+ * the highest version is the one in force.
+ */
+function currentInstructivo(page: string, id: CartaPorteSourceId) {
+  const pattern = new RegExp(
+    `Instructivo_ComplementoCartaPorte_${CARTA_PORTE_MODES[id].file}_(\\d)\\.?(\\d)\\.pdf`,
+    "gu",
+  );
+  const latest = [...page.matchAll(pattern)]
+    .map((match) => ({ file: match[0], version: Number(`${match[1]}.${match[2]}`) }))
+    .sort((left, right) => left.version - right.version)
+    .at(-1);
+  if (!latest) throw new Error(`${CARTA_PORTE_PAGE} no longer links a ${id} instructivo`);
+  return { url: `${DOCUMENTS}/${latest.file}`, version: latest.version.toFixed(1) };
 }
 
 /**
@@ -115,26 +146,50 @@ function write(name: string, content: string) {
   return name;
 }
 
-function pdfGuide(id: "anexo20" | "pagos", src: SatSource, path: string) {
+const GUIDES = {
+  anexo20: {
+    file: "anexo-20-guia-de-llenado-cfdi.md",
+    title: "# Anexo 20: guía de llenado de los comprobantes fiscales (CFDI 4.0)",
+  },
+  pagos: {
+    file: "complemento-pagos-guia-de-llenado.md",
+    title:
+      "# Guía de llenado del comprobante con complemento para recepción de pagos (REP, Pagos 2.0)",
+  },
+  comercioExterior: {
+    file: COMERCIO_EXTERIOR_FILE,
+    title:
+      "# Guía de llenado del comprobante al que se le incorpore el complemento para comercio exterior (Comercio Exterior 2.0)",
+  },
+} as const;
+
+function pdfGuide(id: keyof typeof GUIDES, src: SatSource, path: string) {
   const info = run("pdfinfo", [path]);
   const pages = /^Pages:\s+(\d+)/mu.exec(info)?.[1] ?? "?";
   const markdown = run("markitdown", [path]);
-  const meta =
-    id === "anexo20"
-      ? {
-          file: "anexo-20-guia-de-llenado-cfdi.md",
-          title: "# Anexo 20: guía de llenado de los comprobantes fiscales (CFDI 4.0)",
-        }
-      : {
-          file: "complemento-pagos-guia-de-llenado.md",
-          title:
-            "# Guía de llenado del comprobante con complemento para recepción de pagos (REP, Pagos 2.0)",
-        };
+  const meta = GUIDES[id];
   const header = provenanceHeader({
     source: src,
     format: `PDF, ${pages} pages, last modified by the SAT ${src.publishedAt ?? "unknown"}`,
   });
   return [write(meta.file, `${meta.title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`)];
+}
+
+function cartaPorteInstructivo(
+  id: CartaPorteSourceId,
+  version: string,
+  src: SatSource,
+  path: string,
+) {
+  const info = run("pdfinfo", [path]);
+  const pages = /^Pages:\s+(\d+)/mu.exec(info)?.[1] ?? "?";
+  const markdown = instructivoMarkdown(run("markitdown", [path]));
+  const header = provenanceHeader({
+    source: src,
+    format: `PDF, ${pages} pages, last modified by the SAT ${src.publishedAt ?? "unknown"}; the page footers and running headers are left out`,
+  });
+  const title = `# Instructivo de llenado del CFDI con complemento Carta Porte ${version}: ${CARTA_PORTE_MODES[id].name}`;
+  return [write(cartaPorteFile(id), `${title}\n\n${header}\n\n---\n\n${markdown.trim()}\n`)];
 }
 
 function rmfCompilation(src: SatSource, path: string) {
@@ -158,12 +213,27 @@ function pdfDate(path: string) {
 async function main() {
   const page = new TextDecoder("utf-8").decode(await download(ANEXO_20_PAGE));
   const rmfPage = new TextDecoder("utf-8").decode(await download(RMF_PAGE));
-  const urls: Record<SourceId, string> = {
+  const cartaPortePage = new TextDecoder("utf-8").decode(await download(CARTA_PORTE_PAGE));
+  const comercioExteriorPage = new TextDecoder("utf-8").decode(
+    await download(COMERCIO_EXTERIOR_PAGE),
+  );
+  const instructivos = Object.fromEntries(
+    (Object.keys(CARTA_PORTE_MODES) as CartaPorteSourceId[]).map((id) => [
+      id,
+      currentInstructivo(cartaPortePage, id),
+    ]),
+  ) as Record<CartaPorteSourceId, { url: string; version: string }>;
+  const urls: Record<SatSourceId, string> = {
     anexo20: linked(page, /Anexo_20_Guia_de_llenado_CFDI\.pdf/u),
     pagos: `${DOCUMENTS}/Guia_llenado_pagos.pdf`,
     matrix: linked(page, /MatrizDeErrores_CFDI_v40_\d{8}\.xls/u),
     catalogs: linked(page, /catCFDI_V_4_\d{8}\.xls/u),
     rmf: latestRmfCompilation(rmfPage),
+    cartaPorteAutotransporte: instructivos.cartaPorteAutotransporte.url,
+    cartaPorteMaritimo: instructivos.cartaPorteMaritimo.url,
+    cartaPorteAereo: instructivos.cartaPorteAereo.url,
+    cartaPorteFerroviario: instructivos.cartaPorteFerroviario.url,
+    comercioExterior: linked(comercioExteriorPage, /Guia_complemento_Comercio_Exterior\.pdf/u),
   };
   const previous = (
     existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : {}
@@ -171,7 +241,7 @@ async function main() {
   const manifest: Partial<Manifest> = { ...previous };
   const written: string[] = [];
   let changed = 0;
-  for (const id of Object.keys(urls) as SourceId[]) {
+  for (const id of Object.keys(urls) as SatSourceId[]) {
     const url = urls[id];
     const bytes = await download(url);
     const path = join(work, url.split("/").at(-1)!);
@@ -181,11 +251,14 @@ async function main() {
     console.log(`${same ? "unchanged" : "CHANGED  "} ${id} ${url} ${hash}`);
     if (!same) changed += 1;
     if (args.has("--check") || (same && !args.has("--force"))) continue;
-    const pdf = id === "anexo20" || id === "pagos" || id === "rmf";
+    const pdf = url.endsWith(".pdf");
     const src = source(url, bytes, pdf ? pdfDate(path) : fileNameDate(url));
     let outputs: string[];
-    if (id === "anexo20" || id === "pagos") {
+    if (id === "anexo20" || id === "pagos" || id === "comercioExterior") {
       outputs = pdfGuide(id, src, path);
+    } else if (id in CARTA_PORTE_MODES) {
+      const instructivo = id as CartaPorteSourceId;
+      outputs = cartaPorteInstructivo(instructivo, instructivos[instructivo].version, src, path);
     } else if (id === "rmf") {
       outputs = rmfCompilation(src, path);
     } else if (id === "matrix") {
@@ -235,8 +308,9 @@ async function main() {
   }
   write("sources.json", `${JSON.stringify(manifest, null, 2)}\n`);
   // From the repository root, where oxfmt finds the repository's formatting settings. Twice: the
-  // guides' broken PDF tables settle only on the second pass. The RMF is in `ignorePatterns`: its
-  // numbered lines (`1. Contraseña…`) read as Markdown lists, which oxfmt renumbers.
+  // guides' broken PDF tables settle only on the second pass. The RMF, the Carta Porte
+  // instructivos and the Comercio Exterior guide are in `ignorePatterns`: their numbered lines
+  // (`1. Contraseña…`, `13. ¿Qué debo…`) read as Markdown lists, which oxfmt renumbers.
   const formatted = [...written, "sources.json"].map((file) => join(OUT, file));
   for (let pass = 0; pass < 2; pass += 1) {
     run("pnpm", ["exec", "oxfmt", ...formatted], { cwd: ROOT });
