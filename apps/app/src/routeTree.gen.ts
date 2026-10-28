@@ -13,7 +13,10 @@ import { Route as DashboardRouteImport } from "./routes/_dashboard";
 import { Route as ConsentRouteImport } from "./routes/consent";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as DashboardIndexRouteImport } from "./routes/_dashboard/index";
+import { Route as DashboardAccountRouteImport } from "./routes/_dashboard/account";
+import { Route as DashboardClientsRouteImport } from "./routes/_dashboard/clients";
 import { Route as DashboardKeysRouteImport } from "./routes/_dashboard/keys";
+import { Route as ApiChatRouteImport } from "./routes/api/chat";
 import { Route as ApiAuthSplatRouteImport } from "./routes/api/auth/$";
 
 const DashboardRoute = DashboardRouteImport.update({
@@ -35,10 +38,25 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: "/",
   getParentRoute: () => DashboardRoute,
 } as any);
+const DashboardAccountRoute = DashboardAccountRouteImport.update({
+  id: "/account",
+  path: "/account",
+  getParentRoute: () => DashboardRoute,
+} as any);
+const DashboardClientsRoute = DashboardClientsRouteImport.update({
+  id: "/clients",
+  path: "/clients",
+  getParentRoute: () => DashboardRoute,
+} as any);
 const DashboardKeysRoute = DashboardKeysRouteImport.update({
   id: "/keys",
   path: "/keys",
   getParentRoute: () => DashboardRoute,
+} as any);
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: "/api/chat",
+  path: "/api/chat",
+  getParentRoute: () => rootRouteImport,
 } as any);
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: "/api/auth/$",
@@ -50,13 +68,19 @@ export interface FileRoutesByFullPath {
   "/": typeof DashboardIndexRoute;
   "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
+  "/account": typeof DashboardAccountRoute;
+  "/clients": typeof DashboardClientsRoute;
   "/keys": typeof DashboardKeysRoute;
+  "/api/chat": typeof ApiChatRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRoutesByTo {
   "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
+  "/account": typeof DashboardAccountRoute;
+  "/clients": typeof DashboardClientsRoute;
   "/keys": typeof DashboardKeysRoute;
+  "/api/chat": typeof ApiChatRoute;
   "/": typeof DashboardIndexRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
 }
@@ -65,21 +89,35 @@ export interface FileRoutesById {
   "/_dashboard": typeof DashboardRouteWithChildren;
   "/consent": typeof ConsentRoute;
   "/login": typeof LoginRoute;
+  "/_dashboard/account": typeof DashboardAccountRoute;
+  "/_dashboard/clients": typeof DashboardClientsRoute;
   "/_dashboard/keys": typeof DashboardKeysRoute;
+  "/api/chat": typeof ApiChatRoute;
   "/_dashboard/": typeof DashboardIndexRoute;
   "/api/auth/$": typeof ApiAuthSplatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/consent" | "/login" | "/keys" | "/api/auth/$";
+  fullPaths:
+    | "/"
+    | "/consent"
+    | "/login"
+    | "/account"
+    | "/clients"
+    | "/keys"
+    | "/api/chat"
+    | "/api/auth/$";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/consent" | "/login" | "/keys" | "/" | "/api/auth/$";
+  to: "/consent" | "/login" | "/account" | "/clients" | "/keys" | "/api/chat" | "/" | "/api/auth/$";
   id:
     | "__root__"
     | "/_dashboard"
     | "/consent"
     | "/login"
+    | "/_dashboard/account"
+    | "/_dashboard/clients"
     | "/_dashboard/keys"
+    | "/api/chat"
     | "/_dashboard/"
     | "/api/auth/$";
   fileRoutesById: FileRoutesById;
@@ -88,6 +126,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren;
   ConsentRoute: typeof ConsentRoute;
   LoginRoute: typeof LoginRoute;
+  ApiChatRoute: typeof ApiChatRoute;
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute;
 }
 
@@ -121,12 +160,33 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof DashboardIndexRouteImport;
       parentRoute: typeof DashboardRoute;
     };
+    "/_dashboard/account": {
+      id: "/_dashboard/account";
+      path: "/account";
+      fullPath: "/account";
+      preLoaderRoute: typeof DashboardAccountRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
+    "/_dashboard/clients": {
+      id: "/_dashboard/clients";
+      path: "/clients";
+      fullPath: "/clients";
+      preLoaderRoute: typeof DashboardClientsRouteImport;
+      parentRoute: typeof DashboardRoute;
+    };
     "/_dashboard/keys": {
       id: "/_dashboard/keys";
       path: "/keys";
       fullPath: "/keys";
       preLoaderRoute: typeof DashboardKeysRouteImport;
       parentRoute: typeof DashboardRoute;
+    };
+    "/api/chat": {
+      id: "/api/chat";
+      path: "/api/chat";
+      fullPath: "/api/chat";
+      preLoaderRoute: typeof ApiChatRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
     "/api/auth/$": {
       id: "/api/auth/$";
@@ -139,11 +199,15 @@ declare module "@tanstack/react-router" {
 }
 
 interface DashboardRouteChildren {
+  DashboardAccountRoute: typeof DashboardAccountRoute;
+  DashboardClientsRoute: typeof DashboardClientsRoute;
   DashboardKeysRoute: typeof DashboardKeysRoute;
   DashboardIndexRoute: typeof DashboardIndexRoute;
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAccountRoute: DashboardAccountRoute,
+  DashboardClientsRoute: DashboardClientsRoute,
   DashboardKeysRoute: DashboardKeysRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 };
@@ -154,6 +218,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   ConsentRoute: ConsentRoute,
   LoginRoute: LoginRoute,
+  ApiChatRoute: ApiChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 };
 export const routeTree = rootRouteImport
