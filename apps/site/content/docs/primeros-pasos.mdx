@@ -26,7 +26,7 @@ curl https://codice.io/v1/errors/CFDI40149 \
   -H "Authorization: Bearer $CODICE_KEY"
 ```
 
-La respuesta trae el renglón de la matriz de errores, palabra por palabra, con su fuente:
+La respuesta trae el renglón de la matriz de errores:
 
 ```json
 {
@@ -47,7 +47,7 @@ Más en [Códigos de error](/docs/errores).
 
 ## 3. Busca por pregunta
 
-Escribe la pregunta como se la harías a un colega:
+Busca con una pregunta en tus palabras:
 
 ```bash
 curl -G https://codice.io/v1/search \
@@ -55,7 +55,7 @@ curl -G https://codice.io/v1/search \
   -H "Authorization: Bearer $CODICE_KEY"
 ```
 
-Cada resultado es un pasaje del SAT con su fuente y su vigencia. El campo `passageId` te deja leer el pasaje completo en `/v1/passages/{id}`. Más en [Buscar reglas](/docs/buscar).
+Cada resultado es un pasaje del SAT con su vigencia. El campo `passageId` te deja leer el pasaje completo en `/v1/passages/{id}`. Más en [Buscar reglas](/docs/buscar).
 
 ## 4. Consulta un catálogo
 

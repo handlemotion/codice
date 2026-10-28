@@ -254,6 +254,11 @@ turning `fg` on hover.
 ## Copy
 
 - Spanish (es-MX), `lang="es-MX"`, `og:locale` `es_MX`.
+- Two readers, about half each: accountants, who connect an agent or assistant (ChatGPT, Claude)
+  and never write code, and developers building fintech products that touch tax, who use the API
+  and MCP. Give each its own path; never explain HTTP to the first or tax basics to the second.
+- Say what Códice is for in one plain sentence ("El contexto fiscal de México para tus agentes").
+  Don't pitch the exact quote or the source: those are how it works, not why anyone wants it.
 - No hype, no disclaimers in the chrome.
 
 ## What we tried and dropped
