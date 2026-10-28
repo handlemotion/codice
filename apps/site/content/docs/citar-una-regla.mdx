@@ -1,0 +1,136 @@
+---
+title: Responder una pregunta fiscal con citas
+description: Busca la regla, lee el pasaje completo y responde citando el texto del SAT, su fuente y su vigencia. Y qué hacer cuando Códice no tiene la respuesta.
+---
+
+Una respuesta fiscal vale lo que vale su fuente. Esta receta responde una pregunta en tres pasos: buscar, leer el pasaje entero y citarlo. Sirve igual si la respuesta la escribes tú o tu asistente de IA.
+
+La pregunta: **¿puedo cancelar sin aceptación del receptor una factura de 800 pesos?**
+
+## 1. Busca la regla
+
+Pregunta con tus palabras y acota a las reglas de la Resolución Miscelánea (`kind=regla`):
+
+```bash
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=¿Puedo cancelar sin aceptación del receptor una factura de 800 pesos?" \
+  --data-urlencode "kind=regla" \
+  --data-urlencode "limit=3" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "query": "¿Puedo cancelar sin aceptación del receptor una factura de 800 pesos?",
+    "asOf": "2026-10-28",
+    "source": null,
+    "kind": "regla",
+    "results": [
+      {
+        "passageId": "rmf-2026/regla-2.7.1.35.md",
+        "source": "rmf-2026",
+        "quote": "# Resolución Miscelánea Fiscal para 2026 (compilación del SAT) › Título 2. Código Fiscal de la Federación › Capítulo 2.7. De los Comprobantes Fiscales Digitales por Internet o Factura Electrónica › Sección 2.7.1. Disposiciones generales › Regla 2.7.1.35. Cancelación de CFDI sin aceptación del receptor\n\nCancelación de CFDI sin aceptación del receptor\n2.7.1.35. Para los efectos de los artículos 29-A, cuarto, quinto y sexto párrafos del CFF y Sexto, fracción\n…",
+        "authority": "SAT",
+        "kind": "regla",
+        "validFrom": "2025-12-28",
+        "validUntil": null,
+        "score": 0.12318770587444305,
+        "scoring": {
+          "keywordScore": null,
+          "vectorScore": 0.66284263,
+          "rerankingScore": 0.12318770587444305
+        },
+        "sourceTitle": "Resolución Miscelánea Fiscal para 2026 (compilación del SAT)",
+        "sourceUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/compiladas/Compilado_Primera_Modificacion_a_la-Resolucion_Miscelanea_Fiscal_para_2026.pdf",
+        "sourcePublishedAt": "2026-07-16"
+      },
+      { "passageId": "rmf-2026/regla-2.7.1.44.md", "score": 0.07219493389129639, "…": "…" },
+      { "passageId": "rmf-2026/regla-2.7.1.34.md", "score": 0.0061105540953576565, "…": "…" }
+    ]
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+El primer resultado, la regla 2.7.1.35, se llama justo como la pregunta: "Cancelación de CFDI sin aceptación del receptor". `score` ordena los resultados de una búsqueda; no es una probabilidad ni se compara entre búsquedas distintas. Lo que decide si un pasaje responde es su texto.
+
+## 2. Lee el pasaje completo
+
+`quote` es solo el fragmento que coincidió. La respuesta está más abajo en la regla, así que léela entera:
+
+```bash
+curl https://codice.io/v1/passages/rmf-2026/regla-2.7.1.35.md \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "passageId": "rmf-2026/regla-2.7.1.35.md",
+    "heading": "Resolución Miscelánea Fiscal para 2026 (compilación del SAT) › Título 2. Código Fiscal de la Federación › Capítulo 2.7. De los Comprobantes Fiscales Digitales por Internet o Factura Electrónica › Sección 2.7.1. Disposiciones generales › Regla 2.7.1.35. Cancelación de CFDI sin aceptación del receptor",
+    "text": "…",
+    "authority": "SAT",
+    "kind": "regla",
+    "validFrom": "2025-12-28",
+    "validUntil": null,
+    "source": {
+      "id": "rmf-2026",
+      "title": "Resolución Miscelánea Fiscal para 2026 (compilación del SAT)",
+      "authority": "SAT",
+      "url": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/compiladas/Compilado_Primera_Modificacion_a_la-Resolucion_Miscelanea_Fiscal_para_2026.pdf",
+      "sha256": "edd1ae82fe16ba96e79a591d26a29cc3b91e104713d63e2395a7212546da9718",
+      "publishedAt": "2026-07-16",
+      "retrievedAt": "2026-10-25T00:00:00.000Z",
+      "validFrom": "2026-07-16",
+      "validUntil": null
+    }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+En `text` están las doce fracciones de la regla. Las que responden la pregunta:
+
+```text
+2.7.1.35. Para los efectos de los artículos 29-A, cuarto, quinto y sexto párrafos del CFF y Sexto, fracción
+I de las Disposiciones Transitorias del CFF […], los
+contribuyentes podrán cancelar un CFDI sin que se requiera la aceptación del receptor en
+los siguientes supuestos:
+I. Los que amparen montos totales de hasta $1,000.00 (mil pesos 00/100 M.N.).,
+excepto los CFDI a los que hace referencia la regla 2.7.1.34., tercer párrafo, así
+como el CFDI con “Complemento para recepción de Pagos” a que se refiere la regla
+2.7.1.32.
+[…]
+IX. Cuando la cancelación se realice dentro del día hábil siguiente a su expedición.
+```
+
+Lee también las excepciones: la fracción I no cubre los CFDI de la regla 2.7.1.34, tercer párrafo, ni los recibos de pago, y el último párrafo de la regla excluye los CFDI de ingreso por hidrocarburos y petrolíferos.
+
+## 3. Responde citando
+
+Una respuesta citada lleva cuatro cosas: el texto del SAT (no tu paráfrasis), el número de la regla, el documento con su enlace y su vigencia. Por ejemplo:
+
+> Sí, salvo excepciones. La regla 2.7.1.35 de la RMF 2026 permite cancelar sin aceptación del receptor los CFDI que "amparen montos totales de hasta $1,000.00 (mil pesos 00/100 M.N.).", excepto los de la regla 2.7.1.34, tercer párrafo, y los CFDI con complemento para recepción de pagos (fracción I).
+>
+> Fuente: [Resolución Miscelánea Fiscal para 2026 (compilación del SAT)](https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/compiladas/Compilado_Primera_Modificacion_a_la-Resolucion_Miscelanea_Fiscal_para_2026.pdf), publicada el 16 de julio de 2026. Regla vigente desde el 28 de diciembre de 2025.
+
+Si necesitas probar qué documento leíste, guarda también `sha256`: es la huella del archivo del SAT del que sale el texto (ver [Conceptos](/docs/conceptos#citar-una-respuesta)).
+
+## Cuando Códice no tiene la respuesta
+
+Otra pregunta: "¿hasta cuándo puedo cancelar una factura emitida este año?". La misma búsqueda, con `kind=regla`, devuelve:
+
+| `passageId`                  | `score`                |
+| ---------------------------- | ---------------------- |
+| `rmf-2026/regla-3.13.29.md`  | `0.03075833059847355`  |
+| `rmf-2026/regla-2.7.2.18.md` | `0.019736384972929955` |
+| `rmf-2026/regla-2.7.1.35.md` | `0.005335028748959303` |
+
+Ninguna regla dice el plazo. La 3.13.29 trata del CFDI global del Régimen Simplificado de Confianza; la 2.7.2.18, de un proveedor de certificación que deja de operar. Las reglas de cancelación de la Miscelánea se dictan "para los efectos" del artículo 29-A del Código Fiscal de la Federación (lo dice la propia 2.7.1.35), y Códice todavía no contiene el Código (ver [Qué contiene](/docs#qué-contiene)).
+
+Cuando los pasajes no responden la pregunta, dilo así: "Códice no tiene la regla; las reglas de cancelación remiten al artículo 29-A del CFF", y no completes la respuesta de memoria. Si conectas un asistente, pídele lo mismo en sus instrucciones.
+
+## Desde un asistente
+
+Conectado por [MCP](/docs/mcp), tu asistente hace los tres pasos con `search` y `read_passage`. Si quieres que cite como en el paso 3, díselo: "responde citando el texto de la regla, su número, la fuente con su enlace y su vigencia". Ver también [Buscar reglas](/docs/buscar) para afinar las preguntas.

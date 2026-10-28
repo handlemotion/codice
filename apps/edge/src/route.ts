@@ -17,6 +17,8 @@ export const API_PATHS: ReadonlySet<string> = new Set(["/health", "/ready"]);
 
 /** The site's own pages besides `/`: the docs, for every visitor, signed in or not. */
 export const SITE_PAGE_PREFIXES: readonly string[] = ["/docs"];
+/** The docs for AI assistants (llmstxt.org), at the root where assistants look for them. */
+export const SITE_PATHS: ReadonlySet<string> = new Set(["/llms.txt", "/llms-full.txt"]);
 
 /** `/?site` serves the site to a signed-in visitor too: the dashboard's "Website" link uses it. */
 export const SITE_HOME_PARAM = "site";
@@ -34,6 +36,7 @@ function isApiPath(pathname: string): boolean {
 }
 
 function isSitePage(pathname: string): boolean {
+  if (SITE_PATHS.has(pathname)) return true;
   return SITE_PAGE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -49,7 +52,7 @@ function hasSession(cookie: string | null): boolean {
 }
 
 // The API owns its prefixes regardless of method or session. The site owns `/` for anonymous
-// visitors, its pages (`/docs`) for everyone and its hashed assets; every other path is the
+// visitors, its pages (`/docs`, `/llms.txt`) for everyone and its hashed assets; every other path is the
 // dashboard's, so the app stays the default.
 export function routeTarget({ url, method, cookie, siteEnabled }: RouteInput): RouteTarget {
   if (isApiPath(url.pathname)) return "api";

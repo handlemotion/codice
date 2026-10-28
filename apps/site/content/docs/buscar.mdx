@@ -17,15 +17,28 @@ curl -G https://codice.io/v1/search \
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `q`       | Sí          | La pregunta o el código, en español o inglés, hasta 1,000 caracteres.                                                                             |
 | `asOf`    | No          | Solo reglas vigentes en esa fecha, `AAAA-MM-DD`. Por omisión, hoy en la Ciudad de México.                                                         |
-| `source`  | No          | Solo una fuente, por su id: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado` o `matriz-de-errores-cfdi-40`.                        |
+| `source`  | No          | Solo esas fuentes, por el id que da `GET /v1/sources`, como `anexo-20-guia-de-llenado` o `rmf-2026`. Repítelo para buscar en varias, hasta 10.    |
 | `kind`    | No          | Solo un tipo de pasaje: `guia`, `anexo`, `regla` (ver [Conceptos](/docs/conceptos#tipos-de-pasaje)).                                              |
 | `limit`   | No          | Cuántos pasajes devolver, de 1 a 50. Por omisión, 5.                                                                                              |
 | `format`  | No          | `full` (por omisión) cita el texto que coincidió; `brief` da solo su ruta de títulos y un extracto (ver [Resultados breves](#resultados-breves)). |
+
+Para buscar en varias fuentes a la vez, repite `source`. Esta búsqueda revisa la guía de llenado y la matriz de errores, sin la Miscelánea:
+
+```bash
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=código postal del receptor con RFC genérico" \
+  --data-urlencode "source=anexo-20-guia-de-llenado" \
+  --data-urlencode "source=matriz-de-errores-cfdi-40" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Por [MCP](/docs/mcp), `source` es un id o una lista: `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]`. En la respuesta, `source` trae las fuentes que pediste, en orden alfabético, o `null` si buscaste en todas.
 
 ## Cómo preguntar
 
 - **Pregunta por el caso, no por la palabra.** "¿Puedo cancelar una factura de enero en marzo?" encuentra la regla de cancelación aunque no use esas palabras.
 - **Usa el código cuando lo tengas.** Un `CFDI40xxx`, una clave de catálogo o un número de regla encuentran su pasaje exacto. Para un código de error, [`/v1/errors/{code}`](/docs/errores) es más directo.
+- **Acota con `source`** cuando sepas en qué documentos está la respuesta; puedes dar varios.
 - **Acota con `kind`** cuando sepas qué buscas: `guia` para saber qué significa un campo, `anexo` para saber por qué se rechaza, `regla` para las reglas de la Miscelánea.
 - **Fija `asOf`** si revisas un periodo pasado.
 

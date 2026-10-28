@@ -31,8 +31,8 @@ export type CodiceSearchParameters = {
   readonly q?: string | undefined;
   /** `YYYY-MM-DD`; today in Mexico City when absent. */
   readonly asOf?: string | undefined;
-  /** A source id, such as `anexo-20-guia-de-llenado`. */
-  readonly source?: string | undefined;
+  /** A source id, such as `anexo-20-guia-de-llenado`, or several: passages of any of them. */
+  readonly source?: string | readonly string[] | undefined;
   /** A passage kind, such as `guia` for the filling guides' definitions. */
   readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
@@ -67,7 +67,8 @@ export type CodiceSearchResult = {
 export type CodiceSearch = {
   readonly query: string;
   readonly asOf: string;
-  readonly source: string | null;
+  /** The source ids asked for, sorted and without repeats; null when the search took them all. */
+  readonly source: readonly string[] | null;
   readonly kind: string | null;
   readonly format: "full";
   readonly results: readonly CodiceSearchResult[];
