@@ -46,6 +46,8 @@
   --color-line: #2a2a2e;
   --color-fg: #ededef;
   --color-muted: #7c7c84;
+  /* The hero's background mark: the hairline in dark, faded to 60% in light. */
+  --color-field: var(--color-line);
   /* The one accent, the same in both themes: the primary button, the visitor's chat bubble,
      selected text and the light favicon tile. */
   --color-electric: #2346ff;
@@ -66,6 +68,7 @@ body {
   color-scheme: light;
   --color-ink: #e8e8e8;
   --color-line: #c9c9c9;
+  --color-field: rgb(201 201 201 / 0.6);
   --color-fg: #0a0a0b;
   --color-muted: #5f5f66;
 }
