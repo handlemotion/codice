@@ -210,7 +210,7 @@ function Headline({ view, days }: { view: UsageView; days: UsagePeriod }) {
  * middle figure (the share, or the errors) goes, so the names keep their room.
  */
 const TABLE =
-  "grid grid-cols-[minmax(0,1fr)_4.5rem_4rem] items-baseline gap-x-4 sm:grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_4rem]";
+  "grid grid-cols-[minmax(0,1fr)_4.5rem_4rem] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_4rem]";
 
 /**
  * A table on its own island. Its first row is both its title and its column names: the title in
@@ -356,7 +356,7 @@ function Operations({ view }: { view: UsageView }) {
           name={
             <span className="min-w-0 truncate">
               {OPERATIONS[operation.operation] ?? operation.operation}
-              <span className="font-mono text-[12px] text-muted max-sm:hidden">
+              <span className="font-mono text-[12px] leading-none text-muted max-sm:hidden">
                 {" "}
                 {operation.operation}
               </span>

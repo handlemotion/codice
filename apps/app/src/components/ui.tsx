@@ -71,7 +71,7 @@ export function Group({
 }) {
   return (
     <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
-      <div className={`flex items-baseline justify-between gap-4 ${ROW}`}>
+      <div className={`flex items-center justify-between gap-4 ${ROW}`}>
         <h2>{title}</h2>
         {note && <span className="text-[13px] text-muted">{note}</span>}
       </div>
