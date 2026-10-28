@@ -10,6 +10,8 @@
 #   ~170 AI Search queries, so it never runs on pull requests, and it fails below the top-3 result
 #   recorded in SPEC.md, "Retrieval eval". `--wait` holds the eval until AI Search has indexed
 #   every item, so it measures the new passages.
+# - alert: a failed run opens or updates the GitHub issue "Códice corpus failed" naming the failed
+#   step and the stuck items; a green run closes it.
 #
 # Doppler auth holds no long-lived secret in GitHub: the job exchanges its OIDC token for a
 # short-lived Doppler token through a Service Account Identity whose subject is this repository's
@@ -140,6 +142,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      details: ${{ steps.details.outputs.text }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -190,7 +194,7 @@ jobs:
         run: |
           set -euo pipefail
           doppler run -p codice -c prd --no-check-version -- \
-            pnpm --filter @codice/api ingest --wait | tee "$RUNNER_TEMP/ingest.log"
+            pnpm --filter @codice/api ingest --wait 2>&1 | tee "$RUNNER_TEMP/ingest.log"
           # The plan line `scripts/ingest.ts` prints: superseded, stuck, upload, delete, unchanged.
           plan=$(grep -E "^AI Search: [0-9]+ to keep as superseded, " "$RUNNER_TEMP/ingest.log")
           echo "$plan" >> "$GITHUB_STEP_SUMMARY"
@@ -201,6 +205,7 @@ jobs:
           fi
 
       - name: Retrieval eval
+        id: eval
         if: steps.ingest.outputs.changed == 'true' || inputs.eval
         run: |
           set -uo pipefail
@@ -216,6 +221,71 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
 
+      # For the alert issue: the items the ingestion names when it fails (`failUnfinished` in
+      # scripts/ingest.ts), and the eval's summary when the eval fails.
+      - name: Failure details
+        id: details
+        if: failure()
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+        run: |
+          set -uo pipefail
+          {
+            if grep -qs "did not finish indexing" "$RUNNER_TEMP/ingest.log"; then
+              grep -o -m 1 "AI Search: [0-9]* items did not finish indexing" "$RUNNER_TEMP/ingest.log"
+              echo
+              echo '```'
+              sed -n '/did not finish indexing/,$p' "$RUNNER_TEMP/ingest.log" \
+                | grep -E '^  [^ ]+ \([a-z_]+\)$' | sed 's/^  //'
+              echo '```'
+            fi
+            if [[ "$EVAL_OUTCOME" == "failure" && -f "$RUNNER_TEMP/eval.log" ]]; then
+              echo "Retrieval eval below the floor of $EVAL_MIN_TOP3 (top 3):"
+              echo
+              echo '```'
+              tail -n 1 "$RUNNER_TEMP/eval.log"
+              echo '```'
+            fi
+          } > "$RUNNER_TEMP/details.md"
+          {
+            echo "text<<CODICE_DETAILS_EOF"
+            cat "$RUNNER_TEMP/details.md"
+            echo "CODICE_DETAILS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Doppler logout
         if: always()
         run: doppler oidc logout --scope=. --no-check-version || true
+
+  # A failed run opens (or comments on) the issue "Códice corpus failed"; the next green run closes
+  # it (docs/operations/monitoring.md).
+  alert:
+    name: Alert
+    needs: [sources, ingest]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Open, update or close the alert issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_ASSIGNEE: ${{ github.repository_owner }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          DETAILS: ${{ needs.ingest.outputs.details }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$DETAILS" > "$RUNNER_TEMP/details.md"
+          node scripts/ops/alert-issue.mjs --title "Códice corpus failed" --results "$RESULTS" \
+            --details-file "$RUNNER_TEMP/details.md"

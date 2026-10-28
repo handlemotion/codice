@@ -497,7 +497,9 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   `eval --min-top3 155` when a passage was uploaded or deleted, or when a manual run asks for it
   (input `eval`); below the recorded top 3 the run fails. Doppler comes through GitHub OIDC, as in
   `sync-worker-secrets.yml` (setup: `docs/operations/doppler-secrets.md`, "Códice"). The eval never
-  runs on pull requests: each run spends ~170 AI Search queries.
+  runs on pull requests: each run spends ~170 AI Search queries. Job `alert` turns a failed run into
+  the GitHub issue "Códice corpus failed", with the failed step and the unfinished item keys, and
+  closes it on the next green run ([Monitoring and deploy](#monitoring-and-deploy)).
 - Indexing time, measured 2026-10-25 on a comparison instance with `codice`'s settings: the 1,734
   passages with the RMF uploaded in 6 minutes, and 1,733 had indexed 51 minutes after the upload
   began; one (`rmf-2026/regla-12.3.16.md`) stayed `running` past that. Such an item fails the
@@ -784,6 +786,16 @@ migrations remotely, uploads a version tagged with the commit and its source map
 as `apps/providers` does. It runs only from the Cloudflare Git build of `main`.
 `sync-worker-secrets.yml` pushes `SENTRY_DSN` (and only that name) from Doppler `codice` `prd` to
 the Worker; it skips the Worker while the script or the secret does not exist.
+
+Alerts (`docs/operations/monitoring.md`): a failed run of `codice-corpus.yml` or
+`sync-worker-secrets.yml` opens or comments on a GitHub issue labelled `ops-alert`, assigned to the
+repository owner, naming the failed steps and, for the corpus, the items AI Search did not finish
+indexing; the next green run closes it (`scripts/ops/alert-issue.mjs`, no secret needed).
+`codice-synthetic.yml` calls `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` every
+10 minutes with the site's key and alerts the same way on a non-200, an unexpected body or a call
+over 1, 8 or 1.5 seconds; it stays off until the repository variable `CODICE_BASE_URL` names a
+public host, which does not exist yet (Go-live checklist, step 7). Sentry alert rules for errors
+and the `ai_search.search` p95 are proposed there and not created yet.
 
 ### Go-live checklist
 

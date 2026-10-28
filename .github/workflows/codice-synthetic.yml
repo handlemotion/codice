@@ -1,0 +1,124 @@
+# Códice synthetic check: calls the production API the way a client does, every 10 minutes
+# (scripts/ops/synthetic-check.mjs; docs/operations/monitoring.md, "Synthetic check").
+#
+# It checks `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` against the repository
+# variable CODICE_BASE_URL with the site's key (CODICE_SITE_API_KEY in Doppler `codice` `prd`,
+# read through the corpus job's OIDC identity) and fails on a non-200, an unexpected body or a
+# response over the check's limit. A failure opens or updates the issue "Códice synthetic check
+# failed" (at most one comment an hour while it keeps failing); a passing run closes it.
+#
+# Off until CODICE_BASE_URL is set: Códice has no public host yet (no route, `workers.dev` off,
+# `codice.io` not purchased), so the scheduled run skips. A manual run can name a base URL.
+# Each run spends one AI Search query (about 4,300 a month at this cadence).
+name: Códice synthetic check
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Base URL to check instead of the CODICE_BASE_URL variable
+        required: false
+        type: string
+
+concurrency:
+  group: codice-synthetic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    if: github.ref == 'refs/heads/main' && (inputs.base_url || vars.CODICE_BASE_URL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      details: ${{ steps.check.outputs.details }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Doppler CLI
+        run: |
+          set -euo pipefail
+          curl -sLf --retry 3 https://cli.doppler.com/install.sh | sudo sh
+          doppler --version
+
+      - name: Doppler OIDC login
+        env:
+          # The corpus job's identity `handlemotion-codice-main` on codice-corpus (read on `codice`
+          # `prd`), whose subject is this repository's `main` (docs/operations/doppler-secrets.md).
+          # An ID, not a secret.
+          DOPPLER_IDENTITY_ID: 11ea72e9-0de7-474e-998b-48568d5a08f3
+        run: |
+          set -euo pipefail
+          OIDC_TOKEN=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/handlemotion" | jq -r .value)
+          doppler oidc login --scope=. --identity="$DOPPLER_IDENTITY_ID" --token="$OIDC_TOKEN" --no-check-version
+
+      - name: Check the API
+        id: check
+        env:
+          CODICE_BASE_URL: ${{ inputs.base_url || vars.CODICE_BASE_URL }}
+        run: |
+          set -uo pipefail
+          # Only the one secret, masked; never the whole config.
+          CODICE_API_KEY=$(doppler secrets get CODICE_SITE_API_KEY -p codice -c prd --plain --no-check-version)
+          echo "::add-mask::$CODICE_API_KEY"
+          export CODICE_API_KEY
+          node scripts/ops/synthetic-check.mjs --details-file "$RUNNER_TEMP/details.md"
+          status=$?
+          if [[ -f "$RUNNER_TEMP/details.md" ]]; then
+            {
+              echo "details<<CODICE_DETAILS_EOF"
+              cat "$RUNNER_TEMP/details.md"
+              echo "CODICE_DETAILS_EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+          exit "$status"
+
+      - name: Doppler logout
+        if: always()
+        run: doppler oidc logout --scope=. --no-check-version || true
+
+  alert:
+    name: Alert
+    needs: [check]
+    if: always() && needs.check.result != 'skipped'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Open, update or close the alert issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_ASSIGNEE: ${{ github.repository_owner }}
+          RESULTS: ${{ needs.check.result }}
+          DETAILS: ${{ needs.check.outputs.details }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$DETAILS" > "$RUNNER_TEMP/details.md"
+          node scripts/ops/alert-issue.mjs --title "Códice synthetic check failed" \
+            --results "$RESULTS" --details-file "$RUNNER_TEMP/details.md" --repeat-after 60
