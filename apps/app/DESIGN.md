@@ -43,7 +43,7 @@ This file records only where the dashboard adds to it or departs from it. Values
 - **Cuenta** (`/account`): profile (name editable), the team's members, the user's other teams to
   switch to, and preferences (theme, sign out).
 - **Entrar** (`/login`) and **Conectar** (`/consent`): no card and no rail. One narrow column
-  (20rem) on the ground: the mark on a 32px electric tile, the title alone, then full-width 32px
+  (20rem) on the ground: the mark (24px, no tile) 12px above the title alone, then full-width 32px
   fields and buttons. Fields and secondary buttons take the island's look (white by day, a
   hairline at night); the primary is electric. Sign-in is the email code, then the Google and
   GitHub buttons with their logos in `fg`. No subtitle, divider or footer line.

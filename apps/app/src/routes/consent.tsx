@@ -34,12 +34,8 @@ const WIDE = "flex-1";
 
 function Tile() {
   return (
-    <a
-      aria-label="Sitio de Códice"
-      className="grid size-8 place-items-center rounded-[4px] bg-electric text-white"
-      href="/?site"
-    >
-      <Mark className="size-5" radius={9} strokeWidth={1.5} />
+    <a aria-label="Sitio de Códice" className="w-fit" href="/?site">
+      <Mark className="size-6" radius={9} strokeWidth={1.5} />
     </a>
   );
 }
@@ -74,8 +70,8 @@ function Consent() {
   if (!request) {
     return (
       <main className={COLUMN}>
-        <Tile />
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-3">
+          <Tile />
           <h1 className="text-[20px] leading-snug">Esta solicitud venció</h1>
           <p className="text-muted">Vuelve a conectar desde tu aplicación.</p>
         </div>
@@ -85,7 +81,7 @@ function Consent() {
 
   return (
     <main className={COLUMN}>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3">
         <Tile />
         <div className="flex flex-col gap-1">
           <h1 className="text-[20px] leading-snug">¿Conectar {request.client.name} a Códice?</h1>

@@ -104,14 +104,12 @@ function Login() {
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[20rem] flex-col justify-center gap-6 px-4 py-16">
-      <a
-        aria-label="Sitio de Códice"
-        className="grid size-8 place-items-center rounded-[4px] bg-electric text-white"
-        href="/?site"
-      >
-        <Mark className="size-5" radius={9} strokeWidth={1.5} />
-      </a>
-      <h1 className="text-[20px] leading-snug">Entrar a Códice</h1>
+      <div className="flex flex-col gap-3">
+        <a aria-label="Sitio de Códice" className="w-fit" href="/?site">
+          <Mark className="size-6" radius={9} strokeWidth={1.5} />
+        </a>
+        <h1 className="text-[20px] leading-snug">Entrar a Códice</h1>
+      </div>
 
       <div className="flex flex-col gap-2">
         <form className="flex flex-col gap-2" onSubmit={submit}>
