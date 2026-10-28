@@ -15,7 +15,13 @@ export const SEARCH_LIMIT_DEFAULT = 5;
  * eval scores best (SPEC.md, "Retrieval eval"). Each result still carries its reranking score.
  */
 export const RERANKING_THRESHOLD = 0;
-/** The passage kinds (SPEC.md, "Items"); the corpus holds `guia` (the filling guides), `anexo` and `regla` (the RMF). */
+/**
+ * Drop a result whose reranking score is under this fraction of the first result's. The reranker
+ * scores a passage it judges off topic two or three orders of magnitude below the best one, while a
+ * correct answer the reranker doubts still scored 3% of the first (SPEC.md, "Query").
+ */
+export const RERANKING_RELATIVE_FLOOR = 0.02;
+/** The passage kinds (SPEC.md, "Items"); the corpus holds `guia` (the filling guides), `anexo`, `regla` (the RMF) and `ley` (the CFF). */
 export const PASSAGE_KINDS = ["ley", "reglamento", "regla", "anexo", "guia", "criterio"] as const;
 /** AI Search returns at most 50 results. */
 export const SEARCH_LIMIT_MAX = 50;
@@ -55,8 +61,11 @@ export type SearchInput = {
   readonly q: string;
   /** `YYYYMMDD`: only passages in force that day. */
   readonly asOf: number;
-  /** A source id, the passages' AI Search folder, such as `anexo-20-guia-de-llenado`. */
-  readonly source?: string;
+  /**
+   * Source ids, each the passages' AI Search folder, such as `anexo-20-guia-de-llenado`: only
+   * passages of one of them. Sorted and without repeats, so the order asked does not matter.
+   */
+  readonly sources?: readonly string[];
   /** A passage kind (SPEC.md, "Items"), such as `guia` for the filling guides' definitions. */
   readonly kind?: string;
   readonly limit: number;
@@ -77,7 +86,16 @@ export function validityFilter(asOf: number) {
   return { valid_from: { $lte: asOf }, valid_until: { $gte: asOf } };
 }
 
-/** The `search()` request: the question, the validity filter, and the source and kind when given. */
+/**
+ * The source filter on the AI Search folder: an equality for one source, `$in` for several (a
+ * stored scalar against any of the candidates, as AI Search's filtering docs give it).
+ */
+function folderFilter(sources: readonly string[]) {
+  const folders = sources.map((source) => `${source}/`);
+  return folders.length === 1 ? folders[0]! : { $in: folders };
+}
+
+/** The `search()` request: the question, the validity filter, and the sources and kind when given. */
 export function searchRequest(input: SearchInput) {
   return {
     messages: [{ role: "user" as const, content: input.q }],
@@ -85,7 +103,7 @@ export function searchRequest(input: SearchInput) {
       retrieval: {
         filters: {
           ...validityFilter(input.asOf),
-          ...(input.source ? { folder: `${input.source}/` } : {}),
+          ...(input.sources?.length ? { folder: folderFilter(input.sources) } : {}),
           ...(input.kind ? { kind: input.kind } : {}),
         },
         max_num_results: input.limit,
@@ -145,6 +163,22 @@ export function passageMetadata(metadata: Record<string, unknown> | undefined) {
   };
 }
 
+/**
+ * The results the reranker did not score below `RERANKING_RELATIVE_FLOOR` of the first one. The
+ * first is always kept, and so is every result when the first has no positive reranking score.
+ */
+export function aboveRerankingFloor(results: readonly SearchResult[]): SearchResult[] {
+  const top = results[0]?.scoring.rerankingScore ?? 0;
+  if (top <= 0) return [...results];
+  const floor = top * RERANKING_RELATIVE_FLOOR;
+  return results.filter(
+    (result, index) =>
+      index === 0 ||
+      result.scoring.rerankingScore === null ||
+      result.scoring.rerankingScore >= floor,
+  );
+}
+
 /** One result a chunk, in AI Search's order. */
 export function searchResults(chunks: readonly SearchChunk[]): SearchResult[] {
   return chunks.map((chunk) => ({
@@ -159,4 +193,127 @@ export function searchResults(chunks: readonly SearchChunk[]): SearchResult[] {
       rerankingScore: chunk.scoring_details?.reranking_score ?? null,
     },
   }));
+}
+
+/** What a search returns per passage: `full` quotes the matched text, `brief` an excerpt of it. */
+export const SEARCH_FORMATS = ["full", "brief"] as const;
+export type SearchFormat = (typeof SEARCH_FORMATS)[number];
+
+/** A brief result's excerpt at most, in characters: about 80 tokens of the SAT's Spanish. */
+export const EXCERPT_LENGTH = 320;
+/** How much text an excerpt keeps before the first term it matched. */
+const EXCERPT_LEAD = 60;
+
+/** Words too common to place an excerpt by, folded; a word under 3 letters never counts. */
+const STOPWORDS = new Set(
+  (
+    "las los del con por para una uno unos unas que como cual cuando donde debe puede este esta " +
+    "esto ese esa sus the and for with what when how does are can"
+  ).split(" "),
+);
+
+/** Lowercase without accents and as long as `text`, so an index in one is an index in the other. */
+function folded(text: string) {
+  let out = "";
+  for (const character of text) {
+    const base = character.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    out += base.length === character.length ? base : character;
+  }
+  return out;
+}
+
+/** The question's words worth matching, folded: `¿Qué UsoCFDI lleva…?` → `usocfdi`, `lleva`. */
+export function excerptTerms(q: string): string[] {
+  const words = folded(q)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3 && !STOPWORDS.has(word));
+  return [...new Set(words)];
+}
+
+export type Excerpt = {
+  /** An exact substring of the passage's text, never rewritten. */
+  readonly excerpt: string;
+  /** Whether the passage's text continues before or after the excerpt. */
+  readonly truncated: { readonly before: boolean; readonly after: boolean };
+};
+
+const SPACE = /\s/u;
+
+/**
+ * At most `length` characters of `text` around the part that matches `q`: the window that holds
+ * the most distinct terms of the question, starting a little before the first, snapped to whole
+ * words. Without a matching term (a match by meaning) it is the text's start. Never paraphrased:
+ * the excerpt is `text.slice(start, end)`.
+ */
+export function excerpt(text: string, q: string, length = EXCERPT_LENGTH): Excerpt {
+  const haystack = folded(text);
+  const hits = excerptTerms(q)
+    .flatMap((term) => {
+      const found: { at: number; term: string }[] = [];
+      for (let at = haystack.indexOf(term); at !== -1; at = haystack.indexOf(term, at + 1)) {
+        found.push({ at, term });
+      }
+      return found;
+    })
+    .sort((a, b) => a.at - b.at);
+  let best = { at: 0, terms: 0, hits: 0 };
+  for (const hit of hits) {
+    const inside = hits.filter(
+      (other) => other.at >= hit.at && other.at < hit.at + length - EXCERPT_LEAD,
+    );
+    const terms = new Set(inside.map((other) => other.term)).size;
+    if (terms > best.terms || (terms === best.terms && inside.length > best.hits)) {
+      best = { at: hit.at, terms, hits: inside.length };
+    }
+  }
+  // From the start of the line or sentence of the first term when it is near, else from a little
+  // before the term; earlier when the text ends before the window would. Then at a whole word.
+  const opening = Math.max(text.lastIndexOf("\n", best.at), text.lastIndexOf(". ", best.at));
+  let start = opening >= best.at - 2 * EXCERPT_LEAD ? opening + 1 : best.at - EXCERPT_LEAD;
+  start = Math.max(0, Math.min(start, text.length - length));
+  if (start > 0 && !SPACE.test(text[start - 1]!)) {
+    const space = text.slice(start, best.at).search(/\s/u);
+    if (space >= 0) start += space + 1;
+  }
+  let end = Math.min(text.length, start + length);
+  // Back from a cut last word.
+  if (end < text.length && !SPACE.test(text[end]!)) {
+    const space = text.slice(start, end).search(/\s\S*$/u);
+    if (space > 0) end = start + space;
+  }
+  while (start < end && SPACE.test(text[start]!)) start += 1;
+  while (end > start && SPACE.test(text[end - 1]!)) end -= 1;
+  return {
+    excerpt: text.slice(start, end),
+    truncated: {
+      before: text.slice(0, start).trim() !== "",
+      after: text.slice(end).trim() !== "",
+    },
+  };
+}
+
+/** A heading line `# …` opens every passage's text (SPEC.md, "Items"); the brief gives it apart. */
+const HEADING_LINE = /^# [^\n]*\n+/u;
+
+export type BriefSearchResult = Pick<
+  SearchResult,
+  "passageId" | "kind" | "validFrom" | "validUntil" | "score"
+> &
+  Excerpt & {
+    /** The passage's heading path, such as `Anexo 20 › Nodo: Receptor › UsoCFDI`. */
+    readonly heading: string | null;
+  };
+
+/** A result as its heading path and an excerpt of its quote around what `q` matched. */
+export function briefResult(result: SearchResult, q: string, heading: string | null) {
+  const text = result.quote.replace(HEADING_LINE, "");
+  return {
+    passageId: result.passageId,
+    heading,
+    ...excerpt(text, q),
+    kind: result.kind,
+    validFrom: result.validFrom,
+    validUntil: result.validUntil,
+    score: result.score,
+  } satisfies BriefSearchResult;
 }

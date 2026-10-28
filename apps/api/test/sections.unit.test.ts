@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { compactSatMarkdown } from "../scripts/sat-documents";
 import {
   guideSections,
+  instructivoSections,
+  lawArticles,
   nameVocabulary,
   rmfReglas,
   SECTION_MAX_CHARS,
@@ -17,12 +19,29 @@ const read = (file: string) => compactSatMarkdown(readFileSync(join(SAT_MD, file
 const GUIDES = {
   anexo20: read("anexo-20-guia-de-llenado-cfdi.md"),
   pagos: read("complemento-pagos-guia-de-llenado.md"),
+  comercioExterior: read("complemento-comercio-exterior-guia-de-llenado.md"),
 };
 const VOCABULARY = nameVocabulary([
   GUIDES.anexo20,
   GUIDES.pagos,
   read("matriz-de-errores-cfdi-4.0.md"),
 ]);
+const VOCABULARIES: Record<keyof typeof GUIDES, ReadonlySet<string>> = {
+  anexo20: VOCABULARY,
+  pagos: VOCABULARY,
+  comercioExterior: nameVocabulary([
+    GUIDES.anexo20,
+    GUIDES.pagos,
+    read("matriz-de-errores-cfdi-4.0.md"),
+    GUIDES.comercioExterior,
+  ]),
+};
+const INSTRUCTIVOS = {
+  autotransporte: read("complemento-carta-porte-autotransporte.md"),
+  maritimo: read("complemento-carta-porte-maritimo.md"),
+  aereo: read("complemento-carta-porte-aereo.md"),
+  ferroviario: read("complemento-carta-porte-ferroviario.md"),
+};
 
 /** The guide as MarkItDown converts a SAT PDF: contents, a two-column part, appendices. */
 const GUIDE = [
@@ -121,7 +140,8 @@ describe("guideSections", () => {
 
 describe("guideSections over the SAT's guides", () => {
   for (const [name, markdown] of Object.entries(GUIDES)) {
-    const sections = guideSections(markdown, { title: name, vocabulary: VOCABULARY });
+    const vocabulary = VOCABULARIES[name as keyof typeof GUIDES];
+    const sections = guideSections(markdown, { title: name, vocabulary });
 
     it(`${name}: covers the guide verbatim, with no node left unnamed`, () => {
       expect(covers(sections, markdown)).toBe(true);
@@ -173,6 +193,201 @@ describe("guideSections over the SAT's guides", () => {
         "Nodo: InformacionAduanera › NumeroPedimento",
         "Nodo: Retenciones › FolioInt",
       ]),
+    );
+  });
+
+  it("finds a part the body wraps sooner than the contents, and names each Domicilio by its owner", () => {
+    const sections = guideSections(GUIDES.comercioExterior, {
+      title: "Comercio Exterior",
+      vocabulary: VOCABULARIES.comercioExterior,
+    });
+    const anchors = sections.map((section) => section.anchor);
+    expect(anchors).toEqual(
+      expect.arrayContaining([
+        "parte I",
+        "Nodo: Receptor › ResidenciaFiscal",
+        "parte II",
+        "Nodo: ComercioExterior › MotivoTraslado",
+        "Nodo: Emisor › Nodo: Domicilio › CodigoPostal",
+        "Nodo: Receptor › Nodo: Domicilio › CodigoPostal",
+        "Nodo: Destinatario › Nodo: Domicilio › CodigoPostal",
+        "Nodo: Mercancia › FraccionArancelaria",
+        "Apéndice 3 › Pregunta 24",
+      ]),
+    );
+    expect(anchors.filter((anchor) => anchor === "Nodo: Domicilio")).toEqual([]);
+  });
+});
+
+/** An instructivo as `sat:knowledge` writes it: contents, a part, numbered sections, appendices. */
+const INSTRUCTIVO = [
+  "# Instructivo",
+  "",
+  "Índice",
+  "Índice ........ 1",
+  "Introducción ........ 3",
+  "CFDI de tipo ingreso con complemento Carta Porte ........ 9",
+  "1. Información del comprobante ........ 10",
+  "1.1. Receptor ........ 11",
+  "1.2 Impuestos del concepto ........ 13",
+  "2. Información del complemento Carta Porte ........ 16",
+  "2.1. Ubicaciones ........ 18",
+  "2.1.1 Ubicación ........ 18",
+  "Apéndice 1 Notas generales ........ 68",
+  "Apéndice 2 Datos mínimos requeridos proporcionados por el cliente y el",
+  "transportista ........ 77",
+  "",
+  "Introducción",
+  "El presente instructivo explica cómo se llena el CFDI.",
+  "CFDI de tipo ingreso con complemento Carta Porte",
+  "Los campos no mencionados se registran conforme al Anexo 20.",
+  "1. Información del comprobante",
+  "• Fecha (Fecha): En este campo se debe registrar la fecha.",
+  "Ejemplo:",
+  "Fecha: 2024-03-01T12:00:00",
+  "1.1. Receptor",
+  "• Registro Federal de Contribuyentes (RFC): En este campo se debe",
+  "",
+  "capturar el RFC del cliente.",
+  "1.2. Impuestos del concepto",
+  "Traslado",
+  "• Base (Base): En este campo se debe registrar el monto.",
+  "Retención",
+  "• Base (Base): En este campo se debe registrar el monto retenido.",
+  "2. Información del complemento Carta Porte",
+  "2.1. Ubicaciones",
+  "2.1.1 U bicación",
+  "• Nombre del remitente o del destinatario",
+  "(NombreRemitenteDestinatario): En este campo se puede registrar el nombre.",
+  "• Eslora: En este campo se puede registrar la longitud de eslora.",
+  "Apéndice 1 Notas generales",
+  "Nota 1: El presente documento incluye ejemplos.",
+  "Nota 2: Las claves de servicio dependen del tipo de carga.",
+  "Apéndice 2 Datos mínimos requeridos proporcionados por el cliente y el",
+  "transportista",
+  "Núm. Información proporcionada por el Cliente",
+  "",
+].join("\n");
+
+describe("instructivoSections", () => {
+  const sections = instructivoSections(INSTRUCTIVO, { title: "Instructivo" });
+
+  it("key a field by its part, its sections under the first level and its attribute", () => {
+    expect(sections.map((section) => section.anchor)).toEqual([
+      "portada",
+      "Introducción",
+      "ingreso",
+      "ingreso › Información del comprobante",
+      "ingreso › Información del comprobante › Fecha",
+      "ingreso › Receptor",
+      "ingreso › Receptor › RFC",
+      "ingreso › Impuestos del concepto",
+      "ingreso › Impuestos del concepto › Traslado › Base",
+      "ingreso › Impuestos del concepto › Retención › Base",
+      "ingreso › Información del complemento Carta Porte",
+      "ingreso › Ubicaciones",
+      "ingreso › Ubicaciones › Ubicación",
+      "ingreso › Ubicaciones › Ubicación › NombreRemitenteDestinatario",
+      "ingreso › Ubicaciones › Ubicación › Eslora",
+      "Apéndice 1",
+      "Apéndice 1 › Nota 1",
+      "Apéndice 1 › Nota 2",
+      "Apéndice 2",
+    ]);
+    expect(sections[6]!.label).toBe(
+      "CFDI de tipo ingreso con complemento Carta Porte › 1. Información del comprobante › 1.1. Receptor › Registro Federal de Contribuyentes (RFC)",
+    );
+    expect(sections.at(-1)!.label).toBe(
+      "Apéndice 2 Datos mínimos requeridos proporcionados por el cliente y el transportista",
+    );
+  });
+
+  it("keep a field whole across a page break, with its examples", () => {
+    expect(sections[4]!.text).toBe(
+      "• Fecha (Fecha): En este campo se debe registrar la fecha.\nEjemplo:\nFecha: 2024-03-01T12:00:00\n",
+    );
+    expect(sections[6]!.text).toBe(
+      "• Registro Federal de Contribuyentes (RFC): En este campo se debe\n\ncapturar el RFC del cliente.\n",
+    );
+  });
+
+  it("quote the instructivo verbatim and whole", () => {
+    expect(sections.map((section) => section.text).join("")).toBe(INSTRUCTIVO);
+  });
+});
+
+describe("instructivoSections over the SAT's Carta Porte instructivos", () => {
+  for (const [name, markdown] of Object.entries(INSTRUCTIVOS)) {
+    const sections = instructivoSections(markdown, { title: name });
+
+    it(`${name}: quotes the instructivo verbatim and whole`, () => {
+      expect(sections.map((section) => section.text).join("")).toBe(markdown);
+    });
+
+    it(`${name}: finds every heading its contents list, and both parts`, () => {
+      const contents = markdown
+        .split("\n")
+        .filter((line) => /\.{4,}/u.test(line))
+        .map((line) => line.replace(/\s*\.{4,}.*$/u, "").trim());
+      const fold = (text: string) =>
+        text
+          .replaceAll(/\s+/gu, "")
+          .replace(/^(\d+(?:\.\d+)*)\./u, "$1")
+          .toLowerCase();
+      const labels = new Set(
+        sections.flatMap((section) =>
+          section.label
+            .replace(/ \(parte \d+ de \d+\)$/u, "")
+            .split(" › ")
+            .map(fold),
+        ),
+      );
+      const numbered = contents.filter((entry) => /^\d/u.test(entry));
+      expect(numbered.length).toBeGreaterThan(30);
+      expect(numbered.filter((entry) => !labels.has(fold(entry)))).toEqual([]);
+      const parts = new Set(sections.map((section) => section.anchor.split(" › ")[0]));
+      expect([...parts]).toEqual(expect.arrayContaining(["ingreso", "traslado"]));
+      const appendices = [
+        ...new Set(
+          sections.flatMap((section) => /^Apéndice (\d+)$/u.exec(section.anchor)?.[1] ?? []),
+        ),
+      ].map(Number);
+      expect(appendices.length).toBeGreaterThan(9);
+      expect(appendices).toEqual(appendices.map((_, index) => index + 1));
+    });
+
+    it(`${name}: gives each field of a part its own key`, () => {
+      const fields = sections
+        .map((section) => section.anchor)
+        .filter((anchor) => /^(?:ingreso|traslado) › /u.test(anchor));
+      expect(fields.length).toBeGreaterThan(150);
+      expect(fields.filter((anchor, index) => fields.indexOf(anchor) !== index)).toEqual([]);
+    });
+  }
+
+  it("finds the fields of each mode's own section", () => {
+    const anchors = (markdown: string) =>
+      instructivoSections(markdown, { title: "" }).map((section) => section.anchor);
+    expect(anchors(INSTRUCTIVOS.autotransporte)).toEqual(
+      expect.arrayContaining([
+        "ingreso › Autotransporte › Identificador vehicular › ConfigVehicular",
+        "traslado › Figura del transporte › Tipos de figura › RFCFigura",
+        "ingreso › Ubicaciones › Ubicación › Domicilio › CodigoPostal",
+        "ingreso › Conceptos › Impuestos del concepto › Retención › TasaOCuota",
+      ]),
+    );
+    expect(anchors(INSTRUCTIVOS.maritimo)).toEqual(
+      expect.arrayContaining([
+        "ingreso › Transporte Marítimo › NumAutorizacionNaviero",
+        "ingreso › Transporte Marítimo › Eslora",
+        "ingreso › Transporte Marítimo › Contenedor › TipoContenedor",
+      ]),
+    );
+    expect(anchors(INSTRUCTIVOS.aereo)).toEqual(
+      expect.arrayContaining(["ingreso › Transporte Aéreo › NumeroGuia"]),
+    );
+    expect(anchors(INSTRUCTIVOS.ferroviario)).toEqual(
+      expect.arrayContaining(["ingreso › Transporte Ferroviario › Carro › TipoCarro"]),
     );
   });
 });
@@ -337,5 +552,105 @@ describe("rmfReglas over the SAT's compiled RMF", () => {
     );
     expect(regla.text).toMatch(/^Expedición de comprobantes en operaciones con el público/u);
     expect(regla.text).toMatch(/\nCFF 29, 29-A, .*RMF 2\.6\.1\.2\., 2\.7\.1\.23\..*\n$/u);
+  });
+});
+
+/** A law as `sat:knowledge` converts the Cámara de Diputados' PDF, without its page furniture. */
+const LAW = [
+  "# Código Fiscal de la Federación (texto vigente)",
+  "",
+  "Última reforma publicada DOF 09-04-2026",
+  "El Congreso de los Estados Unidos Mexicanos, Decreta:",
+  "Artículo Único.- Se expide el Código.",
+  "TITULO PRIMERO",
+  "Disposiciones Generales",
+  "CAPITULO I",
+  "Artículo 1o.- Las personas físicas y las morales, están obligadas a contribuir.",
+  "Artículo 4o.-A.- Los impuestos exigibles por los Estados extranjeros se cobrarán conforme al",
+  "Artículo 21 de este Código.",
+  "Artículo reformado DOF 12-11-2021",
+  "CAPÍTULO II",
+  "DE LOS MEDIOS ELECTRÓNICOS",
+  "Artículo 17-H Bis. Tratándose de certificados de sello digital.",
+  "Párrafo adicionado DOF 12-11-2021",
+  "Artículo 20-Bis. El Índice Nacional de Precios al Consumidor.",
+  "Artículo 29-A. Los comprobantes fiscales digitales deberán contener:",
+  "I. La clave del Registro Federal de Contribuyentes.",
+  "Artículo 29-B. (Se deroga).",
+  "Artículo 29-C. Se deroga.",
+  "Nota: Por Decreto DOF 09-12-2019 se adicionó un nuevo Título Segundo.",
+  "TITULO SEGUNDO",
+  "De los Procedimientos",
+  "CAPITULO I",
+  "Sección Primera",
+  "Del Recurso de Revocación",
+  "Artículo 116. Contra los actos administrativos podrá interponerse el recurso de revocación.",
+  "TRANSITORIOS",
+  "Artículo Primero.- Este Código entrará en vigor el 1o. de enero de 1983.",
+  "",
+].join("\n");
+
+describe("lawArticles", () => {
+  const articles = lawArticles(LAW);
+  const article = (number: string) => articles.find((candidate) => candidate.number === number)!;
+
+  it("finds each article once, in order, and none for a repealed one or a wrapped reference", () => {
+    expect(articles.map((candidate) => candidate.number)).toEqual([
+      "1",
+      "4-A",
+      "17-H Bis",
+      "20 Bis",
+      "29-A",
+      "116",
+    ]);
+  });
+
+  it("labels an article by its Título, Capítulo and Sección, with their names", () => {
+    expect(article("1").label).toBe(
+      "TITULO PRIMERO. Disposiciones Generales › CAPITULO I › Artículo 1o.",
+    );
+    expect(article("17-H Bis").label).toBe(
+      "TITULO PRIMERO. Disposiciones Generales › CAPÍTULO II. DE LOS MEDIOS ELECTRÓNICOS › Artículo 17-H Bis",
+    );
+    expect(article("116").label).toBe(
+      "TITULO SEGUNDO. De los Procedimientos › CAPITULO I › Sección Primera. Del Recurso de Revocación › Artículo 116",
+    );
+  });
+
+  it("quotes each article verbatim with its reform notes, up to the next article, heading or note", () => {
+    for (const candidate of articles) expect(LAW).toContain(candidate.text);
+    expect(article("4-A").text).toBe(
+      "Artículo 4o.-A.- Los impuestos exigibles por los Estados extranjeros se cobrarán conforme al\nArtículo 21 de este Código.\nArtículo reformado DOF 12-11-2021\n",
+    );
+    expect(article("17-H Bis").text).toMatch(/\nPárrafo adicionado DOF 12-11-2021\n$/u);
+    expect(article("29-A").text).toMatch(/Contribuyentes\.\n$/u);
+    expect(article("116").text).not.toContain("TRANSITORIOS");
+  });
+});
+
+describe("lawArticles over the Cámara de Diputados' CFF", () => {
+  const markdown = read("codigo-fiscal-de-la-federacion.md");
+  const articles = lawArticles(markdown);
+  const body = markdown.slice(0, markdown.indexOf("\nTRANSITORIOS\n"));
+
+  it("has a passage for every article of the body that is not repealed", () => {
+    // An article's number ends in a period or dash; `Artículo 192 de este Código.` is a reference.
+    const listed = [
+      ...body.matchAll(/^Artículo \d+\S*(?: (?:Bis|Ter|Quáter|Quinquies))?[.-]+ .*$/gmu),
+    ].filter((match) => !/\(?(?:Se deroga|Derogado)\)?\.?$/u.test(match[0]));
+    expect(articles.length).toBe(listed.length);
+    expect(articles.length).toBeGreaterThan(300);
+    expect(new Set(articles.map((candidate) => candidate.number)).size).toBe(articles.length);
+    for (const candidate of articles) expect(markdown).toContain(candidate.text);
+  });
+
+  it("keeps the CFDI requirements of article 29-A whole under their headings", () => {
+    const article = articles.find((candidate) => candidate.number === "29-A")!;
+    expect(article.label).toBe(
+      "TITULO SEGUNDO. De los Derechos y Obligaciones de los Contribuyentes › CAPITULO UNICO › Artículo 29-A",
+    );
+    expect(article.text).toMatch(/^Artículo 29-A\. Los comprobantes fiscales digitales/u);
+    expect(article.text).toContain("Párrafo adicionado DOF 12-11-2021");
+    expect(article.text).not.toContain("Artículo 29-A Bis.");
   });
 });

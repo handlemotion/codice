@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "06d2c29f-3efb-4930-be85-fe002d6193e9",
+  "id": "ef48ddd5-dbea-4038-b160-bb8b7352488a",
   "prevId": "67fd1f88-2641-478a-910e-acf64f7d4bbe",
   "tables": {
     "catalog_entries": {
@@ -158,61 +158,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "passage_links": {
-      "name": "passage_links",
-      "columns": {
-        "passage_key": {
-          "name": "passage_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "related_key": {
-          "name": "related_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "passage_links_passage_key_passages_key_fk": {
-          "name": "passage_links_passage_key_passages_key_fk",
-          "tableFrom": "passage_links",
-          "tableTo": "passages",
-          "columnsFrom": ["passage_key"],
-          "columnsTo": ["key"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "passage_links_related_key_passages_key_fk": {
-          "name": "passage_links_related_key_passages_key_fk",
-          "tableFrom": "passage_links",
-          "tableTo": "passages",
-          "columnsFrom": ["related_key"],
-          "columnsTo": ["key"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "passage_links_passage_key_related_key_pk": {
-          "columns": ["passage_key", "related_key"],
-          "name": "passage_links_passage_key_related_key_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "passages": {
       "name": "passages",
       "columns": {
@@ -278,6 +223,16 @@
         "passages_source_idx": {
           "name": "passages_source_idx",
           "columns": ["source_id"],
+          "isUnique": false
+        },
+        "passages_valid_from_idx": {
+          "name": "passages_valid_from_idx",
+          "columns": ["valid_from"],
+          "isUnique": false
+        },
+        "passages_valid_until_idx": {
+          "name": "passages_valid_until_idx",
+          "columns": ["valid_until"],
           "isUnique": false
         }
       },

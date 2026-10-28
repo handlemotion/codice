@@ -5,20 +5,24 @@ for agents and search. **Check these before assuming a fiscal rule** (what a rec
 what a `CFDI40xxx` error means, how a payment complement is filled). This repo once cited the wrong `CFDI40xxx` code for a rule
 from memory; these files are the SAT's text.
 
-Generated from the SAT's [Anexo 20 page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm)
-and its RMF page by `pnpm --filter @codice/api sat:knowledge`. Every file here except this README is
+Generated from the SAT's [Anexo 20 page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm),
+its RMF page, its Carta Porte and Comercio Exterior pages, and the Cámara de Diputados'
+[Leyes Federales Vigentes](https://www.diputados.gob.mx/LeyesBiblio/index.htm) by `pnpm --filter @codice/api sat:knowledge`. Every file here except this README is
 generated: never edit one by hand. Códice (`apps/api`) ingests them for search, and the Agent
-reads them from Códice. [`sources.json`](./sources.json) records each SAT file's URL,
+reads them from Códice. [`sources.json`](./sources.json) records each file's URL,
 SHA-256, publication date, and retrieval date, and each Markdown file starts with the same
 provenance.
 
-| Topic                                                                                              | File                                                                                                             |
-| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Anexo 20 filling guide: every CFDI 4.0 node and attribute (Emisor, Receptor, …)                    | [`anexo-20-guia-de-llenado-cfdi.md`](./anexo-20-guia-de-llenado-cfdi.md)                                         |
-| Payment complement (REP, Pagos 2.0): Pago, DoctoRelacionado, TipoCambioP, … rules                  | [`complemento-pagos-guia-de-llenado.md`](./complemento-pagos-guia-de-llenado.md)                                 |
-| Validation matrix: every `CFDI40xxx` code, the rule behind it, and its message, one node a section | [`matriz-de-errores-cfdi-4.0.md`](./matriz-de-errores-cfdi-4.0.md), [`.json`](./matriz-de-errores-cfdi-4.0.json) |
-| Catalogs (catCFDI): c_RegimenFiscal, c_UsoCFDI, c_FormaPago, c_Moneda, c_Pais, c_TasaOCuota, …     | [`catalogos-cfdi-4.0.md`](./catalogos-cfdi-4.0.md), [`.json`](./catalogos-cfdi-4.0.json)                         |
-| Resolución Miscelánea Fiscal 2026 (RMF): every regla, as the SAT compiles it with its amendments   | [`resolucion-miscelanea-fiscal-2026.md`](./resolucion-miscelanea-fiscal-2026.md)                                 |
+| Topic                                                                                              | File                                                                                                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Anexo 20 filling guide: every CFDI 4.0 node and attribute (Emisor, Receptor, …)                    | [`anexo-20-guia-de-llenado-cfdi.md`](./anexo-20-guia-de-llenado-cfdi.md)                                                                                                                                                       |
+| Payment complement (REP, Pagos 2.0): Pago, DoctoRelacionado, TipoCambioP, … rules                  | [`complemento-pagos-guia-de-llenado.md`](./complemento-pagos-guia-de-llenado.md)                                                                                                                                               |
+| Validation matrix: every `CFDI40xxx` code, the rule behind it, and its message, one node a section | [`matriz-de-errores-cfdi-4.0.md`](./matriz-de-errores-cfdi-4.0.md), [`.json`](./matriz-de-errores-cfdi-4.0.json)                                                                                                               |
+| Catalogs (catCFDI): c_RegimenFiscal, c_UsoCFDI, c_FormaPago, c_Moneda, c_Pais, c_TasaOCuota, …     | [`catalogos-cfdi-4.0.md`](./catalogos-cfdi-4.0.md), [`.json`](./catalogos-cfdi-4.0.json)                                                                                                                                       |
+| Resolución Miscelánea Fiscal 2026 (RMF): every regla, as the SAT compiles it with its amendments   | [`resolucion-miscelanea-fiscal-2026.md`](./resolucion-miscelanea-fiscal-2026.md)                                                                                                                                               |
+| Carta Porte 3.1 instructivos, one a mode of transport: Ubicacion, Mercancia, FiguraTransporte, …   | [`autotransporte`](./complemento-carta-porte-autotransporte.md), [`maritimo`](./complemento-carta-porte-maritimo.md), [`aereo`](./complemento-carta-porte-aereo.md), [`ferroviario`](./complemento-carta-porte-ferroviario.md) |
+| Comercio Exterior 2.0 filling guide: the CFDI and its complement (Mercancia, Destinatario, …)      | [`complemento-comercio-exterior-guia-de-llenado.md`](./complemento-comercio-exterior-guia-de-llenado.md)                                                                                                                       |
+| Código Fiscal de la Federación (CFF): every article in force, as the Cámara de Diputados publishes | [`codigo-fiscal-de-la-federacion.md`](./codigo-fiscal-de-la-federacion.md)                                                                                                                                                     |
 
 The RMF comes from the SAT's [RMF and RGCE page](https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/normatividad_rmf_rgce2026.html):
 `sat:knowledge` takes the latest compiled RMF it links (`Compilado_…`), the only file with each
@@ -28,6 +32,23 @@ The compilation is informative: the SAT's own note says the DOF publication is w
 effect. It lags the DOF: an amendment published after it (the Segunda RMRMF of 1 October 2026,
 reglas 9.4.4 and 11.7.3) is in the next compilation. The page footers are left out, and the file is
 not formatted (oxfmt would renumber its numbered lines as Markdown lists).
+
+The Carta Porte instructivos come from the SAT's
+[Carta Porte page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_carta_porte.htm):
+`sat:knowledge` takes, for each mode, the instructivo of the highest version it links
+(`…_Autotransporte_31.pdf` for 3.1). Their page footers and the running header at the top of each
+page are left out. The Comercio Exterior guide is the one the
+[Comercio Exterior page](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/complemento_comercio_exterior.htm)
+links. Neither is formatted, like the RMF: oxfmt would renumber their numbered lines. Their own
+catalogs (`CatalogosCartaPorte31.xls`, the Comercio Exterior catalogs), error matrices and the
+Carta Porte questions PDF are not here yet.
+
+The CFF comes from the Cámara de Diputados' [Leyes Federales Vigentes](https://www.diputados.gob.mx/LeyesBiblio/index.htm)
+page (`pdf/CFF.pdf`), its text in force after the last reform the cover names (`Última reforma
+publicada DOF 09-04-2026`), which `sources.json` records as its `publishedAt`. The Cámara notes each
+part a reform changed since 2021 below it (`Párrafo reformado DOF 12-11-2021`). Like the SAT's
+compilation, it is informative: the DOF publication has legal effect. The page headers and footers
+are left out, and the file is not formatted, as for the RMF.
 
 Not included: the large catalogs (c_ClaveProdServ, c_ClaveUnidad, c_CodigoPostal, c_Colonia,
 c_Localidad, c_Municipio, c_NumPedimentoAduana, c_PatenteAduanal). Códice loads them into its D1

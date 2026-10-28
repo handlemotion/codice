@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/cloudflare";
-import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, min, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 import {
@@ -189,20 +189,34 @@ export function errorCodePassageId(sourceId: string, code: string) {
   return `${sourceId}/${code.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}.md`;
 }
 
-/** A matrix row with its passage, the guide passages it links to (`related`) and its source. */
-export async function errorCode(db: Database, code: string) {
-  const [row] = await db
-    .select()
-    .from(errorCodes)
-    .where(eq(errorCodes.code, matrixCode(code)))
-    .limit(1);
-  if (!row) return null;
-  const passageId = errorCodePassageId(row.sourceId, row.code);
+/**
+ * The matrix rows of the codes, by their `matrixCode`, in one query, each with its passage, the
+ * guide passages that passage links to (`related`) and its source; an unknown code is left out.
+ */
+export async function errorCodeRows(db: Database, codes: readonly string[]) {
+  const rows = (
+    await db
+      .select()
+      .from(errorCodes)
+      .where(inArray(errorCodes.code, [...new Set(codes.map(matrixCode))]))
+  ).map((row) => ({ ...row, passageId: errorCodePassageId(row.sourceId, row.code) }));
   const [related, provenance] = await Promise.all([
-    relatedPassages(db, passageId),
-    sourcesById(db, [row.sourceId]),
+    relatedPassagesOf(
+      db,
+      rows.map((row) => row.passageId),
+    ),
+    sourcesById(db, [...new Set(rows.map((row) => row.sourceId))]),
   ]);
-  return { ...row, passageId, related, source: provenance.get(row.sourceId) ?? null };
+  return new Map(
+    rows.map((row) => [
+      row.code,
+      {
+        ...row,
+        related: related.get(row.passageId) ?? [],
+        source: provenance.get(row.sourceId) ?? null,
+      },
+    ]),
+  );
 }
 
 /** `UsoCFDI` and `c_usocfdi` both name c_UsoCFDI. */
@@ -299,6 +313,19 @@ export async function catalogColumns(db: Database, name: string, key: string) {
 }
 
 /** The ingestion's row for one AI Search item key. */
+/** Each passage's heading path by key, for brief search results; at most 50 keys, one query. */
+export async function passageHeadings(
+  db: Database,
+  keys: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  if (keys.length === 0) return new Map();
+  const rows = await db
+    .select({ key: passages.key, heading: passages.heading })
+    .from(passages)
+    .where(inArray(passages.key, [...new Set(keys)]));
+  return new Map(rows.map((row) => [row.key, row.heading]));
+}
+
 export async function passageRow(db: Database, key: string) {
   const [row] = await db.select().from(passages).where(eq(passages.key, key)).limit(1);
   return row ?? null;
@@ -306,10 +333,157 @@ export async function passageRow(db: Database, key: string) {
 
 /** The passage ids a passage links to, in its text's order (SPEC.md, "Related passages"). */
 export async function relatedPassages(db: Database, key: string) {
+  return (await relatedPassagesOf(db, [key])).get(key) ?? [];
+}
+
+/** The passage ids each passage links to, by its key, in one query; a passage without links is left out. */
+async function relatedPassagesOf(db: Database, keys: readonly string[]) {
+  const related = new Map<string, string[]>();
+  if (keys.length === 0) return related;
   const rows = await db
-    .select({ key: passageLinks.relatedKey })
+    .select({ from: passageLinks.passageKey, to: passageLinks.relatedKey })
     .from(passageLinks)
-    .where(eq(passageLinks.passageKey, key))
-    .orderBy(asc(passageLinks.position));
-  return rows.map((row) => row.key);
+    .where(inArray(passageLinks.passageKey, [...keys]))
+    .orderBy(asc(passageLinks.passageKey), asc(passageLinks.position));
+  for (const row of rows) related.set(row.from, [...(related.get(row.from) ?? []), row.to]);
+  return related;
+}
+
+/** A `YYYYMMDD` date moved by whole days: `addDays(20260301, -1)` is `20260228`. */
+export function addDays(date: number, days: number): number {
+  const day = new Date(
+    Date.UTC(Math.floor(date / 10000), (Math.floor(date / 100) % 100) - 1, date % 100),
+  );
+  day.setUTCDate(day.getUTCDate() + days);
+  return dateNumber(day.toISOString());
+}
+
+/** A superseded passage's dated key back to the key its passage has in force (`versionedKey`). */
+function currentKey(key: string) {
+  return key.replace(/\.\d{8}\.md$/u, ".md");
+}
+
+export type PassageChange = {
+  /** `changed` with no `previousPassageId` when Códice holds no text from before `date`. */
+  readonly change: "added" | "changed" | "removed";
+  /** The day the change applies from, ISO. */
+  readonly date: string;
+  /** The text in force from `date`; for `removed`, the dated id of the last text. */
+  readonly passageId: string;
+  /** For `changed`, the dated id of the text that applied until the day before `date`. */
+  readonly previousPassageId: string | null;
+  readonly source: string;
+  readonly heading: string;
+  readonly kind: string | null;
+  /** The validity of `passageId`'s text. */
+  readonly validFrom: string;
+  readonly validUntil: string | null;
+};
+
+/**
+ * The passages added, changed or removed from `since` through `until` (`YYYYMMDD`), from the
+ * passages' validity alone (SPEC.md, "Changes"). A text that starts the day after the passage's
+ * previous text ended is a change of it; a text that ends with none after it is removed the next
+ * day. A text that starts with none before it is added when Códice held an earlier version of its
+ * source then, and otherwise a change Códice holds no earlier text of (an amendment the first
+ * version Códice loaded already carried, such as an RMF regla from the Primera RMRMF). The texts
+ * that start on a source's earliest date are where its history starts, not changes.
+ */
+export async function passageChanges(
+  db: Database,
+  since: number,
+  until: number,
+  source?: string,
+): Promise<PassageChange[]> {
+  const rows = await db
+    .select({
+      key: passages.key,
+      sourceId: passages.sourceId,
+      heading: passages.heading,
+      kind: passages.kind,
+      validFrom: passages.validFrom,
+      validUntil: passages.validUntil,
+    })
+    .from(passages)
+    .where(
+      and(
+        source === undefined ? undefined : eq(passages.sourceId, source),
+        or(
+          and(gte(passages.validFrom, since), lte(passages.validFrom, until)),
+          and(
+            gte(passages.validUntil, addDays(since, -1)),
+            lte(passages.validUntil, addDays(until, -1)),
+          ),
+        ),
+      ),
+    );
+  const sourceIds = [...new Set(rows.map((row) => row.sourceId))];
+  const [current, versions, firsts] = await Promise.all([
+    sourcesById(db, sourceIds),
+    sourceIds.length === 0
+      ? []
+      : db
+          .select({ sourceId: sourceVersions.sourceId, validFrom: sourceVersions.validFrom })
+          .from(sourceVersions)
+          .where(inArray(sourceVersions.sourceId, sourceIds)),
+    sourceIds.length === 0
+      ? []
+      : db
+          .select({ sourceId: passages.sourceId, validFrom: min(passages.validFrom) })
+          .from(passages)
+          .where(inArray(passages.sourceId, sourceIds))
+          .groupBy(passages.sourceId),
+  ]);
+  // The days each version of a source starts, and the earliest day any of its passages applies.
+  const versionStarts = new Map<string, number[]>();
+  for (const { id, validFrom } of current.values()) {
+    versionStarts.set(id, [dateNumber(validFrom)]);
+  }
+  for (const { sourceId, validFrom } of versions) versionStarts.get(sourceId)?.push(validFrom);
+  const historyStarts = new Map(firsts.map(({ sourceId, validFrom }) => [sourceId, validFrom]));
+
+  // The texts that ended, by the passage's current key and their last day.
+  const ended = new Map<string, (typeof rows)[number]>(
+    rows
+      .filter((row) => row.validUntil !== IN_FORCE_UNTIL)
+      .map((row) => [`${currentKey(row.key)} ${row.validUntil}`, row]),
+  );
+  const changes: PassageChange[] = [];
+  const entry = (
+    change: PassageChange["change"],
+    date: number,
+    row: (typeof rows)[number],
+    previousPassageId: string | null = null,
+  ): PassageChange => ({
+    change,
+    date: isoDate(date),
+    passageId: row.key,
+    previousPassageId,
+    source: row.sourceId,
+    heading: row.heading,
+    kind: row.kind,
+    ...validity(row.validFrom, row.validUntil),
+  });
+  for (const row of rows) {
+    if (row.validFrom < since || row.validFrom > until) continue;
+    const endedKey = `${currentKey(row.key)} ${addDays(row.validFrom, -1)}`;
+    const previous = ended.get(endedKey);
+    if (previous) {
+      ended.delete(endedKey);
+      changes.push(entry("changed", row.validFrom, row, previous.key));
+      continue;
+    }
+    if (row.validFrom <= (historyStarts.get(row.sourceId) ?? row.validFrom)) continue;
+    // Two versions started by then: Códice held the source before the one this text is in.
+    const heldBefore =
+      (versionStarts.get(row.sourceId) ?? []).filter((start) => start <= row.validFrom).length > 1;
+    changes.push(entry(heldBefore ? "added" : "changed", row.validFrom, row));
+  }
+  for (const row of ended.values()) {
+    const date = addDays(row.validUntil, 1);
+    if (date >= since && date <= until) changes.push(entry("removed", date, row));
+  }
+  return changes.sort(
+    (a, b) => a.date.localeCompare(b.date) || a.passageId.localeCompare(b.passageId),
+  );
 }

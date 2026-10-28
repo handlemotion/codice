@@ -33,5 +33,47 @@
     "publishedAt": "2026-07-16",
     "retrievedAt": "2026-10-25",
     "outputs": ["resolucion-miscelanea-fiscal-2026.md"]
+  },
+  "cartaPorteAutotransporte": {
+    "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/Instructivo_ComplementoCartaPorte_Autotransporte_31.pdf",
+    "sha256": "f8dbff71bf9d383d6d739f4b24701deda5f636344287ae56c4e512fa7fad6b7d",
+    "publishedAt": "2024-08-02",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["complemento-carta-porte-autotransporte.md"]
+  },
+  "cartaPorteMaritimo": {
+    "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/Instructivo_ComplementoCartaPorte_Maritimo_31.pdf",
+    "sha256": "51288b570143171126c0d4153cec2c6ff50be70548a680082d67402fa58efa9b",
+    "publishedAt": "2024-08-02",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["complemento-carta-porte-maritimo.md"]
+  },
+  "cartaPorteAereo": {
+    "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/Instructivo_ComplementoCartaPorte_Aereo_31.pdf",
+    "sha256": "66f44bac8e2ca9badec01f44284f8cffde10b97754704a5eafb381d8c46fac69",
+    "publishedAt": "2024-08-02",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["complemento-carta-porte-aereo.md"]
+  },
+  "cartaPorteFerroviario": {
+    "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/Instructivo_ComplementoCartaPorte_Ferroviario_31.pdf",
+    "sha256": "5f2108d88d9a521c11826febf0aa4b13f9d66467dea6f01d3ad1f9882b5b86d5",
+    "publishedAt": "2024-08-02",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["complemento-carta-porte-ferroviario.md"]
+  },
+  "comercioExterior": {
+    "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/Guia_complemento_Comercio_Exterior.pdf",
+    "sha256": "0a0de1e6f339acc125844280bc5f3aa7d70f25a7115c33463220a0a2a6d76964",
+    "publishedAt": "2026-01-16",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["complemento-comercio-exterior-guia-de-llenado.md"]
+  },
+  "cff": {
+    "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf",
+    "sha256": "be7427b20d3552775ab42018f8f87578078770095bf8cf46322c25e36ee3aa7d",
+    "publishedAt": "2026-04-09",
+    "retrievedAt": "2026-10-28",
+    "outputs": ["codigo-fiscal-de-la-federacion.md"]
   }
 }

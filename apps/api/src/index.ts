@@ -1,7 +1,13 @@
 import * as Sentry from "@sentry/cloudflare";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 
-import type { CodiceKnowledgeService, CodiceResult } from "@codice/contracts";
+import type {
+  CodiceBriefSearch,
+  CodiceKnowledgeService,
+  CodiceResult,
+  CodiceSearch,
+  CodiceSearchParameters,
+} from "@codice/contracts";
 import { sampleSentryTrace, scrubSpanUrls, scrubTransactionUrls } from "@codice/monitoring";
 
 import { createMcpHandler } from "agents/mcp/server";
@@ -12,6 +18,7 @@ import type { CodiceBindings, CodiceEnv } from "./env";
 import {
   CodiceProblem,
   listCatalog,
+  listChanges,
   listSources,
   lookupCatalog,
   lookupError,
@@ -259,9 +266,11 @@ app.get("/v1/search", async (context) =>
     await search(context.env, {
       q: context.req.query("q"),
       asOf: context.req.query("asOf"),
-      source: context.req.query("source"),
+      // `?source=a&source=b` searches both sources.
+      source: context.req.queries("source"),
       kind: context.req.query("kind"),
       limit: context.req.query("limit"),
+      format: context.req.query("format"),
     }),
   ),
 );
@@ -269,6 +278,17 @@ app.get("/v1/search", async (context) =>
 // A passage id holds a slash (`<source>/<anchor>.md`), so the parameter takes the rest of the path.
 app.get("/v1/passages/:id{.+}", async (context) =>
   apiJson(context, await readPassage(context.env, context.req.param("id"))),
+);
+
+app.get("/v1/changes", async (context) =>
+  apiJson(
+    context,
+    await listChanges(context.env, {
+      since: context.req.query("since"),
+      until: context.req.query("until"),
+      source: context.req.query("source"),
+    }),
+  ),
 );
 
 app.get("/v1/sources", async (context) => apiJson(context, await listSources(context.env)));
@@ -328,7 +348,13 @@ async function internalCall<T>(handler: () => Promise<T>): Promise<CodiceResult<
  * them. A refusal comes back as the problem, since RPC keeps only an error's message.
  */
 export class CodiceKnowledge extends WorkerEntrypoint<Bindings> implements CodiceKnowledgeService {
-  search(parameters: SearchParameters) {
+  search(
+    parameters: CodiceSearchParameters & { readonly format: "brief" },
+  ): Promise<CodiceResult<CodiceBriefSearch>>;
+  search(
+    parameters: CodiceSearchParameters & { readonly format?: "full" | undefined },
+  ): Promise<CodiceResult<CodiceSearch>>;
+  search(parameters: SearchParameters): Promise<CodiceResult<CodiceSearch | CodiceBriefSearch>> {
     return internalCall(() => search(this.env, parameters));
   }
   readPassage(id: string) {

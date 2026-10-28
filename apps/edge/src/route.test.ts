@@ -106,6 +106,19 @@ describe("edge routing", () => {
     for (const path of ["/docsx", "/doc", "/x/docs", "/Docs"]) expect(target(path)).toBe("app");
   });
 
+  it("serves llms.txt and llms-full.txt from the site to everyone, for GET and HEAD", () => {
+    for (const path of ["/llms.txt", "/llms-full.txt"]) {
+      expect(target(path)).toBe("site");
+      expect(target(path, { cookie: `${SESSION}=sealed` })).toBe("site");
+      expect(target(path, { method: "HEAD" })).toBe("site");
+      expect(target(path, { method: "POST" })).toBe("app");
+      expect(target(path, { enabled: "false" })).toBe("app");
+    }
+    for (const path of ["/llms.txt/x", "/llms", "/x/llms.txt", "/LLMS.txt"]) {
+      expect(target(path)).toBe("app");
+    }
+  });
+
   it("sends only GET and HEAD on / to the site", () => {
     expect(target("/", { method: "HEAD" })).toBe("site");
     for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {

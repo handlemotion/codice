@@ -1,3 +1,4 @@
+import { IN_FORCE_UNTIL } from "./db/schema";
 import type { CodiceBindings } from "./env";
 import {
   allSources,
@@ -6,7 +7,10 @@ import {
   catalogListing,
   type CatalogFilter,
   corpusVersion,
-  errorCode,
+  errorCodeRows,
+  matrixCode,
+  passageChanges,
+  passageHeadings,
   passageRow,
   recordsDatabase,
   relatedPassages,
@@ -15,10 +19,14 @@ import {
   validity,
 } from "./records";
 import {
+  aboveRerankingFloor,
+  briefResult,
   parseAsOf,
   PASSAGE_KINDS,
   SEARCH_LIMIT_DEFAULT,
+  SEARCH_FORMATS,
   SEARCH_LIMIT_MAX,
+  type SearchFormat,
   searchRequest,
   searchResults,
   todayInMexicoCity,
@@ -44,13 +52,18 @@ export class CodiceProblem extends Error {
 export type SearchParameters = {
   readonly q?: string | undefined;
   readonly asOf?: string | undefined;
-  readonly source?: string | undefined;
+  /** One source id, or several: passages of any of them. */
+  readonly source?: string | readonly string[] | undefined;
   readonly kind?: string | undefined;
   readonly limit?: string | number | undefined;
+  /** `full` (the default) or `brief`. */
+  readonly format?: string | undefined;
 };
 
 const QUERY_MAX = 1000;
 const SOURCE = /^[a-z0-9][a-z0-9-]{0,63}$/u;
+/** The most sources one search takes. */
+export const SEARCH_SOURCES_MAX = 10;
 /** An AI Search item key, `<source>/<anchor>.md`, at most 128 characters (SPEC.md, "Items"). */
 const PASSAGE_ID = /^[a-z0-9][a-z0-9-]{0,63}\/[a-z0-9][a-z0-9.-]*\.md$/u;
 const PASSAGE_ID_MAX = 128;
@@ -66,8 +79,19 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   if (q.length > QUERY_MAX) throw invalid(`\`q\` is longer than ${QUERY_MAX} characters.`);
   const asOf = parameters.asOf ? parseAsOf(parameters.asOf) : todayInMexicoCity(now);
   if (asOf === null) throw invalid("`asOf` must be a date as YYYY-MM-DD.");
-  const source = parameters.source?.trim() || undefined;
-  if (source && !SOURCE.test(source)) throw invalid("`source` is not a source id.");
+  const sources = [
+    ...new Set(
+      [parameters.source ?? []]
+        .flat()
+        .map((source) => source.trim())
+        .filter(Boolean),
+    ),
+  ].toSorted();
+  if (sources.length > SEARCH_SOURCES_MAX) {
+    throw invalid(`\`source\` takes at most ${SEARCH_SOURCES_MAX} source ids.`);
+  }
+  const unknown = sources.find((source) => !SOURCE.test(source));
+  if (unknown !== undefined) throw invalid(`\`${unknown}\` is not a source id.`);
   const kind = parameters.kind?.trim() || undefined;
   if (kind && !(PASSAGE_KINDS as readonly string[]).includes(kind)) {
     throw invalid(`\`kind\` is one of ${PASSAGE_KINDS.join(", ")}.`);
@@ -79,16 +103,28 @@ export function searchInput(parameters: SearchParameters, now: Date = new Date()
   if (!Number.isInteger(limit) || limit < 1 || limit > SEARCH_LIMIT_MAX) {
     throw invalid(`\`limit\` must be a whole number from 1 to ${SEARCH_LIMIT_MAX}.`);
   }
-  return { q, asOf, source, kind, limit };
+  return { q, asOf, sources: sources.length ? sources : undefined, kind, limit };
+}
+
+/** The result format, `full` when absent. It shapes the answer only, never the search. */
+export function searchFormat(value: string | undefined): SearchFormat {
+  const format = value?.trim() || "full";
+  if (!(SEARCH_FORMATS as readonly string[]).includes(format)) {
+    throw invalid(`\`format\` is one of ${SEARCH_FORMATS.join(", ")}.`);
+  }
+  return format as SearchFormat;
 }
 
 /**
- * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
- * each result's source as it read that day. A search asked before on the same corpus answers from
- * the cache (`search-cache.ts`); the provenance is read each time.
+ * Searches the passages in force on `asOf`, superseded ones included, drops the results the
+ * reranker scored far below the first (`aboveRerankingFloor`), and adds the provenance of each
+ * result's source as it read that day. A search asked before on the same corpus answers from the
+ * cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
+ * heading path and an excerpt after the cache, so both formats share one entry.
  */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
   const input = searchInput(parameters);
+  const format = searchFormat(parameters.format);
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
   const instance = env.CODICE_SEARCH;
   const db = recordsDatabase(env);
@@ -104,7 +140,27 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
       throw searchUnavailable("codice.search_failed", cause);
     }
   });
-  const results = searchResults(chunks);
+  // The cache keeps every chunk; the floor applies to each answer, cached or not.
+  const results = aboveRerankingFloor(searchResults(chunks));
+  const query = {
+    query: input.q,
+    asOf: isoDate(input.asOf),
+    source: input.sources ?? null,
+    kind: input.kind ?? null,
+  };
+  if (format === "brief") {
+    const headings = await passageHeadings(
+      db,
+      results.map((result) => result.passageId),
+    );
+    return {
+      ...query,
+      format,
+      results: results.map((result) =>
+        briefResult(result, input.q, headings.get(result.passageId) ?? null),
+      ),
+    };
+  }
   // The version of each source in force on `asOf`, the one a superseded passage was read from.
   const provenance = await sourcesOn(
     db,
@@ -112,10 +168,8 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
     input.asOf,
   );
   return {
-    query: input.q,
-    asOf: isoDate(input.asOf),
-    source: input.source ?? null,
-    kind: input.kind ?? null,
+    ...query,
+    format,
     results: results.map((result) => {
       const source = provenance.get(result.source);
       return {
@@ -191,9 +245,44 @@ async function indexedPassage(env: CodiceBindings, key: string) {
 }
 
 export async function lookupError(env: CodiceBindings, code: string) {
-  const row = await errorCode(recordsDatabase(env), code);
-  if (!row) throw new CodiceProblem(404, "error_code_not_found", "Error code not found");
+  const row = (await errorCodeRows(recordsDatabase(env), [code])).get(matrixCode(code));
+  if (!row) throw errorCodeNotFound();
   return row;
+}
+
+function errorCodeNotFound() {
+  return new CodiceProblem(404, "error_code_not_found", "Error code not found");
+}
+
+/** The most codes or catalog keys one batch lookup takes. */
+export const LOOKUP_BATCH_MAX = 25;
+
+/** A refused lookup of a batch, as the MCP tools give a refusal; the others carry `data`. */
+function batchError(problem: CodiceProblem) {
+  return {
+    error: { code: problem.code, message: problem.detail ?? problem.title, status: problem.status },
+  };
+}
+
+function batchSize(items: readonly unknown[], name: string) {
+  if (items.length === 0 || items.length > LOOKUP_BATCH_MAX) {
+    throw invalid(`\`${name}\` takes 1 to ${LOOKUP_BATCH_MAX} items.`);
+  }
+}
+
+/**
+ * Several CFDI40xxx codes in one D1 query, in the order asked: each with its matrix row, or the
+ * problem `/v1/errors/:code` would have sent for it.
+ */
+export async function lookupErrors(env: CodiceBindings, codes: readonly string[]) {
+  batchSize(codes, "codes");
+  const rows = await errorCodeRows(recordsDatabase(env), codes);
+  return {
+    results: codes.map((code) => {
+      const row = rows.get(matrixCode(code));
+      return row ? { code, data: row } : { code, ...batchError(errorCodeNotFound()) };
+    }),
+  };
 }
 
 /** Column filters on a catalog key, by the catalog's own header: `{ c_CodigoPostal: "01000" }`. */
@@ -247,10 +336,73 @@ export async function lookupCatalog(
   throw new CodiceProblem(404, "catalog_entry_not_found", "Catalog entry not found");
 }
 
+export type CatalogLookup = {
+  readonly name: string;
+  readonly key: string;
+  readonly where?: CatalogWhere | undefined;
+};
+
+/**
+ * Several catalog keys, in the order asked: each with its entries, or the problem
+ * `/v1/catalogs/:name/:key` would have sent for it. Each runs as `lookupCatalog`, concurrently.
+ */
+export async function lookupCatalogEntries(env: CodiceBindings, lookups: readonly CatalogLookup[]) {
+  batchSize(lookups, "lookups");
+  return {
+    results: await Promise.all(
+      lookups.map(async (lookup) => {
+        try {
+          return {
+            ...lookup,
+            data: await lookupCatalog(env, lookup.name, lookup.key, lookup.where),
+          };
+        } catch (cause) {
+          if (!(cause instanceof CodiceProblem)) throw cause;
+          return { ...lookup, ...batchError(cause) };
+        }
+      }),
+    ),
+  };
+}
+
 export async function listCatalog(env: CodiceBindings, name: string) {
   const listing = await catalogListing(recordsDatabase(env), name);
   if (!listing) throw new CodiceProblem(404, "catalog_not_found", "Catalog not found");
   return listing;
+}
+
+export type ChangesParameters = {
+  readonly since?: string | undefined;
+  readonly until?: string | undefined;
+  readonly source?: string | undefined;
+};
+
+/**
+ * The passages added, changed or removed from `since` through `until` (SPEC.md, "Changes"). With
+ * no `until`, every change from `since` on, including one Códice already holds for a later date.
+ * It reads D1 alone.
+ */
+export async function listChanges(env: CodiceBindings, parameters: ChangesParameters) {
+  const since = parameters.since?.trim() ? parseAsOf(parameters.since.trim()) : null;
+  if (since === null) throw invalid("`since` is required, a date as YYYY-MM-DD.");
+  const until = parameters.until?.trim() ? parseAsOf(parameters.until.trim()) : undefined;
+  if (until === null) throw invalid("`until` must be a date as YYYY-MM-DD.");
+  if (until !== undefined && until < since) throw invalid("`until` must not precede `since`.");
+  const source = parameters.source?.trim() || undefined;
+  if (source && !SOURCE.test(source)) throw invalid("`source` is not a source id.");
+  const changes = await passageChanges(
+    recordsDatabase(env),
+    since,
+    // The last day a change can apply from: the day before the in-force sentinel.
+    until ?? IN_FORCE_UNTIL - 1,
+    source,
+  );
+  return {
+    since: isoDate(since),
+    until: until === undefined ? null : isoDate(until),
+    source: source ?? null,
+    changes,
+  };
 }
 
 export async function listSources(env: CodiceBindings) {

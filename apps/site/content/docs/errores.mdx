@@ -47,11 +47,33 @@ curl https://codice.io/v1/errors/CFDI40149 \
 
 Si el código no existe en la matriz, la respuesta es `404` con el código `error_code_not_found`.
 
+## Varios códigos a la vez
+
+Un comprobante rechazado suele traer más de un código. Por [MCP](/docs/mcp), `lookup_error` consulta hasta 25 en una sola llamada:
+
+```json
+{ "codes": ["CFDI40149", "CFDI40147"] }
+```
+
+```json
+{
+  "results": [
+    {
+      "code": "CFDI40149",
+      "data": { "code": "CFDI40149", "attribute": "DomicilioFiscalReceptor", "…": "…" }
+    },
+    { "code": "CFDI40147", "data": { "code": "CFDI40147", "…": "…" } }
+  ]
+}
+```
+
+Los resultados vienen en el orden en que los pediste. Cada uno trae el código que mandaste y, si existe, su renglón de la matriz en `data`, igual que `/v1/errors/{code}`. Si un código no existe, ese resultado trae `error` en vez de `data` (`{ "code": "error_code_not_found", "status": 404, … }`) y los demás se responden igual. La API HTTP consulta un código por petición.
+
 ## Del rechazo a la corrección
 
 La matriz dice qué se validó, no por qué tu comprobante lo incumple. Un camino que funciona:
 
-1. **Consulta el código** para saber qué atributo y qué regla fallaron.
+1. **Consulta el código** (o todos los del rechazo a la vez, por MCP) para saber qué atributo y qué regla fallaron.
 2. **Lee el atributo en la guía de llenado** para saber qué valor espera el SAT. `related` trae su pasaje, que lees en `/v1/passages/{id}`:
 
    ```bash

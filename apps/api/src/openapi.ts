@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { SEARCH_SOURCES_MAX } from "./handlers";
 import {
-  LookupCatalogArguments,
-  LookupErrorArguments,
+  CatalogLookupArgument,
+  ErrorCodeArgument,
+  ListChangesArguments,
   MCP_SERVER_VERSION,
   ReadPassageArguments,
   SearchArguments,
@@ -53,13 +55,33 @@ const SearchResult = z.object({
   sourcePublishedAt: z.string().nullable(),
 });
 
-const Search = z.object({
+const BriefSearchResult = z.object({
+  passageId: z.string().describe("Pass it to `/v1/passages/{id}` to read the whole passage."),
+  heading: z.string().nullable().describe("The passage's heading path."),
+  excerpt: z
+    .string()
+    .describe(
+      "Up to about 300 characters of the matched text around the question's words, an exact substring of it.",
+    ),
+  truncated: z
+    .object({ before: z.boolean(), after: z.boolean() })
+    .describe("Whether the matched text continues before or after the excerpt."),
+  kind: z.string().nullable(),
+  ...Validity,
+  score: z.number(),
+});
+
+const SearchQuery = {
   query: z.string(),
   asOf: z.string(),
-  source: z.string().nullable(),
+  source: z.array(z.string()).nullable().describe("The sources asked for, sorted; null for all."),
   kind: z.string().nullable(),
-  results: z.array(SearchResult),
-});
+};
+
+const Search = z.discriminatedUnion("format", [
+  z.object({ ...SearchQuery, format: z.literal("full"), results: z.array(SearchResult) }),
+  z.object({ ...SearchQuery, format: z.literal("brief"), results: z.array(BriefSearchResult) }),
+]);
 
 const Passage = z.object({
   passageId: z.string(),
@@ -113,6 +135,35 @@ const Catalog = z.object({
   ),
   truncated: z.boolean().describe("True when the catalog has more than the 500 entries returned."),
   source: Source.nullable(),
+});
+
+const Change = z.object({
+  change: z
+    .enum(["added", "changed", "removed"])
+    .describe(
+      "`changed` with a null `previousPassageId` is a change Códice holds no earlier text of.",
+    ),
+  date: z.string().describe("The day the change applies from, YYYY-MM-DD."),
+  passageId: z
+    .string()
+    .describe(
+      "The text in force from `date`; for `removed`, the dated id of the last text. Read it with `/v1/passages/{id}`.",
+    ),
+  previousPassageId: z
+    .string()
+    .nullable()
+    .describe("For `changed`, the dated id of the text that applied until the day before."),
+  source: z.string(),
+  heading: z.string(),
+  kind: z.string().nullable(),
+  ...Validity,
+});
+
+const Changes = z.object({
+  since: z.string(),
+  until: z.string().nullable(),
+  source: z.string().nullable(),
+  changes: z.array(Change).describe("By `date`, then `passageId`."),
 });
 
 const Problem = z.object({
@@ -185,6 +236,25 @@ function parametersOf(schema: z.ZodObject, where: "query" | "path", only?: strin
     }));
 }
 
+/**
+ * `/v1/search`'s query parameters: the MCP tool's, with `source` as the repeated parameter the
+ * route reads (`?source=a&source=b`) instead of the tool's one id or list.
+ */
+function searchParameters() {
+  return parametersOf(SearchArguments, "query").map((parameter) =>
+    parameter.name === "source"
+      ? {
+          ...parameter,
+          description:
+            "Only these sources: repeat it for several (`?source=anexo-20-guia-de-llenado&source=matriz-de-errores-cfdi-40`). The ids are the ones `/v1/sources` lists, such as `rmf-2026`.",
+          schema: { type: "array", items: { type: "string" }, maxItems: SEARCH_SOURCES_MAX },
+          style: "form",
+          explode: true,
+        }
+      : parameter,
+  );
+}
+
 export function openApiDocument() {
   return {
     openapi: "3.1.0",
@@ -207,8 +277,8 @@ export function openApiDocument() {
           tags: ["Búsqueda"],
           summary: "Buscar reglas",
           description:
-            "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source.",
-          parameters: parametersOf(SearchArguments, "query"),
+            "Searches the SAT's rules in force on `asOf` by meaning and by exact code, and returns the matching passages verbatim with their source; `format=brief` returns each one's heading path and an excerpt instead.",
+          parameters: searchParameters(),
           responses: {
             200: success(Search, "The matching passages, best first."),
             ...problems(400, 502),
@@ -232,7 +302,7 @@ export function openApiDocument() {
           tags: ["Registros"],
           summary: "Consultar un código de error",
           description: "A row of the SAT's CFDI 4.0 validation matrix, verbatim, with its source.",
-          parameters: parametersOf(LookupErrorArguments, "path"),
+          parameters: parametersOf(ErrorCodeArgument, "path"),
           responses: { 200: success(ErrorCode, "The matrix row."), ...problems(404) },
         },
       },
@@ -242,7 +312,7 @@ export function openApiDocument() {
           tags: ["Registros"],
           summary: "Listar un catálogo",
           description: "A SAT catalog in the SAT's order, at most 500 entries.",
-          parameters: parametersOf(LookupCatalogArguments, "path", ["name"]),
+          parameters: parametersOf(CatalogLookupArgument, "path", ["name"]),
           responses: { 200: success(Catalog, "The catalog."), ...problems(404) },
         },
       },
@@ -253,8 +323,19 @@ export function openApiDocument() {
           summary: "Consultar una clave de catálogo",
           description:
             "Every entry of a key in a SAT catalog. Any other query parameter filters by a column, named as in the SAT's catalog (`?c_CodigoPostal=01000`).",
-          parameters: parametersOf(LookupCatalogArguments, "path", ["name", "key"]),
+          parameters: parametersOf(CatalogLookupArgument, "path", ["name", "key"]),
           responses: { 200: success(CatalogEntry, "The key's entries."), ...problems(400, 404) },
+        },
+      },
+      "/v1/changes": {
+        get: {
+          operationId: "listChanges",
+          tags: ["Registros"],
+          summary: "Listar los cambios",
+          description:
+            "The passages the SAT added, changed or removed from `since` through `until`, by the day each change applies from. The first version of a source Códice holds is where its history starts, not a change.",
+          parameters: parametersOf(ListChangesArguments, "query"),
+          responses: { 200: success(Changes, "The changes, oldest first."), ...problems(400) },
         },
       },
       "/v1/sources": {
