@@ -3,6 +3,9 @@ import { useEffect, type ReactNode } from "react";
 
 import { useAnimatedFavicon } from "../brand/mark";
 import { TooltipProvider } from "../components/ui/tooltip";
+import { RootProvider } from "fumadocs-ui/provider/tanstack";
+
+import { docsTranslations } from "../lib/docs-i18n";
 import { THEME_SCRIPT, toggleTheme } from "../theme";
 import "../styles.css";
 
@@ -100,7 +103,14 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body className="min-h-full bg-ink font-sans text-fg">
-        <TooltipProvider>{children}</TooltipProvider>
+        {/* Fumadocs' providers for /docs: our own theme (T, data-theme), the search on /_site/. */}
+        <RootProvider
+          i18n={{ locale: "es", translations: docsTranslations }}
+          search={{ options: { api: "/_site/search" } }}
+          theme={{ enabled: false }}
+        >
+          <TooltipProvider>{children}</TooltipProvider>
+        </RootProvider>
         <AnimatedFavicon />
         <ThemeKey />
         <Scripts />

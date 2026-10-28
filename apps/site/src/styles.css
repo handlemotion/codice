@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
 
 @source "./**/*.{ts,tsx}";
 
@@ -102,4 +105,26 @@ kbd {
     opacity: 0;
     transform: translateY(2px);
   }
+}
+
+/* The docs (Fumadocs) take the site's tokens, so they follow the same ground, inks, hairlines and
+   T toggle as the home. Raised surfaces are a small step from the ground, never grey panels. */
+:root,
+.dark {
+  --color-fd-background: var(--color-ink);
+  --color-fd-foreground: var(--color-fg);
+  --color-fd-muted: color-mix(in oklab, var(--color-fg) 4%, var(--color-ink));
+  --color-fd-muted-foreground: var(--color-muted);
+  --color-fd-popover: var(--color-ink);
+  --color-fd-popover-foreground: var(--color-fg);
+  --color-fd-card: color-mix(in oklab, var(--color-fg) 3%, var(--color-ink));
+  --color-fd-card-foreground: var(--color-fg);
+  --color-fd-border: var(--color-line);
+  --color-fd-primary: var(--color-electric);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: color-mix(in oklab, var(--color-fg) 6%, var(--color-ink));
+  --color-fd-secondary-foreground: var(--color-fg);
+  --color-fd-accent: color-mix(in oklab, var(--color-fg) 8%, var(--color-ink));
+  --color-fd-accent-foreground: var(--color-fg);
+  --color-fd-ring: var(--color-electric);
 }

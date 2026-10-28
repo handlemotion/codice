@@ -17,8 +17,13 @@
     "@tanstack/ai-react": "0.29.4",
     "@tanstack/react-router": "1.170.31",
     "@tanstack/react-start": "1.168.48",
+    "fumadocs-core": "16.17.8",
+    "fumadocs-mdx": "15.4.10",
+    "fumadocs-openapi": "12.5.5",
+    "fumadocs-ui": "16.17.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "shiki": "4.5.0",
     "streamdown": "2.5.0"
   },
   "devDependencies": {
@@ -26,6 +31,7 @@
     "@codice/typescript-config": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-cli": "1.167.32",
+    "@types/mdx": "2.0.14",
     "@types/node": "^24.13.3",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",

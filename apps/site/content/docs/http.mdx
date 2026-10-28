@@ -1,0 +1,44 @@
+---
+title: HTTP
+description: Autenticación, formato de respuesta, errores y límites de la API.
+---
+
+La API vive en `https://codice.io/v1`. Cada ruta, con sus parámetros y respuestas, está en la [referencia](/docs/api).
+
+## Autenticación
+
+Manda tu clave en cada petición, de cualquiera de estas dos formas:
+
+```http
+Authorization: Bearer cdc_…
+x-api-key: cdc_…
+```
+
+Sin clave, o con una revocada o vencida, la respuesta es `401`.
+
+## Respuestas
+
+Toda respuesta correcta tiene la misma forma: `data` con el resultado y `meta.requestId` para rastrearla.
+
+```json
+{ "data": { … }, "meta": { "requestId": "…" } }
+```
+
+## Errores
+
+Los errores son `application/problem+json`, con un `code` estable que puedes usar en tu código:
+
+| Código            | Estado | Cuándo                                              |
+| ----------------- | ------ | --------------------------------------------------- |
+| `unauthorized`    | 401    | Falta la clave, o no es válida.                     |
+| `invalid_request` | 400    | Un parámetro está mal formado.                      |
+| `…_not_found`     | 404    | No hay nada con ese id, código o clave.             |
+| `rate_limited`    | 429    | Más de 60 peticiones por minuto con la misma clave. |
+
+## Fechas
+
+Las reglas cambian cada año. `/v1/search` acepta `asOf=AAAA-MM-DD` y responde solo con las reglas vigentes ese día; por omisión, hoy en la Ciudad de México.
+
+## Límites
+
+60 peticiones por minuto por clave. Al pasarte, espera los segundos que indica el encabezado `retry-after`.

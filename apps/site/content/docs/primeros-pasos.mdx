@@ -1,0 +1,40 @@
+---
+title: Primeros pasos
+description: Crea una clave y haz tu primera consulta.
+---
+
+## 1. Crea una clave
+
+Entra a [tu cuenta](/login) y crea una clave en [Claves](/keys). Las claves empiezan con `cdc_`.
+
+## 2. Haz una consulta
+
+Pide un código de error de la matriz del SAT:
+
+```bash
+curl https://codice.io/v1/errors/CFDI40149 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+La respuesta trae el renglón de la matriz, palabra por palabra, con su fuente:
+
+```json
+{
+  "data": {
+    "code": "CFDI40149",
+    "attribute": "DomicilioFiscalReceptor",
+    "validation": "Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
+    "source": { "authority": "SAT", "publishedAt": "2026-03-25" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+## 3. Busca por pregunta
+
+```bash
+curl "https://codice.io/v1/search?q=plazo+para+cancelar+un+CFDI" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Cada resultado es un pasaje textual del SAT con su vigencia. Sigue con [HTTP](/docs/http) o conecta tu [asistente](/docs/mcp).

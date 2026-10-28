@@ -1,0 +1,33 @@
+---
+title: Asistentes (MCP)
+description: Conecta tu asistente de IA para que consulte las reglas del SAT.
+---
+
+Códice es un servidor [MCP](https://modelcontextprotocol.io), el estándar para darle herramientas a un asistente de IA. Conectado, tu asistente consulta la regla en vez de recordarla, y la cita con su fuente.
+
+## Conexión
+
+El servidor está en `https://codice.io/mcp` y necesita tu clave en el encabezado `Authorization`. En los clientes que se configuran con un archivo JSON (como Cursor, VS Code o Claude Code):
+
+```json
+{
+  "mcpServers": {
+    "codice": {
+      "url": "https://codice.io/mcp",
+      "headers": { "Authorization": "Bearer cdc_…" }
+    }
+  }
+}
+```
+
+## Herramientas
+
+| Herramienta      | Para qué                                |
+| ---------------- | --------------------------------------- |
+| `search`         | Busca reglas por pregunta o por clave.  |
+| `read_passage`   | Lee una regla completa.                 |
+| `lookup_error`   | Explica un código de error `CFDI40xxx`. |
+| `lookup_catalog` | Busca una clave en un catálogo del SAT. |
+| `list_sources`   | Lista los documentos indexados.         |
+
+Son las mismas consultas que la [API](/docs/api), con los mismos límites.

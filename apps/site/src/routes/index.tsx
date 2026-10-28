@@ -7,28 +7,6 @@ import { Mark, MarkField } from "../brand/mark";
 
 export const Route = createFileRoute("/")({ component: Home });
 
-// A real row of the SAT's CFDI 4.0 error matrix (docs/sat-md), trimmed to its quoted fields.
-const RESPONSE = `{
-  "data": {
-    "code": "CFDI40149",
-    "attribute": "DomicilioFiscalReceptor",
-    "validation": "Si el valor del atributo Rfc del receptor es \\"XAXX010101000\\" o \\"XEXX010101000\\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
-    "source": {
-      "authority": "SAT",
-      "url": "http://omawww.sat.gob.mx/…/MatrizDeErrores_CFDI_v40_20260325.xls",
-      "publishedAt": "2026-03-25"
-    }
-  }
-}`;
-
-const TOOLS = [
-  ["search", "Busca reglas por pregunta o por clave."],
-  ["read_passage", "Lee una regla completa."],
-  ["lookup_error", "Explica un código de error CFDI40xxx."],
-  ["lookup_catalog", "Busca una clave en un catálogo del SAT."],
-  ["list_sources", "Lista los documentos indexados."],
-] as const;
-
 // The page is a ruled sheet: a margin column for the section's name and a text column that
 // starts just right of center, like a note written in a codex's outer margin. Every cell keeps
 // the same distance from its rules.
@@ -44,15 +22,6 @@ function Section({ id, title, children }: { id?: string; title: string; children
   );
 }
 
-// The only islands on the page: code the reader would copy.
-function Code({ children }: { children: ReactNode }) {
-  return (
-    <pre className="rounded-[4px] border border-line p-4 font-mono text-[12px] break-words whitespace-pre-wrap">
-      <code>{children}</code>
-    </pre>
-  );
-}
-
 // Assistants an accountant knows that can connect to https://codice.io/mcp. Their icons come from
 // svgl.app, cropped to their drawn area so they render at one size, and are drawn as masks filled
 // with the page's ink, so every logo is one color in either theme.
@@ -62,12 +31,11 @@ const ASSISTANTS = [
   ["Microsoft Copilot", "copilot"],
 ] as const;
 
-// Until the docs have their own page (`/docs`, routed by apps/edge), they point at this page's
-// developer section.
+// The docs live at `/docs` (Fumadocs, routed by apps/edge); the API reference under `/docs/api`.
 const NAV_LINKS = [
   ["Producto", "#que-es"],
-  ["Documentación", "#desarrolladores"],
-  ["API", "#desarrolladores"],
+  ["Documentación", "/docs"],
+  ["API", "/docs/api"],
   ["Precios", "#precios"],
 ] as const;
 
@@ -75,7 +43,7 @@ const FOOTER_LINKS = [
   ["Preguntar", "#preguntar"],
   ["Qué es", "#que-es"],
   ["Índice", "#indice"],
-  ["Desarrolladores", "#desarrolladores"],
+  ["Documentación", "/docs"],
   ["Obtener clave", "/keys"],
   ["Entrar", "/login"],
 ] as const;
@@ -260,35 +228,15 @@ function Home() {
           <p>Los planes y precios se publicarán pronto.</p>
         </Section>
 
-        <Section id="desarrolladores" title="Para desarrolladores">
-          <p>Por HTTP, pide un código de error:</p>
-          <Code>curl https://codice.io/v1/errors/CFDI40149</Code>
-          <p>Y recibes el renglón de la matriz, palabra por palabra, con su fuente:</p>
-          <Code>{RESPONSE}</Code>
-          <p>Para Claude, ChatGPT o Cursor, agrega este servidor MCP:</p>
-          <Code>https://codice.io/mcp</Code>
-          <p>Tu asistente tendrá cinco herramientas, y consultará la regla en vez de recordarla:</p>
-          <dl className="flex flex-col">
-            {TOOLS.map(([tool, detail]) => (
-              <div
-                className="grid grid-cols-[9rem_1fr] gap-4 border-t border-line py-2 last:border-b"
-                key={tool}
-              >
-                <dt>{tool}</dt>
-                <dd>{detail}</dd>
-              </div>
-            ))}
-          </dl>
+        <Section id="desarrolladores" title="Para tu software">
           <p>
-            La API necesita una clave.{" "}
-            <a className={LINK} href="/keys">
-              Obtén una aquí
+            Conecta Códice a tu asistente de IA por MCP, o intégralo en tu sistema por HTTP. La
+            documentación explica cómo, paso a paso, con una referencia de cada ruta de la API.
+          </p>
+          <p>
+            <a className={LINK} href="/docs">
+              Leer la documentación
             </a>
-            . Si ya tienes cuenta,{" "}
-            <a className={LINK} href="/login">
-              entra
-            </a>
-            .
           </p>
         </Section>
       </main>
