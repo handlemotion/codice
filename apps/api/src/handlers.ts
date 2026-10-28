@@ -18,6 +18,7 @@ import {
   validity,
 } from "./records";
 import {
+  aboveRerankingFloor,
   briefResult,
   parseAsOf,
   PASSAGE_KINDS,
@@ -114,9 +115,10 @@ export function searchFormat(value: string | undefined): SearchFormat {
 }
 
 /**
- * Searches the passages in force on `asOf`, superseded ones included, and adds the provenance of
- * each result's source as it read that day. A search asked before on the same corpus answers from
- * the cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
+ * Searches the passages in force on `asOf`, superseded ones included, drops the results the
+ * reranker scored far below the first (`aboveRerankingFloor`), and adds the provenance of each
+ * result's source as it read that day. A search asked before on the same corpus answers from the
+ * cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
  * heading path and an excerpt after the cache, so both formats share one entry.
  */
 export async function search(env: CodiceBindings, parameters: SearchParameters) {
@@ -137,7 +139,8 @@ export async function search(env: CodiceBindings, parameters: SearchParameters) 
       throw searchUnavailable("codice.search_failed", cause);
     }
   });
-  const results = searchResults(chunks);
+  // The cache keeps every chunk; the floor applies to each answer, cached or not.
+  const results = aboveRerankingFloor(searchResults(chunks));
   const query = {
     query: input.q,
     asOf: isoDate(input.asOf),

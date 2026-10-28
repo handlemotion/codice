@@ -1190,5 +1190,97 @@
       "complemento-comercio-exterior-guia-de-llenado/nodo-comprobante-exportacion.md",
       "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-1.md"
     ]
+  },
+  {
+    "q": "¿Qué requisitos deben contener los comprobantes fiscales digitales por Internet según el Código Fiscal?",
+    "expect": ["cff/articulo-29-a.md"]
+  },
+  {
+    "q": "¿Quién está obligado a expedir CFDI por los actos o actividades que realice o los ingresos que perciba?",
+    "expect": ["cff/articulo-29.md"]
+  },
+  {
+    "q": "Cancelación de un CFDI: plazo y aceptación del receptor según el CFF",
+    "expect": ["cff/articulo-29-a.md"]
+  },
+  {
+    "q": "¿Qué se considera domicilio fiscal de una persona moral?",
+    "expect": ["cff/articulo-10.md"]
+  },
+  {
+    "q": "¿Cuándo se considera residente en territorio nacional a una persona física?",
+    "expect": ["cff/articulo-9.md"]
+  },
+  {
+    "q": "¿Qué días son inhábiles para el cómputo de plazos fiscales?",
+    "expect": ["cff/articulo-12.md"]
+  },
+  {
+    "q": "¿Qué es una razón de negocios y qué efectos fiscales tienen los actos que carecen de ella?",
+    "expect": ["cff/articulo-5-a.md"]
+  },
+  {
+    "q": "¿Cómo se calculan los recargos cuando no se pagan las contribuciones en la fecha establecida?",
+    "expect": ["cff/articulo-21.md"]
+  },
+  {
+    "q": "¿En qué plazo debe el SAT devolver un saldo a favor solicitado por el contribuyente?",
+    "expect": ["cff/articulo-22.md"]
+  },
+  {
+    "q": "Compensación de cantidades a favor contra contribuciones a cargo",
+    "expect": ["cff/articulo-23.md"]
+  },
+  {
+    "q": "Obligación de inscribirse en el Registro Federal de Contribuyentes y avisos al RFC",
+    "expect": ["cff/articulo-27.md"]
+  },
+  {
+    "q": "¿Qué se considera que integra la contabilidad para efectos fiscales?",
+    "expect": ["cff/articulo-28.md"]
+  },
+  {
+    "q": "¿Qué es el buzón tributario y para qué sirve?",
+    "expect": ["cff/articulo-17-k.md"]
+  },
+  {
+    "q": "Restricción temporal del certificado de sello digital para expedir CFDI",
+    "expect": ["cff/articulo-17-h-bis.md"]
+  },
+  {
+    "q": "Presunción de operaciones inexistentes por contribuyentes que emiten comprobantes sin activos ni personal (EFOS)",
+    "expect": ["cff/articulo-69-b.md"]
+  },
+  {
+    "q": "Opinión del cumplimiento de obligaciones fiscales para contratar con la administración pública federal",
+    "expect": ["cff/articulo-32-d.md"]
+  },
+  {
+    "q": "¿Quién es el beneficiario controlador de una persona moral?",
+    "expect": ["cff/articulo-32-b-quater.md"]
+  },
+  {
+    "q": "¿En qué plazo prescribe el crédito fiscal?",
+    "expect": ["cff/articulo-146.md"]
+  },
+  {
+    "q": "¿Cuándo se extinguen las facultades de las autoridades fiscales para determinar contribuciones omitidas (caducidad)?",
+    "expect": ["cff/articulo-67.md"]
+  },
+  {
+    "q": "Plazo de doce meses para concluir una visita domiciliaria o revisión de gabinete",
+    "expect": ["cff/articulo-46-a.md"]
+  },
+  {
+    "q": "¿En qué plazo se presenta el recurso de revocación?",
+    "expect": ["cff/articulo-121.md"]
+  },
+  {
+    "q": "¿Qué comete el delito de defraudación fiscal?",
+    "expect": ["cff/articulo-108.md"]
+  },
+  {
+    "q": "Infracciones relacionadas con la obligación de expedir comprobantes fiscales y sus multas",
+    "expect": ["cff/articulo-83.md", "cff/articulo-84.md"]
   }
 ]
