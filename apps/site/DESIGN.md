@@ -124,9 +124,8 @@ Content: "Funciona con" in `muted` on the left, and on the right the icons of as
 accountant already knows that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
 Copilot), 20px, 32px apart. Only list an assistant that really connects. The SVGs come from
 svgl.app (`public/_site/logos/`), cropped to their drawn area so they render at one size, and are
-drawn as CSS masks filled with `fg`, one color in either theme. Each shows its name in a small
-tooltip above it on hover or keyboard focus, flush with the icon's right edge so a long name grows
-away from the window's edge.
+drawn as CSS masks filled with `fg`, one color in either theme. Each shows its name in a tooltip
+above it on hover or keyboard focus.
 
 ### Below: the ruled sheet
 
@@ -179,6 +178,14 @@ Entrar → Obtener clave so the blue one sits in the corner.
 - Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).
+
+### Tooltips
+
+shadcn/ui's Tooltip (`src/components/ui/tooltip.tsx`) on `@radix-ui/react-tooltip`, the provider
+in `__root.tsx`. `fg` ground, `ink` text, 11px, 2px corners, a small arrow, a 120ms fade. It opens
+on its requested side and Radix keeps it 16px inside the window (`collisionPadding`), sliding it
+along that side when there is no room, the arrow still on its trigger. Use it for any tooltip;
+never hand-position one.
 
 ### Code islands
 

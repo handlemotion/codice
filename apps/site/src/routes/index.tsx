@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { Ask } from "../ask";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { Mark, MarkField } from "../brand/mark";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -129,24 +130,22 @@ function Strip() {
         <span className="text-muted">Funciona con</span>
         <ul className="flex items-center gap-8">
           {ASSISTANTS.map(([name, file]) => (
-            <li className="group relative" key={file}>
-              <span
-                aria-label={name}
-                className="block size-5 bg-fg outline-offset-4"
-                role="img"
-                style={{
-                  mask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
-                  WebkitMask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
-                }}
-                tabIndex={0}
-              />
-              {/* The name, on hover or keyboard focus, above the icon and flush with its right edge. */}
-              <span
-                aria-hidden
-                className="pointer-events-none absolute right-0 bottom-full mb-1.5 rounded-[2px] bg-fg px-1 py-0.5 text-[11px] whitespace-nowrap text-ink opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-              >
-                {name}
-              </span>
+            <li key={file}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    aria-label={name}
+                    className="block size-5 bg-fg outline-offset-4"
+                    role="img"
+                    style={{
+                      mask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
+                      WebkitMask: `url(/_site/logos/${file}.svg) center / contain no-repeat`,
+                    }}
+                    tabIndex={0}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="top">{name}</TooltipContent>
+              </Tooltip>
             </li>
           ))}
         </ul>

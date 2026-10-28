@@ -2,6 +2,7 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-r
 import { useEffect, type ReactNode } from "react";
 
 import { useAnimatedFavicon } from "../brand/mark";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { THEME_SCRIPT, toggleTheme } from "../theme";
 import "../styles.css";
 
@@ -99,7 +100,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body className="min-h-full bg-ink font-sans text-fg">
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
         <AnimatedFavicon />
         <ThemeKey />
         <Scripts />

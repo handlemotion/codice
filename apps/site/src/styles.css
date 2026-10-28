@@ -88,3 +88,18 @@ button,
 kbd {
   text-box: trim-both cap alphabetic;
 }
+
+/* Tooltips fade in from their side (shadcn's entrance without tw-animate-css). */
+@media (prefers-reduced-motion: no-preference) {
+  .tooltip-content[data-state="delayed-open"],
+  .tooltip-content[data-state="instant-open"] {
+    animation: tooltip-in 120ms ease-out;
+  }
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
