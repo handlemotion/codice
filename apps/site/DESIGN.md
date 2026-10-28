@@ -32,13 +32,14 @@ explanatory text.
 All in `src/styles.css`. Reference tokens in classes (`bg-ink`, `text-fg`, `border-line`,
 `text-muted`, `bg-electric`); never hard-code a color in a component.
 
-| Token      | Dark (default) | Light     | Use                                                                                    |
-| ---------- | -------------- | --------- | -------------------------------------------------------------------------------------- |
-| `ink`      | `#0a0a0b`      | `#e8e8e8` | The ground. Pitch black at night, paper grey by day. Also the text on a filled button. |
-| `fg`       | `#ededef`      | `#0a0a0b` | All running text, headings, the mark.                                                  |
-| `muted`    | `#7c7c84`      | `#5f5f66` | Secondary notes only: ghost text, citations, footer. Never body copy.                  |
-| `line`     | `#2a2a2e`      | `#c9c9c9` | Hairlines, outlined buttons, the hero's background mark.                               |
-| `electric` | `#2346ff`      | `#2346ff` | The one accent: primary button, the visitor's chat bubble, text selection.             |
+| Token      | Dark (default) | Light            | Use                                                                                    |
+| ---------- | -------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| `ink`      | `#0a0a0b`      | `#e8e8e8`        | The ground. Pitch black at night, paper grey by day. Also the text on a filled button. |
+| `fg`       | `#ededef`      | `#0a0a0b`        | All running text, headings, the mark.                                                  |
+| `muted`    | `#7c7c84`      | `#5f5f66`        | Secondary notes only: ghost text, citations, footer. Never body copy.                  |
+| `line`     | `#2a2a2e`      | `#c9c9c9`        | Hairlines, outlined buttons.                                                           |
+| `field`    | `#2a2a2e`      | `#c9c9c9` at 60% | The hero's background mark: full `line` in dark so it reads, faded in light.           |
+| `electric` | `#2346ff`      | `#2346ff`        | The one accent: primary button, the visitor's chat bubble, text selection.             |
 
 - Muted text must hold 4.5:1 on `ink` in both themes (checked at `#5f5f66` on `#e8e8e8`).
 - Selection is `electric` with white text in both themes.
@@ -94,7 +95,7 @@ its cell, so neighbouring triangles keep a small gap. Every
 diagonal runs 120ms behind the one above-left of it, so the morph rolls from the top-left corner
 to the bottom-right like a wave. One SVG and one clock for the whole field.
 
-Where it appears: the hero background (the field, in `text-line` at 60%, faint enough that the
+Where it appears: the hero background (the field, in `text-field`, faint enough that the
 title and the answer sit on it with no ground of their own), the
 footer band (three cells, one step apart), the chat (a still mark beside the greeting; three small
 marks turning while Códice answers), and the favicon.

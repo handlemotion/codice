@@ -129,7 +129,7 @@ function Home() {
           and the chat on the sections' text column (48%), a little above the middle; on phones,
           under the bar. At least most of the screen, growing with a long answer. */}
       <header className="relative flex min-h-[85svh] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 lg:justify-center lg:pb-[12vh] lg:pl-[calc(48%+24px)]">
-        <MarkField className="pointer-events-none absolute inset-0 size-full text-line/60" />
+        <MarkField className="pointer-events-none absolute inset-0 size-full text-field" />
         <div
           className="relative flex w-full max-w-[32rem] flex-col lg:min-h-[360px]"
           id="preguntar"
