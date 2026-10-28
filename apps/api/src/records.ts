@@ -6,6 +6,7 @@ import {
   catalogEntries,
   errorCodes,
   IN_FORCE_UNTIL,
+  passageLinks,
   passages,
   sources,
   sourceVersions,
@@ -188,6 +189,7 @@ export function errorCodePassageId(sourceId: string, code: string) {
   return `${sourceId}/${code.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}.md`;
 }
 
+/** A matrix row with its passage, the guide passages it links to (`related`) and its source. */
 export async function errorCode(db: Database, code: string) {
   const [row] = await db
     .select()
@@ -195,12 +197,12 @@ export async function errorCode(db: Database, code: string) {
     .where(eq(errorCodes.code, matrixCode(code)))
     .limit(1);
   if (!row) return null;
-  const provenance = await sourcesById(db, [row.sourceId]);
-  return {
-    ...row,
-    passageId: errorCodePassageId(row.sourceId, row.code),
-    source: provenance.get(row.sourceId) ?? null,
-  };
+  const passageId = errorCodePassageId(row.sourceId, row.code);
+  const [related, provenance] = await Promise.all([
+    relatedPassages(db, passageId),
+    sourcesById(db, [row.sourceId]),
+  ]);
+  return { ...row, passageId, related, source: provenance.get(row.sourceId) ?? null };
 }
 
 /** `UsoCFDI` and `c_usocfdi` both name c_UsoCFDI. */
@@ -300,4 +302,14 @@ export async function catalogColumns(db: Database, name: string, key: string) {
 export async function passageRow(db: Database, key: string) {
   const [row] = await db.select().from(passages).where(eq(passages.key, key)).limit(1);
   return row ?? null;
+}
+
+/** The passage ids a passage links to, in its text's order (SPEC.md, "Related passages"). */
+export async function relatedPassages(db: Database, key: string) {
+  const rows = await db
+    .select({ key: passageLinks.relatedKey })
+    .from(passageLinks)
+    .where(eq(passageLinks.passageKey, key))
+    .orderBy(asc(passageLinks.position));
+  return rows.map((row) => row.key);
 }

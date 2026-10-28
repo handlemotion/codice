@@ -9,6 +9,7 @@ import {
   errorCode,
   passageRow,
   recordsDatabase,
+  relatedPassages,
   sourcesById,
   sourcesOn,
   validity,
@@ -133,8 +134,9 @@ function searchUnavailable(event: string, cause: unknown) {
 }
 
 /**
- * One passage in full: its body as uploaded to AI Search, its metadata and its source, from D1.
- * A row the ingestion wrote before D1 kept bodies takes them from AI Search instead.
+ * One passage in full: its body as uploaded to AI Search, its metadata, the passages it links to
+ * and its source, from D1. A row the ingestion wrote before D1 kept bodies takes them from AI
+ * Search instead.
  */
 export async function readPassage(env: CodiceBindings, id: string) {
   const key = id.trim();
@@ -145,9 +147,10 @@ export async function readPassage(env: CodiceBindings, id: string) {
   const row = await passageRow(db, key);
   if (!row) throw new CodiceProblem(404, "passage_not_found", "Passage not found");
   // The source version the passage was last read from: a superseded one's, else the current one.
-  const [indexed, provenance] = await Promise.all([
+  const [indexed, provenance, related] = await Promise.all([
     row.body === null ? indexedPassage(env, key) : null,
     sourcesOn(db, [row.sourceId], row.validUntil),
+    relatedPassages(db, key),
   ]);
   const source = provenance.get(row.sourceId) ?? null;
   return {
@@ -159,6 +162,7 @@ export async function readPassage(env: CodiceBindings, id: string) {
       kind: row.kind,
       ...validity(row.validFrom, row.validUntil),
     }),
+    related,
     source,
   };
 }

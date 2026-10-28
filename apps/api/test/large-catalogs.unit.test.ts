@@ -224,6 +224,7 @@ describe("D1 batches", () => {
       passages: [],
       errorCodes: [],
       catalogEntries: [entry("c_UsoCFDI", "S01", { c_UsoCFDI: "S01" })],
+      links: [],
     };
     const sql = recordsSql(corpus, LARGE_CATALOG_NAMES, { passages: [], sourceVersions: [] });
     expect(sql).toContain(
@@ -237,12 +238,51 @@ describe("D1 batches", () => {
     expect(sql).toContain(`'${SOURCE.sha256}'`);
   });
 
+  it("records the links between written passages, numbered in order, after the passages", () => {
+    const record = (key: string) => ({
+      key,
+      sourceId: SOURCE_ROW.id,
+      heading: key,
+      sha256: "1",
+      body: "# X\n",
+      kind: "guia",
+      validFrom: 20220101,
+      validUntil: 99991231,
+    });
+    const corpus: Corpus = {
+      sources: [SOURCE_ROW],
+      passages: [],
+      errorCodes: [],
+      catalogEntries: [],
+      links: [
+        { from: "s/a.md", to: "s/b.md" },
+        { from: "s/a.md", to: "s/unwritten.md" },
+        { from: "s/a.md", to: "s/c.md" },
+        { from: "s/b.md", to: "s/a.md" },
+      ],
+    };
+    const sql = recordsSql(corpus, LARGE_CATALOG_NAMES, {
+      passages: ["s/a.md", "s/b.md", "s/c.md"].map(record),
+      sourceVersions: [],
+    });
+    expect(sql.indexOf("DELETE FROM passage_links;")).toBeLessThan(
+      sql.indexOf("DELETE FROM passages;"),
+    );
+    expect(sql).toContain(
+      "INSERT INTO passage_links (passage_key, related_key, position) VALUES ('s/a.md', 's/b.md', 0), ('s/a.md', 's/c.md', 1), ('s/b.md', 's/a.md', 0);",
+    );
+    expect(sql.indexOf("INSERT INTO passage_links")).toBeGreaterThan(
+      sql.indexOf("INSERT INTO passages"),
+    );
+  });
+
   it("records the passages with their validity and the superseded source versions", () => {
     const corpus: Corpus = {
       sources: [SOURCE_ROW],
       passages: [],
       errorCodes: [],
       catalogEntries: [],
+      links: [],
     };
     const sql = recordsSql(corpus, LARGE_CATALOG_NAMES, {
       passages: [

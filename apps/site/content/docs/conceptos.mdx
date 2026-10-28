@@ -35,6 +35,30 @@ curl https://codice.io/v1/passages/matriz-de-errores-cfdi-40/cfdi40149.md \
 
 La barra del id puede ir tal cual o codificada (`%2F`). El texto del pasaje es el del SAT, sin cambios: primero la ruta de títulos donde está, luego su contenido.
 
+### Pasajes relacionados
+
+Cada pasaje trae en `related` los ids de otros pasajes a los que remite su propio texto, para seguirlos con `/v1/passages/{id}`:
+
+| Pasaje                 | `related`                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Una regla de la RMF    | Las reglas de la RMF que cita su renglón de referencias (`CFF 29, 29 Bis, RMF 2.7.1.32., 2.7.2.1.`), en orden. |
+| Un código de la matriz | El pasaje de la guía de llenado que define su nodo y atributo.                                                 |
+| Un atributo de la guía | Los códigos de la matriz que lo validan.                                                                       |
+
+```json
+{
+  "passageId": "rmf-2026/regla-2.7.1.21.md",
+  "related": [
+    "rmf-2026/regla-2.6.1.2.md",
+    "rmf-2026/regla-2.7.1.23.md",
+    "rmf-2026/regla-2.7.1.32.md",
+    "rmf-2026/regla-3.3.1.7.md"
+  ]
+}
+```
+
+Códice lee estas referencias del texto del SAT al cargarlo, sin interpretarlas: solo enlaza pasajes que tiene. Una referencia a una ley (`CFF 29`) o a una regla derogada no aparece. Un pasaje sin referencias trae `related` vacío.
+
 ### Tipos de pasaje
 
 Cada pasaje tiene un tipo (`kind`), que sirve para acotar una búsqueda:

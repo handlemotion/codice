@@ -155,7 +155,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Read a passage",
       description:
-        "Read one passage in full, verbatim, by the passage id a search result gives, with its heading, validity dates and source.",
+        "Read one passage in full, verbatim, by the passage id a search result gives, with its heading, validity dates, source and `related`: the passage ids its text links to (an RMF regla's referenced reglas, an error code's guide passage, a guide passage's error codes), each readable with `read_passage`.",
       inputSchema: ReadPassageArguments,
     },
     (args) => readPassage(env, args.id),
@@ -166,7 +166,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Look up a CFDI error code",
       description:
-        "Look up a CFDI40xxx validation code in the SAT's error matrix: the node and attribute it checks, the validation, the message, and its source.",
+        "Look up a CFDI40xxx validation code in the SAT's error matrix: the node and attribute it checks, the validation, the message, its source, and in `related` the Anexo 20 passage that defines the attribute, for `read_passage`.",
       inputSchema: LookupErrorArguments,
     },
     (args) => lookupError(env, args.code),

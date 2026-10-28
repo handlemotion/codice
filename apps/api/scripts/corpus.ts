@@ -16,6 +16,7 @@ import {
   type SatErrorMatrix,
   type SatSource,
 } from "./sat-records";
+import { passageLinks, type PassageLink } from "./links";
 import { guideSections, nameVocabulary, rmfReglas } from "./sections";
 
 /** AI Search's limit on an item key. */
@@ -72,6 +73,8 @@ export type Corpus = {
   readonly passages: readonly Passage[];
   readonly errorCodes: readonly ErrorCodeRow[];
   readonly catalogEntries: readonly CatalogEntryRow[];
+  /** The related passages each passage's text names (`links.ts`). */
+  readonly links: readonly PassageLink[];
 };
 
 export type SatMarkdownFiles = {
@@ -206,13 +209,18 @@ export function rmfPassages(document: SatDocument): Passage[] {
   );
 }
 
+/** A matrix row's anchor: `CFDI40149` → `cfdi40149`. */
+function errorCodeAnchor(code: string) {
+  return anchorOf(code, ITEM_KEY_MAX);
+}
+
 /** One passage a matrix row: the SAT's validation and message, verbatim, under its node. */
 export function errorCodePassages(matrix: SatErrorMatrix): Passage[] {
   const sourceId = SOURCES.matrix.id;
   return matrix.codes.map((row) =>
     passage({
       sourceId,
-      anchor: anchorOf(row.code, ITEM_KEY_MAX),
+      anchor: errorCodeAnchor(row.code),
       heading: `${matrix.title} › ${row.element} › ${row.attribute} › ${row.code}`,
       text: [
         `Código: ${row.code}`,
@@ -292,6 +300,12 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
       .map((document) => document.markdown),
   );
   const catalogTitle = "Catálogos del CFDI 4.0 (catCFDI)";
+  const passages = [
+    ...guidePassages(anexo20.document, anexo20.row.id, anexo20.row.validFrom, vocabulary),
+    ...guidePassages(pagos.document, pagos.row.id, pagos.row.validFrom, vocabulary),
+    ...errorCodePassages(errorMatrix),
+    ...rmfPassages(rmf.document),
+  ];
   return {
     sources: [
       anexo20.row,
@@ -300,12 +314,7 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
       sourceRow("catalogs", catalogTitle, sources.catalogs),
       rmf.row,
     ],
-    passages: [
-      ...guidePassages(anexo20.document, anexo20.row.id, anexo20.row.validFrom, vocabulary),
-      ...guidePassages(pagos.document, pagos.row.id, pagos.row.validFrom, vocabulary),
-      ...errorCodePassages(errorMatrix),
-      ...rmfPassages(rmf.document),
-    ],
+    passages,
     errorCodes: errorMatrix.codes.map((row) => ({
       code: row.code,
       sourceId: SOURCES.matrix.id,
@@ -315,6 +324,16 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
       message: row.message,
     })),
     catalogEntries: catalogEntryRows(catalogs),
+    links: passageLinks({
+      passages,
+      rmfSourceId: SOURCES.rmf.id,
+      guideSourceId: anexo20.row.id,
+      errorCodes: errorMatrix.codes.map((row) => ({
+        key: `${SOURCES.matrix.id}/${errorCodeAnchor(row.code)}.md`,
+        node: row.element,
+        attribute: row.attribute,
+      })),
+    }),
   };
 }
 

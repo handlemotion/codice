@@ -300,6 +300,13 @@
                           "description": "Last day it applies; null while in force.",
                           "type": ["string", "null"]
                         },
+                        "related": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Passage ids its text links to: an RMF regla's referenced reglas, a matrix row's guide passage, a guide passage's matrix rows."
+                        },
                         "source": {
                           "anyOf": [
                             {
@@ -361,6 +368,7 @@
                         "kind",
                         "validFrom",
                         "validUntil",
+                        "related",
                         "source"
                       ]
                     },
@@ -485,6 +493,13 @@
                         "passageId": {
                           "type": "string"
                         },
+                        "related": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The Anexo 20 passage that defines the row's attribute, when the guide has one."
+                        },
                         "source": {
                           "anyOf": [
                             {
@@ -546,6 +561,7 @@
                         "validation",
                         "message",
                         "passageId",
+                        "related",
                         "source"
                       ]
                     },
