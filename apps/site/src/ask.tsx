@@ -222,14 +222,9 @@ export function Ask() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="self-start bg-ink text-[20px] leading-snug">
-          Las reglas del SAT, con su fuente.
-        </h1>
-        <p className="self-start bg-ink text-muted">
-          El texto exacto de cada regla, su documento y su vigencia. En el chat, por API o por MCP.
-        </p>
-      </div>
+      <h1 className="self-start bg-ink text-[20px] leading-snug">
+        Resuelve tus dudas del SAT con la regla exacta y su fuente.
+      </h1>
 
       {open && (
         <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
