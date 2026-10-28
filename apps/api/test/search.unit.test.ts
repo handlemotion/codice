@@ -48,7 +48,7 @@ describe("searchInput", () => {
     [{ q: "x", limit: "0" }, "`limit` must be a whole number from 1 to 50."],
     [{ q: "x", limit: "51" }, "`limit` must be a whole number from 1 to 50."],
     [{ q: "x", limit: "2.5" }, "`limit` must be a whole number from 1 to 50."],
-    [{ q: "x", source: "../etc" }, "`source` is not a source id."],
+    [{ q: "x", source: "../etc" }, "`../etc` is not a source id."],
   ])("refuses %j", (parameters, detail) => {
     expect(() => searchInput(parameters, now)).toThrow(expect.objectContaining({ detail }));
   });
@@ -125,7 +125,7 @@ describe("searchRequest", () => {
       q: "x",
       asOf: 20261024,
       limit: 3,
-      source: "matriz-de-errores-cfdi-40",
+      sources: ["matriz-de-errores-cfdi-40"],
       keywordMatchMode: "or",
     });
     expect(request.ai_search_options.retrieval).toEqual({
@@ -137,6 +137,20 @@ describe("searchRequest", () => {
       max_num_results: 3,
       return_on_failure: false,
       keyword_match_mode: "or",
+    });
+  });
+
+  it("narrows to several sources' folders with `$in`", () => {
+    const request = searchRequest({
+      q: "x",
+      asOf: 20261024,
+      limit: 3,
+      sources: ["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"],
+    });
+    expect(request.ai_search_options.retrieval.filters).toEqual({
+      valid_from: { $lte: 20261024 },
+      valid_until: { $gte: 20261024 },
+      folder: { $in: ["anexo-20-guia-de-llenado/", "matriz-de-errores-cfdi-40/"] },
     });
   });
 
