@@ -29,6 +29,7 @@ import {
   SEARCH_FORMATS,
   SEARCH_LIMIT_MAX,
   type SearchFormat,
+  type SearchInput,
   searchRequest,
   searchResults,
   todayInMexicoCity,
@@ -124,8 +125,12 @@ export function searchFormat(value: string | undefined): SearchFormat {
  * cache (`search-cache.ts`); the provenance is read each time. `brief` cuts each result to its
  * heading path and an excerpt after the cache, so both formats share one entry.
  */
-export async function search(env: CodiceBindings, parameters: SearchParameters) {
-  const input = searchInput(parameters);
+export async function search(
+  env: CodiceBindings,
+  parameters: SearchParameters,
+  options: Pick<SearchInput, "reranking"> = {},
+) {
+  const input: SearchInput = { ...searchInput(parameters), ...options };
   const format = searchFormat(parameters.format);
   if (!env.CODICE_SEARCH) throw new Error("CODICE_SEARCH is not bound");
   const instance = env.CODICE_SEARCH;

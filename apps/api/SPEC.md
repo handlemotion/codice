@@ -221,7 +221,7 @@ a run that records each result's `rerankingScore`.
 `CodiceKnowledge` entrypoint) keeps AI Search's chunks for a repeated search in the Cache API
 (`src/search-cache.ts`), so a hit makes no AI Search call; the provenance is still read from D1 each
 time. The key is the validated input `searchRequest` reads, `q` (trimmed), `asOf` (today in Mexico
-City when absent), `source` (the sorted list, so the order asked does not matter), `kind` and `limit`, plus the corpus version: a hash of every source's
+City when absent), `source` (the sorted list, so the order asked does not matter), `kind`, `limit` and, for the chat's unreranked searches, `reranking=off`, plus the corpus version: a hash of every source's
 `sha256` and every passage's `sha256`, `kind` and validity in D1 (`corpusVersion`, `src/records.ts`),
 which the isolate rereads every `SOURCES_CACHE_MS` (5 minutes). The ingestion writes those rows
 after it uploads, and a re-split changes passages under the same source hash, so an ingestion
@@ -552,6 +552,19 @@ that call the same handlers as the MCP tools (`search`, `read_passage`, `lookup_
 `lookup_catalog`, `list_sources`), through TanStack AI (`@tanstack/ai`, `@tanstack/ai-anthropic`),
 the stack Transitive's Agent uses. A tool refusal goes back to the model as
 `{ error: { code, message } }`.
+
+The chat's `search` runs without reranking (`search(env, args, { reranking: false })`), and at
+most `CHAT_MAX_SEARCHES` (4) times a request; past that, `search` answers
+`{ error: { code: "search_limit", … } }`, so the model answers from what it has. Measured
+2026-10-28 (Sentry traces of `POST /v1/chat` over 7 days, and the handler run locally against the
+real AI Search): a search with reranking took 1.5–8.6 s (4.8 s on average in production) and
+without it 1.3–2.3 s in most runs; a model turn takes about 2.5 s before its first byte. A typical
+answer is a turn, a search and an answering turn; a question the corpus does not cover searched
+3–5 rounds (25–35 s) before the cap. The model reads every result, not only the first three, so
+the ranking the eval measures (161 against 153 of 172 in the top 3 with and without reranking,
+[Reranking and latency](#reranking-and-latency-2026-10-28)) matters less here than on `/v1/search`.
+Asking the model in the prompt to search in parallel, or to stop after two rounds, made no
+measurable difference.
 
 Effort `low` was compared on 2026-10-28: the same 6 questions, run locally against the real AI
 Search, finished in 58.9 s against 68.5 s at `medium` (median 11.7 s against 14.6 s; most of a

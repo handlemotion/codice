@@ -25,6 +25,8 @@ export function searchCacheKey(input: SearchInput, version: string): string {
     kind: input.kind ?? "",
     limit: String(input.limit),
   });
+  // Unreranked chunks come in another order, so they never answer a reranked search.
+  if (input.reranking === false) parameters.set("reranking", "off");
   return `https://search-cache.codice.internal/${version}?${parameters}`;
 }
 
