@@ -1,7 +1,13 @@
 import * as Sentry from "@sentry/cloudflare";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 
-import type { CodiceKnowledgeService, CodiceResult } from "@codice/contracts";
+import type {
+  CodiceBriefSearch,
+  CodiceKnowledgeService,
+  CodiceResult,
+  CodiceSearch,
+  CodiceSearchParameters,
+} from "@codice/contracts";
 import { sampleSentryTrace, scrubSpanUrls, scrubTransactionUrls } from "@codice/monitoring";
 
 import { createMcpHandler } from "agents/mcp/server";
@@ -262,6 +268,7 @@ app.get("/v1/search", async (context) =>
       source: context.req.query("source"),
       kind: context.req.query("kind"),
       limit: context.req.query("limit"),
+      format: context.req.query("format"),
     }),
   ),
 );
@@ -328,7 +335,13 @@ async function internalCall<T>(handler: () => Promise<T>): Promise<CodiceResult<
  * them. A refusal comes back as the problem, since RPC keeps only an error's message.
  */
 export class CodiceKnowledge extends WorkerEntrypoint<Bindings> implements CodiceKnowledgeService {
-  search(parameters: SearchParameters) {
+  search(
+    parameters: CodiceSearchParameters & { readonly format: "brief" },
+  ): Promise<CodiceResult<CodiceBriefSearch>>;
+  search(
+    parameters: CodiceSearchParameters & { readonly format?: "full" | undefined },
+  ): Promise<CodiceResult<CodiceSearch>>;
+  search(parameters: SearchParameters): Promise<CodiceResult<CodiceSearch | CodiceBriefSearch>> {
     return internalCall(() => search(this.env, parameters));
   }
   readPassage(id: string) {

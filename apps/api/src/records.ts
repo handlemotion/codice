@@ -297,6 +297,19 @@ export async function catalogColumns(db: Database, name: string, key: string) {
 }
 
 /** The ingestion's row for one AI Search item key. */
+/** Each passage's heading path by key, for brief search results; at most 50 keys, one query. */
+export async function passageHeadings(
+  db: Database,
+  keys: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  if (keys.length === 0) return new Map();
+  const rows = await db
+    .select({ key: passages.key, heading: passages.heading })
+    .from(passages)
+    .where(inArray(passages.key, [...new Set(keys)]));
+  return new Map(rows.map((row) => [row.key, row.heading]));
+}
+
 export async function passageRow(db: Database, key: string) {
   const [row] = await db.select().from(passages).where(eq(passages.key, key)).limit(1);
   return row ?? null;

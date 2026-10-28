@@ -56,15 +56,15 @@ Cada asistente que apruebas queda conectado hasta que lo desconectes desde tu pa
 
 Todas son de solo lectura: consultan, nunca modifican nada.
 
-| Herramienta      | Para qué                                  | Argumentos                                          |
-| ---------------- | ----------------------------------------- | --------------------------------------------------- |
-| `search`         | Busca reglas por pregunta o por clave.    | `q`, y opcionales `asOf`, `source`, `kind`, `limit` |
-| `read_passage`   | Lee una regla completa por su id.         | `id`                                                |
-| `lookup_error`   | Explica un código de error `CFDI40xxx`.   | `code`                                              |
-| `lookup_catalog` | Busca una clave en un catálogo del SAT.   | `name`, `key`, y opcional `where`                   |
-| `list_sources`   | Lista los documentos que contiene Códice. | Ninguno                                             |
+| Herramienta      | Para qué                                  | Argumentos                                                    |
+| ---------------- | ----------------------------------------- | ------------------------------------------------------------- |
+| `search`         | Busca reglas por pregunta o por clave.    | `q`, y opcionales `asOf`, `source`, `kind`, `limit`, `format` |
+| `read_passage`   | Lee una regla completa por su id.         | `id`                                                          |
+| `lookup_error`   | Explica un código de error `CFDI40xxx`.   | `code`                                                        |
+| `lookup_catalog` | Busca una clave en un catálogo del SAT.   | `name`, `key`, y opcional `where`                             |
+| `list_sources`   | Lista los documentos que contiene Códice. | Ninguno                                                       |
 
-Son las mismas consultas que la API, con los mismos argumentos. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten).
+Son las mismas consultas que la API, con los mismos argumentos. Una diferencia: por MCP, `search` responde breve por omisión (`format: brief`), con la ruta de títulos de cada pasaje y un extracto exacto de su texto; el asistente lee el que responde con `read_passage`, y un pasaje corto llega entero en el extracto. Así cada búsqueda ocupa entre 30% y 70% menos del contexto del asistente. Con `format: full` recibe el texto que coincidió y su fuente, como la API (ver [Resultados breves](/docs/buscar#resultados-breves)). `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten).
 
 ## Qué preguntarle
 

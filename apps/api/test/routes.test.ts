@@ -293,6 +293,7 @@ describe("GET /v1/search", () => {
         asOf: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/u),
         source: null,
         kind: null,
+        format: "full",
         results: [
           {
             passageId: "matriz-de-errores-cfdi-40/cfdi40149.md",
@@ -314,11 +315,44 @@ describe("GET /v1/search", () => {
     });
   });
 
+  it("returns each result brief: its heading path and an excerpt cut from the quote", async () => {
+    const response = await request("/v1/search?q=Rfc%20receptor&format=brief", undefined, {
+      "x-request-id": "ray-brief",
+    });
+
+    const body = (await response.json()) as {
+      data: { format: string; results: { excerpt: string }[] };
+    };
+    expect(body).toEqual({
+      data: {
+        query: "Rfc receptor",
+        asOf: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/u),
+        source: null,
+        kind: null,
+        format: "brief",
+        results: [
+          {
+            passageId: PASSAGE_ID,
+            heading: "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
+            excerpt: CHUNK.text,
+            truncated: { before: false, after: false },
+            kind: "anexo",
+            validFrom: "2026-03-25",
+            validUntil: null,
+            score: 0.91,
+          },
+        ],
+      },
+      meta: { requestId: "ray-brief" },
+    });
+  });
+
   it.each([
     ["/v1/search", "`q` is required."],
     ["/v1/search?q=x&asOf=2026-02-30", "`asOf` must be a date as YYYY-MM-DD."],
     ["/v1/search?q=x&limit=100", "`limit` must be a whole number from 1 to 50."],
     ["/v1/search?q=x&kind=nota", "`kind` is one of ley, reglamento, regla, anexo, guia, criterio."],
+    ["/v1/search?q=x&format=short", "`format` is one of full, brief."],
   ])("refuses %s", async (path, detail) => {
     const response = await request(path);
 
@@ -366,6 +400,19 @@ describe("search cache", () => {
     expect(second.headers.get("server-timing")).toMatch(/^total;dur=[\d.]+, cache;dur=[\d.]+$/u);
   });
 
+  it("answers both formats from one entry: brief is cut after the cache", async () => {
+    const calls: SearchCall[] = [];
+    const path = "/v1/search?q=format%20cache&asOf=2026-06-01";
+    const full = await cachedRequest(path, fakeSearch([CHUNK], calls));
+    const brief = await cachedRequest(`${path}&format=brief`, fakeSearch([], calls));
+
+    expect(await full.json()).toMatchObject({ data: { format: "full" } });
+    expect(await brief.json()).toMatchObject({
+      data: { format: "brief", results: [{ passageId: PASSAGE_ID, excerpt: CHUNK.text }] },
+    });
+    expect(calls).toHaveLength(1);
+  });
+
   it("serves the same entry to the CodiceKnowledge entrypoint", async () => {
     const calls: SearchCall[] = [];
     await cachedRequest("/v1/search?q=rpc%20cache&asOf=2026-06-01", fakeSearch([CHUNK], calls));
@@ -379,7 +426,13 @@ describe("search cache", () => {
 
     expect(await knowledge.search({ q: "rpc cache", asOf: "2026-06-01" })).toMatchObject({
       ok: true,
-      data: { results: [{ passageId: PASSAGE_ID, quote: CHUNK.text }] },
+      data: { format: "full", results: [{ passageId: PASSAGE_ID, quote: CHUNK.text }] },
+    });
+    expect(
+      await knowledge.search({ q: "rpc cache", asOf: "2026-06-01", format: "brief" }),
+    ).toMatchObject({
+      ok: true,
+      data: { format: "brief", results: [{ passageId: PASSAGE_ID, excerpt: CHUNK.text }] },
     });
     expect(calls).toHaveLength(1);
   });
@@ -1091,7 +1144,7 @@ describe("/mcp", () => {
     });
   });
 
-  it("searches with the same handler as /v1/search", async () => {
+  it("searches with the same handler as /v1/search, brief by default", async () => {
     const calls: SearchCall[] = [];
     const response = await rpc(
       {
@@ -1104,18 +1157,42 @@ describe("/mcp", () => {
     );
 
     // The tool answers over the stream, so read the body before the calls.
-    expect(await json(response)).toMatchObject({
+    const body = (await json(response)) as {
+      result: { structuredContent: { results: Record<string, unknown>[] } };
+    };
+    expect(body).toMatchObject({
       result: {
         structuredContent: {
           asOf: "2026-06-01",
-          results: [{ passageId: "matriz-de-errores-cfdi-40/cfdi40149.md", quote: CHUNK.text }],
+          format: "brief",
+          results: [
+            {
+              passageId: PASSAGE_ID,
+              heading: "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
+              excerpt: CHUNK.text,
+            },
+          ],
         },
       },
     });
+    expect(body.result.structuredContent.results[0]).not.toHaveProperty("quote");
     expect(calls[0]?.ai_search_options?.retrieval).toMatchObject({
       filters: { valid_from: { $lte: 20260601 }, valid_until: { $gte: 20260601 } },
       max_num_results: 2,
       return_on_failure: false,
+    });
+  });
+
+  it("quotes the whole matched text with `format: full`", async () => {
+    expect(
+      await json(await call("search", { q: "CFDI40149", asOf: "2026-06-01", format: "full" })),
+    ).toMatchObject({
+      result: {
+        structuredContent: {
+          format: "full",
+          results: [{ passageId: PASSAGE_ID, quote: CHUNK.text }],
+        },
+      },
     });
   });
 });

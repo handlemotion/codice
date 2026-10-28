@@ -161,6 +161,19 @@ The Worker maps each returned chunk to a result: `item.key` → passage id, `tex
 source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
 holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
 
+`format` (`full` or `brief`) shapes the answer, never the request. `full` returns each result as
+above. `brief` returns each as `{ passageId, heading, excerpt, truncated: { before, after }, kind,
+validFrom, validUntil, score }` (`briefResult`, `src/search.ts`): `heading` is the passage's heading
+path from D1 `passages` (one query by key, in place of the provenance query), and `excerpt` is at
+most `EXCERPT_LENGTH` (320) characters of the quote, its `# heading` line dropped, cut as
+`quote.slice(start, end)` and never rewritten. The cut holds the most distinct words of `q` (folded
+for case and accents, words under 3 letters and common ones left out) and starts at the line or
+sentence of the first of them when one starts within 120 characters, else 60 characters before it,
+at a whole word; without a matching word (a match by meaning) it is the quote's start. `truncated`
+says whether the quote continues on either side, so a caller marks the cut with "…". The agent
+then reads the one that answers with `read_passage`. HTTP and `CodiceKnowledge` default to `full`;
+MCP to `brief` ([MCP surface](#mcp-surface-mcp)).
+
 ### Search cache
 
 `search()` (`src/handlers.ts`, the one path of `/v1/search`, `/mcp`, `POST /v1/chat` and the
@@ -173,7 +186,9 @@ which the isolate rereads every `SOURCES_CACHE_MS` (5 minutes). The ingestion wr
 after it uploads, and a re-split changes passages under the same source hash, so an ingestion
 misses within 5 minutes. An entry lives `SEARCH_CACHE_SECONDS` (1 hour), which bounds a result
 cached while AI Search still indexed an upload. The caller is not in the key: every key sees the
-same passages. A failed search is not kept. Entries are per data center.
+same passages. `format` is not in the key: `brief` is cut from the cached chunks, so a full and a
+brief search of the same input share one entry. A failed search is not kept. Entries are per data
+center.
 
 Chosen 2026-10-28 over two alternatives:
 
@@ -291,15 +306,15 @@ time spent in its calls, a Sentry span each; `src/timing.ts`), and, for a search
 [search cache](#search-cache)'s reads and writes; a hit has no `search`). Every `/v1` route takes
 an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 
-| Method and path                                | Backed by                                                 |
-| ---------------------------------------------- | --------------------------------------------------------- |
-| `GET /v1/search?q=&asOf=&source=&kind=&limit=` | AI Search `search()` + D1 `sources`                       |
-| `GET /v1/passages/:id`                         | D1 `passages` + D1 `sources`                              |
-| `GET /v1/sources`, `/v1/sources/:id`           | D1 `sources`                                              |
-| `GET /v1/errors/:code`                         | D1 `error_codes`                                          |
-| `GET /v1/catalogs/:name`                       | D1 `catalog_entries`                                      |
-| `GET /v1/catalogs/:name/:key?<column>=`        | D1 `catalog_entries`                                      |
-| `POST /v1/chat`                                | Claude Sonnet 5.5 over the handlers above ([Chat](#chat)) |
+| Method and path                                        | Backed by                                                 |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| `GET /v1/search?q=&asOf=&source=&kind=&limit=&format=` | AI Search `search()` + D1 `sources` (`brief`: `passages`) |
+| `GET /v1/passages/:id`                                 | D1 `passages` + D1 `sources`                              |
+| `GET /v1/sources`, `/v1/sources/:id`                   | D1 `sources`                                              |
+| `GET /v1/errors/:code`                                 | D1 `error_codes`                                          |
+| `GET /v1/catalogs/:name`                               | D1 `catalog_entries`                                      |
+| `GET /v1/catalogs/:name/:key?<column>=`                | D1 `catalog_entries`                                      |
+| `POST /v1/chat`                                        | Claude Sonnet 5.5 over the handlers above ([Chat](#chat)) |
 
 The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them their input.
 
@@ -353,17 +368,42 @@ Worker the account binds can call it. The Agent binds it as `CODICE`.
 
 ## MCP surface (`/mcp`)
 
-| Tool             | Arguments                              | Handler, as                   |
-| ---------------- | -------------------------------------- | ----------------------------- |
-| `search`         | `q`, `asOf`, `source`, `kind`, `limit` | `GET /v1/search`              |
-| `read_passage`   | `id`                                   | `GET /v1/passages/:id`        |
-| `lookup_error`   | `code`                                 | `GET /v1/errors/:code`        |
-| `lookup_catalog` | `name`, `key`, `where`                 | `GET /v1/catalogs/:name/:key` |
-| `list_sources`   | none                                   | `GET /v1/sources`             |
+| Tool             | Arguments                                        | Handler, as                          |
+| ---------------- | ------------------------------------------------ | ------------------------------------ |
+| `search`         | `q`, `asOf`, `source`, `kind`, `limit`, `format` | `GET /v1/search`, `brief` by default |
+| `read_passage`   | `id`                                             | `GET /v1/passages/:id`               |
+| `lookup_error`   | `code`                                           | `GET /v1/errors/:code`               |
+| `lookup_catalog` | `name`, `key`, `where`                           | `GET /v1/catalogs/:name/:key`        |
+| `list_sources`   | none                                             | `GET /v1/sources`                    |
 
 Each is a thin call to the same handler as `/v1` and returns its `data` as `structuredContent` (and
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
-status } }`, the problem's code and status. `lookup_catalog`'s optional `where` object
+status } }`, the problem's code and status. `search` defaults to `format: brief` ([Query](#query)):
+an MCP client is a general agent that searches several times a question, each result stays in its
+context for the rest of the conversation, and it quotes one or two passages. A short passage (most
+matrix rows and guide attributes) fits the excerpt whole (`truncated` false on both sides), so the
+agent quotes it with no further call; only a long one (an RMF regla) costs a `read_passage`, which
+answers from D1 in about 20 ms. `format: full` keeps the old answer. HTTP, `CodiceKnowledge` (the
+Agent, whose prompt quotes from search results) and the chat keep `full`; the chat's tool does not
+take `format`.
+
+Measured 2026-10-28 on `pnpm dev:up` (the real instance), `asOf` 2026-10-28, `/v1/search` body
+bytes; the brief answer was the cache's (15–35 ms, no AI Search call), and every excerpt was an exact
+substring of its full quote. The MCP tool's JSON text is the same `data`, 69 bytes smaller.
+
+| Question                                               | `limit` | Full   | Brief        | Whole in brief | Brief + `read_passage` of the top |
+| ------------------------------------------------------ | ------- | ------ | ------------ | -------------- | --------------------------------- |
+| "código postal del receptor con RFC genérico"          | 5       | 5,478  | 3,732 (−32%) | 4 of 5, top    | 3,732 (top is whole; −32%)        |
+| "¿Qué UsoCFDI lleva el comprobante de gastos médicos?" | 5       | 7,848  | 3,683 (−53%) | 2 of 5         | 5,413 (−31%)                      |
+| `CFDI40149`                                            | 5       | 5,326  | 3,477 (−35%) | 2 of 5         | 4,734 (−11%)                      |
+| "plazo para cancelar un CFDI"                          | 5       | 14,530 | 4,387 (−70%) | 0 of 5         | 8,445 (−42%)                      |
+| "código postal del receptor con RFC genérico"          | 10      | 14,089 | 7,376 (−48%) | 4 of 10, top   | 7,376 (top is whole; −48%)        |
+
+A brief result costs 640–880 bytes, much of it the heading path (up to 280 characters for the
+Pagos guide), so reading two short passages after a brief search can cost more than one full search;
+reading one never did in these five.
+
+`lookup_catalog`'s optional `where` object
 (`{ c_CodigoPostal: "01000" }`) is the route's column filters. All are annotated read-only and idempotent. Built with `createMcpHandler` from the `agents` package, as in
 `apps/mcp`. Read-only. MCP clients connect with OAuth ([MCP authorization](#mcp-authorization));
 a team's API key (`Authorization: Bearer cdc_…` or `x-api-key`) still works, and shares the key's
