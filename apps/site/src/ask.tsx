@@ -1,4 +1,5 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
+import { IconArrowCornerDownLeft } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import {
   memo,
   useEffect,
@@ -6,7 +7,7 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type ReactNode,
+  type RefObject,
 } from "react";
 import { Streamdown } from "streamdown";
 
@@ -46,9 +47,6 @@ const TOOL_LABELS: Record<string, string> = {
   list_sources: "Revisando las fuentes",
 };
 
-// The composer's trip from under the title to the bottom of the screen, and back.
-const DOCK = { duration: 520, easing: "cubic-bezier(0.23, 1, 0.32, 1)" };
-
 // The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
 const ANSWER =
   "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
@@ -77,15 +75,6 @@ function completion(query: string, rotation: number): string | null {
 
 function textOf(parts: readonly Part[]) {
   return parts.map((part) => (part.type === "text" ? part.content : "")).join("");
-}
-
-// Key caps live only inside the composer, which is inverted (`bg-fg`), so they use the ground's ink.
-function Key({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="rounded-[2px] border border-ink/25 px-1.5 py-1 text-[11px] text-ink/60">
-      {children}
-    </kbd>
-  );
 }
 
 /** Códice's three shapes, turning while it works. */
@@ -145,21 +134,19 @@ const Answer = memo(function Answer({
 });
 
 /**
- * The chat of the first screen. Before a question, the composer sits under the title; once one
- * is sent, it glides to the bottom of the screen and the conversation fills the space above it:
- * the visitor's questions as blue bubbles, Códice's answers on the ground, faded at whichever
- * edge has more to read. Esc starts over.
+ * The chat of the first screen. The composer is the visitor's next bubble: grey, on the right,
+ * under the title before any question and under the last answer after. Enter sends it where it
+ * stands and Códice answers under it; the thread scrolls inside the first screen, faded at
+ * whichever edge has more to read. Esc starts over.
  */
 export function Ask() {
   const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
   const [query, setQuery] = useState("");
   const [rotation, setRotation] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const form = useRef<HTMLFormElement>(null);
-  const from = useRef<number | null>(null);
   const open = messages.length > 0 || isLoading;
   const ghost = completion(query, rotation);
-  const rest = isLoading ? "" : (ghost?.slice(query.length) ?? "");
+  const rest = ghost?.slice(query.length) ?? "";
   const last = messages.at(-1);
   const pending = isLoading && last?.role === "user";
 
@@ -170,33 +157,21 @@ export function Ask() {
     return () => clearInterval(timer);
   }, [query, isLoading]);
 
-  // The composer moves when the conversation opens or closes: it is laid out at its new place,
-  // then animated there from where it was (FLIP).
-  useLayoutEffect(() => {
-    const element = form.current;
-    if (!element || from.current === null) return;
-    const delta = from.current - element.getBoundingClientRect().top;
-    from.current = null;
-    if (delta === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    element.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], DOCK);
-  }, [open]);
-
-  function remember() {
-    from.current = form.current?.getBoundingClientRect().top ?? null;
-  }
+  // Once an answer is in, the next bubble takes the keyboard.
+  useEffect(() => {
+    if (open && !isLoading) input.current?.focus({ preventScroll: true });
+  }, [open, isLoading]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const text = query.trim() || (ghost ?? "");
     if (!text || isLoading) return;
-    if (!open) remember();
     setQuery("");
     void sendMessage(text);
   }
 
   function reset() {
     stop();
-    remember();
     clear();
     setQuery("");
     setRotation((count) => count + 1);
@@ -223,105 +198,151 @@ export function Ask() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <h1 className="self-start bg-ink text-[20px] leading-snug">
-        El contexto fiscal de México para tus agentes: reglas del SAT, CFDI, catálogos y errores de
-        validación.
+        Códice reúne la documentación fiscal de México para tus agentes: conéctala a los que ya usas
+        o construye algo a la medida.
       </h1>
 
-      {open && (
-        <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
-          <MessageScroller>
-            <MessageScrollerViewport aria-label="Conversación con Códice" role="log">
-              <MessageScrollerContent className="py-6">
-                {messages.map((message, index) => (
-                  <MessageScrollerItem
-                    className="message-in"
-                    key={message.id}
-                    messageId={message.id}
-                    scrollAnchor={message.role === "user"}
-                  >
-                    {message.role === "user" ? (
-                      <Bubble>{textOf(message.parts)}</Bubble>
-                    ) : (
-                      <div className="bg-ink">
-                        <Answer
-                          failed={Boolean(error) && !isLoading && index === messages.length - 1}
-                          live={isLoading && index === messages.length - 1}
-                          parts={message.parts}
-                        />
-                      </div>
-                    )}
-                  </MessageScrollerItem>
-                ))}
-                {pending && (
-                  <MessageScrollerItem className="message-in" messageId="pending">
-                    <Working animate status="Pensando" />
-                  </MessageScrollerItem>
-                )}
-                {error && !isLoading && last?.role === "user" && (
-                  <MessageScrollerItem messageId="error">
-                    <p className="bg-ink text-muted">
-                      No pude responder. Intenta de nuevo en un minuto.
-                    </p>
-                  </MessageScrollerItem>
-                )}
-              </MessageScrollerContent>
-            </MessageScrollerViewport>
-          </MessageScroller>
-        </MessageScrollerProvider>
-      )}
-
-      <form
-        className="shrink-0 rounded-[4px] bg-fg text-ink"
-        onSubmit={onSubmit}
-        ref={form}
-        role="search"
-      >
-        <label className="sr-only" htmlFor="ask">
-          {open ? "Pregunta algo más" : "Pregúntale a Códice"}
-        </label>
-        <div className="relative flex items-center gap-3 px-3 py-2">
-          {/* The ghost: what is typed, invisible, then the rest of the offered question. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-2 right-32 left-3 overflow-hidden whitespace-pre"
-          >
-            <span className="invisible">{query}</span>
-            <span className="text-ink/50">{rest}</span>
-          </div>
-          <input
-            autoComplete="off"
-            className="relative min-w-0 flex-1 bg-transparent caret-ink outline-none"
-            enterKeyHint="send"
-            id="ask"
-            maxLength={MAX_QUESTION_LENGTH}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Tab" && rest) {
-                event.preventDefault();
-                setQuery(query + rest);
-              }
-            }}
-            ref={input}
-            spellCheck={false}
-            value={query}
-          />
-          {open ? (
-            <button
-              className="flex shrink-0 items-center gap-2 text-ink/60 hover:text-ink"
-              onClick={reset}
-              type="button"
-            >
-              <Key>Esc</Key>
-              {isLoading ? "Detener" : "Empezar de nuevo"}
-            </button>
-          ) : (
-            <span className="flex gap-1.5 max-sm:hidden">
-              {rest && <Key>Tab</Key>}
-              <Key>↵</Key>
-            </span>
-          )}
-        </div>
-      </form>
+      <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
+        <MessageScroller>
+          <MessageScrollerViewport aria-label="Conversación con Códice" role="log">
+            <MessageScrollerContent className="pb-6">
+              {messages.map((message, index) => (
+                <MessageScrollerItem
+                  className="message-in"
+                  key={message.id}
+                  messageId={message.id}
+                  scrollAnchor={message.role === "user"}
+                >
+                  {message.role === "user" ? (
+                    <Bubble>{textOf(message.parts)}</Bubble>
+                  ) : (
+                    <div className="bg-ink">
+                      <Answer
+                        failed={Boolean(error) && !isLoading && index === messages.length - 1}
+                        live={isLoading && index === messages.length - 1}
+                        parts={message.parts}
+                      />
+                    </div>
+                  )}
+                </MessageScrollerItem>
+              ))}
+              {pending && (
+                <MessageScrollerItem className="message-in" messageId="pending">
+                  <Working animate status="Pensando" />
+                </MessageScrollerItem>
+              )}
+              {error && !isLoading && last?.role === "user" && (
+                <MessageScrollerItem messageId="error">
+                  <p className="bg-ink text-muted">
+                    No pude responder. Intenta de nuevo en un minuto.
+                  </p>
+                </MessageScrollerItem>
+              )}
+              {!isLoading && (
+                <MessageScrollerItem messageId="composer">
+                  <div className="flex flex-col items-end gap-2">
+                    <Composer
+                      input={input}
+                      label={open ? "Pregunta algo más" : "Pregúntale a Códice"}
+                      onSubmit={onSubmit}
+                      query={query}
+                      rest={rest}
+                      setQuery={setQuery}
+                    />
+                    {/* Under the bubble, in small raw text: how to send it, and how to start over. */}
+                    <div className="flex items-center gap-4 bg-ink text-[13px] text-muted">
+                      {open && (
+                        <button className="hover:text-fg" onClick={reset} type="button">
+                          Empezar de nuevo
+                        </button>
+                      )}
+                      <span className="flex items-center gap-1.5">
+                        <IconArrowCornerDownLeft size={14} />
+                        Enviar
+                      </span>
+                    </div>
+                  </div>
+                </MessageScrollerItem>
+              )}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+        </MessageScroller>
+      </MessageScrollerProvider>
     </div>
+  );
+}
+
+/**
+ * The visitor's next message as a grey bubble (blue once sent): exactly as wide as what is typed
+ * (and the offered question, as ghost text Tab accepts), up to 85% of the thread.
+ */
+function Composer({
+  input,
+  label,
+  onSubmit,
+  query,
+  rest,
+  setQuery,
+}: {
+  input: RefObject<HTMLInputElement | null>;
+  label: string;
+  onSubmit: (event: FormEvent) => void;
+  query: string;
+  rest: string;
+  setQuery: (query: string) => void;
+}) {
+  // The text's width, measured from a hidden copy, sets the bubble's: an explicit width can
+  // transition, so the bubble eases between the offered questions as they rotate. While the
+  // visitor types it follows at once.
+  const sizer = useRef<HTMLSpanElement>(null);
+  const [width, setWidth] = useState<number>();
+  useLayoutEffect(() => {
+    if (sizer.current) setWidth(Math.ceil(sizer.current.getBoundingClientRect().width));
+  }, [query, rest]);
+
+  return (
+    <form
+      className="max-w-[85%] min-w-0 rounded-[4px] bg-line px-3 py-2 text-fg"
+      onSubmit={onSubmit}
+      role="search"
+    >
+      <label className="sr-only" htmlFor="ask">
+        {label}
+      </label>
+      <span
+        aria-hidden
+        className="pointer-events-none invisible absolute whitespace-pre"
+        ref={sizer}
+      >
+        {query + rest || " "}
+      </span>
+      <span
+        className={`relative block max-w-full overflow-hidden ${query ? "" : "transition-[width] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"}`}
+        style={{ width: width === undefined ? undefined : `max(4ch, ${width}px)` }}
+      >
+        {/* The ghost: what is typed, invisible, then the rest of the offered question. */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 whitespace-pre">
+          <span className="invisible">{query}</span>
+          <span className="text-muted">{rest}</span>
+        </span>
+        <input
+          autoComplete="off"
+          className="relative block w-full min-w-0 bg-transparent caret-fg outline-none"
+          enterKeyHint="send"
+          id="ask"
+          maxLength={MAX_QUESTION_LENGTH}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Tab" && rest) {
+              event.preventDefault();
+              setQuery(query + rest);
+            }
+          }}
+          ref={input}
+          spellCheck={false}
+          value={query}
+        />
+      </span>
+    </form>
   );
 }

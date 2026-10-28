@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Ask } from "../ask";
 import { SiteBar } from "../components/site-bar";
@@ -50,7 +50,7 @@ const STRIP = "h-[60px] -top-4 sm:h-[76px] sm:-top-6";
  * sticks under the top bar; as it slides up beneath the bar its content fades out, so what stays
  * is its fill and bottom border, the bar's ground from then on.
  */
-function Strip() {
+function Strip({ onStuck }: { onStuck: (stuck: boolean) => void }) {
   const content = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const strip = content.current?.parentElement;
@@ -67,6 +67,7 @@ function Strip() {
         content.current.style.opacity = String(visible);
         content.current.style.visibility = visible === 0 ? "hidden" : "visible";
       }
+      onStuck(visible === 0);
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -79,7 +80,7 @@ function Strip() {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, []);
+  }, [onStuck]);
 
   return (
     <section
@@ -118,24 +119,27 @@ const LINK = "underline decoration-line underline-offset-4 hover:decoration-fg";
 
 // The dashboard lives on the same host; `/login` and `/keys` are its routes (apps/edge).
 function Home() {
+  // On desktop the hero's title sits where the bar's brand is; the brand comes back once the
+  // logo strip is under the bar and gives it its ground.
+  const [grounded, setGrounded] = useState(false);
   return (
     <div className="min-h-dvh text-[14px] leading-[1.7]">
       {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
           marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
           border become its ground (see `Strip`). */}
-      <SiteBar />
+      <SiteBar brand={grounded} />
 
       {/* The first screen, over a field of marks rolling corner to corner like a wave: the title
           on the bar's left edge, under the mark, and the chat below it. A fixed height, so a
           conversation scrolls inside it and docks its composer at the bottom. */}
-      <header className="relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6">
+      <header className="relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 lg:pt-3">
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
-        <div className="relative flex min-h-0 w-full max-w-[36rem] flex-1 flex-col" id="preguntar">
+        <div className="relative flex min-h-0 w-full max-w-[30rem] flex-1 flex-col" id="preguntar">
           <Ask />
         </div>
       </header>
 
-      <Strip />
+      <Strip onStuck={setGrounded} />
 
       <main className="relative">
         <Section id="que-es" title="Qué es">
