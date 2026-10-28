@@ -1,8 +1,25 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Streamdown } from "streamdown";
 
 import { Mark } from "./brand/mark";
+import { Bubble } from "./components/chat/bubble";
+import {
+  MessageScroller,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "./components/chat/message-scroller";
+import { useStreamedReveal } from "./components/chat/streamed-reveal";
 
 // The site's own `POST /_site/chat`, which calls the API's `POST /v1/chat` with the site's key
 // (src/routes/[_site]/chat.ts). The answer streams back as AG-UI server-sent events.
@@ -10,10 +27,10 @@ const connection = fetchServerSentEvents("/_site/chat");
 
 // Questions the composer offers as ghost text: Tab takes one, Enter on an empty composer sends it.
 const SUGGESTIONS = [
-  "¿Hasta cuándo puedo cancelar un CFDI?",
+  "¿Hasta cuándo puedo cancelar una factura?",
   "¿Qué significa el error CFDI40149?",
-  "¿Para qué es el uso de CFDI G03?",
-  "¿Qué pide la regla 2.7.1.34 de la RMF?",
+  "¿Qué uso de CFDI pongo en gastos médicos?",
+  "¿Qué régimen fiscal es el 626?",
 ];
 const ROTATE_MS = 4000;
 
@@ -29,9 +46,15 @@ const TOOL_LABELS: Record<string, string> = {
   list_sources: "Revisando las fuentes",
 };
 
+// The composer's trip from under the title to the bottom of the screen, and back.
+const DOCK = { duration: 520, easing: "cubic-bezier(0.23, 1, 0.32, 1)" };
+
 // The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
 const ANSWER =
   "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
+
+type ChatMessage = ReturnType<typeof useChat>["messages"][number];
+type Part = ChatMessage["parts"][number];
 
 // Compared without case or accents, so "hasta cuando" still finds "Hasta cuándo". Stripping marks
 // after NFD keeps one character per letter, so the two strings stay aligned.
@@ -52,6 +75,10 @@ function completion(query: string, rotation: number): string | null {
   return null;
 }
 
+function textOf(parts: readonly Part[]) {
+  return parts.map((part) => (part.type === "text" ? part.content : "")).join("");
+}
+
 // Key caps live only inside the composer, which is inverted (`bg-fg`), so they use the ground's ink.
 function Key({ children }: { children: ReactNode }) {
   return (
@@ -61,45 +88,115 @@ function Key({ children }: { children: ReactNode }) {
   );
 }
 
+/** Códice's three shapes, turning while it works. */
+function Working({ animate, status }: { animate: boolean; status: string | null }) {
+  return (
+    <span className="flex items-center gap-3">
+      <span aria-hidden className="flex gap-1.5">
+        {[0, 1, 2].map((step) => (
+          <Mark animate={animate} className="size-3.5" key={step} step={step} strokeWidth={1.5} />
+        ))}
+      </span>
+      {status && (
+        <span className="text-muted" role="status">
+          {status}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
- * The chat of the first screen: Códice greets, the visitor asks one question (a blue bubble), and
- * Códice answers while its three shapes turn. The composer offers questions. One question, one
- * answer: Esc clears it for the next.
+ * One answer: the shapes and what Códice is doing while it works, then the answer revealed at
+ * a steady pace. Memoized, so a streamed token re-renders only the answer it extends.
+ */
+const Answer = memo(function Answer({
+  parts,
+  live,
+  failed,
+}: {
+  parts: readonly Part[];
+  live: boolean;
+  failed: boolean;
+}) {
+  const reveal = useStreamedReveal(textOf(parts), live);
+  // The tool Códice is running now, if any: a call with no part after it yet.
+  const tail = parts.at(-1);
+  const running =
+    live && tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
+      ? tail
+      : undefined;
+  const status = running
+    ? (TOOL_LABELS[running.name] ?? "Consultando")
+    : live && !reveal.text
+      ? "Pensando"
+      : null;
+  return (
+    <div className="flex flex-col gap-3">
+      {live && <Working animate status={status} />}
+      {reveal.text && (
+        <Streamdown className={ANSWER} isAnimating={reveal.revealing}>
+          {reveal.text}
+        </Streamdown>
+      )}
+      {failed && <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>}
+    </div>
+  );
+});
+
+/**
+ * The chat of the first screen. Before a question, the composer sits under the title; once one
+ * is sent, it glides to the bottom of the screen and the conversation fills the space above it:
+ * the visitor's questions as blue bubbles, Códice's answers on the ground, faded at whichever
+ * edge has more to read. Esc starts over.
  */
 export function Ask() {
   const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
   const [query, setQuery] = useState("");
   const [rotation, setRotation] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  const from = useRef<number | null>(null);
   const open = messages.length > 0 || isLoading;
-  const ghost = open ? null : completion(query, rotation);
-  const rest = ghost?.slice(query.length) ?? "";
-
-  const question = messages
-    .find((message) => message.role === "user")
-    ?.parts.map((part) => (part.type === "text" ? part.content : ""))
-    .join("");
-  // One question, one answer: the reply is the last message once Códice starts answering.
+  const ghost = completion(query, rotation);
+  const rest = isLoading ? "" : (ghost?.slice(query.length) ?? "");
   const last = messages.at(-1);
-  const reply = last?.role === "assistant" ? last : undefined;
+  const pending = isLoading && last?.role === "user";
 
   // While nothing is typed, the offered question changes every few seconds.
   useEffect(() => {
-    if (open || query) return;
+    if (query || isLoading) return;
     const timer = setInterval(() => setRotation((count) => count + 1), ROTATE_MS);
     return () => clearInterval(timer);
-  }, [open, query]);
+  }, [query, isLoading]);
+
+  // The composer moves when the conversation opens or closes: it is laid out at its new place,
+  // then animated there from where it was (FLIP).
+  useLayoutEffect(() => {
+    const element = form.current;
+    if (!element || from.current === null) return;
+    const delta = from.current - element.getBoundingClientRect().top;
+    from.current = null;
+    if (delta === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    element.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], DOCK);
+  }, [open]);
+
+  function remember() {
+    from.current = form.current?.getBoundingClientRect().top ?? null;
+  }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const text = query.trim() || (ghost ?? "");
-    if (!text || open) return;
+    if (!text || isLoading) return;
+    if (!open) remember();
     setQuery("");
     void sendMessage(text);
   }
 
   function reset() {
     stop();
+    remember();
     clear();
     setQuery("");
     setRotation((count) => count + 1);
@@ -110,7 +207,7 @@ export function Ask() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const typing = event.target instanceof HTMLInputElement;
-      if (event.key === "/" && !typing && !open) {
+      if (event.key === "/" && !typing) {
         event.preventDefault();
         input.current?.focus();
         input.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -123,79 +220,79 @@ export function Ask() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  // The tool Códice is running now, if any: a call with no part after it yet.
-  const parts = reply?.parts ?? [];
-  const tail = parts.at(-1);
-  const running =
-    tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
-      ? tail
-      : undefined;
-  const answer = parts.map((part) => (part.type === "text" ? part.content : "")).join("");
-  const status = running
-    ? (TOOL_LABELS[running.name] ?? "Consultando")
-    : isLoading && !answer
-      ? "Pensando"
-      : null;
-
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="self-start bg-ink text-[20px] leading-snug text-balance">
-        Códice es el primer índice de documentación legal mexicana.
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <h1 className="text-[20px] leading-snug text-balance">
+        <span className="box-decoration-clone bg-ink">
+          Pregunta lo que necesites sobre facturación y reglas del SAT. Códice te responde en pocas
+          palabras con la regla exacta, el documento donde está y desde cuándo aplica.
+        </span>
       </h1>
-      <ol aria-live="polite" className="flex flex-col gap-6 empty:hidden">
-        {question && (
-          <li className="max-w-[80%] self-end rounded-[4px] bg-electric px-3 py-2 text-white">
-            {question}
-          </li>
-        )}
-        {open && (
-          <li className="flex flex-col gap-3 bg-ink">
-            <span className="flex items-center gap-3">
-              <span aria-hidden className="flex gap-1.5">
-                {[0, 1, 2].map((step) => (
-                  <Mark
-                    animate={isLoading}
-                    className="size-3.5"
-                    key={step}
-                    step={step}
-                    strokeWidth={1.5}
-                  />
-                ))}
-              </span>
-              {status && (
-                <span className="text-muted" role="status">
-                  {status}
-                </span>
-              )}
-            </span>
-            {answer && (
-              <Streamdown className={ANSWER} isAnimating={isLoading}>
-                {answer}
-              </Streamdown>
-            )}
-            {error && !isLoading && (
-              <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
-            )}
-          </li>
-        )}
-      </ol>
 
-      <form className="rounded-[4px] bg-fg text-ink" onSubmit={onSubmit} role="search">
+      {open && (
+        <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
+          <MessageScroller>
+            <MessageScrollerViewport aria-label="Conversación con Códice" role="log">
+              <MessageScrollerContent className="py-6">
+                {messages.map((message, index) => (
+                  <MessageScrollerItem
+                    className="message-in"
+                    key={message.id}
+                    messageId={message.id}
+                    scrollAnchor={message.role === "user"}
+                  >
+                    {message.role === "user" ? (
+                      <Bubble>{textOf(message.parts)}</Bubble>
+                    ) : (
+                      <div className="bg-ink">
+                        <Answer
+                          failed={Boolean(error) && !isLoading && index === messages.length - 1}
+                          live={isLoading && index === messages.length - 1}
+                          parts={message.parts}
+                        />
+                      </div>
+                    )}
+                  </MessageScrollerItem>
+                ))}
+                {pending && (
+                  <MessageScrollerItem className="message-in" messageId="pending">
+                    <Working animate status="Pensando" />
+                  </MessageScrollerItem>
+                )}
+                {error && !isLoading && last?.role === "user" && (
+                  <MessageScrollerItem messageId="error">
+                    <p className="bg-ink text-muted">
+                      No pude responder. Intenta de nuevo en un minuto.
+                    </p>
+                  </MessageScrollerItem>
+                )}
+              </MessageScrollerContent>
+            </MessageScrollerViewport>
+          </MessageScroller>
+        </MessageScrollerProvider>
+      )}
+
+      <form
+        className="shrink-0 rounded-[4px] bg-fg text-ink"
+        onSubmit={onSubmit}
+        ref={form}
+        role="search"
+      >
         <label className="sr-only" htmlFor="ask">
-          Pregúntale a Códice
+          {open ? "Pregunta algo más" : "Pregúntale a Códice"}
         </label>
         <div className="relative flex items-center gap-3 px-3 py-2">
           {/* The ghost: what is typed, invisible, then the rest of the offered question. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-2 right-24 left-3 overflow-hidden whitespace-pre"
+            className="pointer-events-none absolute inset-y-2 right-32 left-3 overflow-hidden whitespace-pre"
           >
             <span className="invisible">{query}</span>
             <span className="text-ink/50">{rest}</span>
           </div>
           <input
             autoComplete="off"
-            className="relative min-w-0 flex-1 bg-transparent caret-ink outline-none read-only:cursor-default"
+            className="relative min-w-0 flex-1 bg-transparent caret-ink outline-none"
             enterKeyHint="send"
             id="ask"
             maxLength={MAX_QUESTION_LENGTH}
@@ -206,19 +303,18 @@ export function Ask() {
                 setQuery(query + rest);
               }
             }}
-            readOnly={open}
             ref={input}
             spellCheck={false}
-            value={open ? "" : query}
+            value={query}
           />
           {open ? (
             <button
-              className="flex items-center gap-2 text-ink/60 hover:text-ink"
+              className="flex shrink-0 items-center gap-2 text-ink/60 hover:text-ink"
               onClick={reset}
               type="button"
             >
               <Key>Esc</Key>
-              {isLoading ? "Detener" : "Otra pregunta"}
+              {isLoading ? "Detener" : "Empezar de nuevo"}
             </button>
           ) : (
             <span className="flex gap-1.5 max-sm:hidden">

@@ -102,9 +102,10 @@ marks turning while Códice answers), and the favicon.
 
 ### First screen: the chat, alone
 
-- `min-h-[85vh]`, content centered and nudged up (`pb-[14vh]`) so the chat sits above the middle.
-- The hero title (the page's `h1`, 20px) and the chat under it (max 34rem wide) in the center,
-  over the wave field. No brand mark, no nav bar, no section label, no dividers.
+- A fixed height (`85svh`, at least 560px), so a conversation scrolls inside it.
+- The hero title (the page's `h1`, 20px, a plain-language sentence for accountants) starts on the
+  bar's left edge, under the mark; the composer sits under it (max 36rem wide), over the wave
+  field. No section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
   page's links (Producto, Documentación, Precios), 48px apart, with no fill and drawn with
   `mix-blend-mode: difference` so they stay readable over whatever scrolls under them, start on the text
@@ -196,7 +197,16 @@ Entrar → Obtener clave so the blue one sits in the corner.
 ### Chat (`src/ask.tsx`)
 
 - **A chat, not a section:** only the hero title above it, no explanation around it.
-- **The visitor's question** is a right-aligned bubble: `bg-electric`, white text, 4px radius.
+- **Before and after the first question:** the composer sits under the title; on send it glides
+  to the bottom of the first screen (FLIP, 520ms, `cubic-bezier(0.23, 1, 0.32, 1)`) and the
+  conversation fills the space between, left-aligned with the title. The thread fades out at
+  whichever edge has more to read (`.scroll-fade`) and each message rises in (`.message-in`).
+- **Ported from Transitive, not hand-rolled:** the thread is shadcn's message scroller
+  (`@shadcn/react`, as `@transitive/ui` wraps it: follows new messages unless the reader scrolls
+  up), the bubble is its `Bubble`, and answers reveal at a steady pace with its
+  `useStreamedReveal` (`src/components/chat/`).
+- **The visitor's question** is a right-aligned bubble: `bg-electric`, white text, 4px radius, at
+  most 85% of the thread.
 - **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
   `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
   regla"…, or "Pensando"), then rest. The answer streams in as markdown in plain `fg` text; the API
@@ -206,8 +216,9 @@ Entrar → Obtener clave so the blue one sits in the corner.
   question as ghost text that rotates every 4s; Enter on an empty composer sends it. While typing,
   it completes from the same list, ignoring case, accents and the opening "¿"; Tab accepts and
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
-- **v1 is one question, one answer.** While it answers the composer shows `Esc` "Detener"; after,
-  `Esc` "Otra pregunta". Esc clears the chat from anywhere; `/` focuses the composer from anywhere.
+- **A conversation:** follow-up questions keep the thread. While it answers the composer shows
+  `Esc` "Detener"; after, `Esc` "Empezar de nuevo", which clears the thread and sends the composer
+  back under the title. `/` focuses the composer from anywhere.
 - Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).

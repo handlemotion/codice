@@ -125,11 +125,12 @@ function Home() {
           border become its ground (see `Strip`). */}
       <SiteBar />
 
-      {/* The first screen: the title and the chat, centered and nudged above the middle, over a
-          field of marks rolling corner to corner like a wave. */}
-      <header className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden border-b border-line px-4 pt-16 pb-[14vh]">
+      {/* The first screen, over a field of marks rolling corner to corner like a wave: the title
+          on the bar's left edge, under the mark, and the chat below it. A fixed height, so a
+          conversation scrolls inside it and docks its composer at the bottom. */}
+      <header className="relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6">
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
-        <div className="relative w-full max-w-[34rem] scroll-mt-24" id="preguntar">
+        <div className="relative flex min-h-0 w-full max-w-[36rem] flex-1 flex-col" id="preguntar">
           <Ask />
         </div>
       </header>
