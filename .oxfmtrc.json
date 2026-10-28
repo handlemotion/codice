@@ -17,6 +17,8 @@
     ".agents/skills/ui-review/**",
     ".claude/skills/ui-review/**",
     "pnpm-lock.yaml",
-    "docs/sat-md/resolucion-miscelanea-fiscal-*.md"
+    "docs/sat-md/resolucion-miscelanea-fiscal-*.md",
+    "docs/sat-md/complemento-carta-porte-*.md",
+    "docs/sat-md/complemento-comercio-exterior-*.md"
   ]
 }
