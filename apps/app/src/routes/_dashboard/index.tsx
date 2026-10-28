@@ -12,7 +12,7 @@ import { getUsage } from "../../server/functions";
 import type { UsagePeriod, UsagePeriodData, UsageSeries, UsageView } from "../../server/usage";
 
 type Scope = "claves" | "miembros";
-type Search = { hasta?: string; dias?: 30; vista?: "miembros" };
+type Search = { hasta?: string; dias?: 30; vista?: "claves" };
 
 export const Route = createFileRoute("/_dashboard/")({
   head: () => ({ meta: [{ title: "Uso · Códice" }] }),
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_dashboard/")({
       ? { hasta: search.hasta }
       : {}),
     ...(Number(search.dias) === 30 ? { dias: 30 as const } : {}),
-    ...(search.vista === "miembros" ? { vista: "miembros" as const } : {}),
+    ...(search.vista === "claves" ? { vista: "claves" as const } : {}),
   }),
   // The scope is a tab over data already loaded; only the period loads anew.
   loaderDeps: ({ search }) => ({ end: search.hasta, days: search.dias ?? 7 }),
@@ -151,11 +151,11 @@ function PeriodStepper({ usage }: { usage: UsagePeriodData }) {
   );
 }
 
-/** The card's tabs, along its top: the team's keys, or its members. */
+/** The card's tabs, along its top: the team's members (the default), or its keys. */
 function ScopeTabs({ scope }: { scope: Scope }) {
   const tabs: [Scope, string][] = [
-    ["claves", "Claves"],
     ["miembros", "Miembros"],
+    ["claves", "Claves"],
   ];
   return (
     <nav aria-label="Ver por" className="flex gap-6 px-5">
@@ -166,7 +166,7 @@ function ScopeTabs({ scope }: { scope: Scope }) {
           key={value}
           search={(current) => {
             const { vista: _, ...rest } = current;
-            return value === "miembros" ? { ...rest, vista: "miembros" as const } : rest;
+            return value === "claves" ? { ...rest, vista: "claves" as const } : rest;
           }}
           to="/"
         >
@@ -373,7 +373,7 @@ function Usage() {
   const { team, usage } = Route.useLoaderData();
   const { vista } = Route.useSearch();
   const pending = useRouterState({ select: (state) => state.status === "pending" });
-  const scope: Scope = vista ?? "claves";
+  const scope: Scope = vista ?? "miembros";
 
   if (!team || !usage) {
     return (

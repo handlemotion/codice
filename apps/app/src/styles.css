@@ -101,3 +101,26 @@ kbd {
     transform: translateX(-2px);
   }
 }
+
+/* Dialogs fade and settle in (shadcn's entrance without tw-animate-css). */
+@media (prefers-reduced-motion: no-preference) {
+  .dialog-overlay[data-state="open"] {
+    animation: dialog-fade 150ms ease-out;
+  }
+  .dialog-content[data-state="open"] {
+    animation: dialog-in 150ms ease-out;
+  }
+}
+
+@keyframes dialog-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+}

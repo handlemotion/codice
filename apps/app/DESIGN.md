@@ -24,10 +24,10 @@ This file records only where the dashboard adds to it or departs from it. Values
   inside an island are divided by `edge`, so by day they are separated by space alone.
 - **The rail.** No top bar: a 64px rail of 32px buttons with 18px line icons on the left (a bottom
   bar on phones), the page in a centered column (max 42rem). Top to bottom: the mark (to the site,
-  `/?site`), then, centered, Uso, Claves, Clientes, Documentación, Equipo and the avatar (Cuenta),
-  then the theme toggle. An electric dot on the avatar means invitations wait on Cuenta. The current
+  `/?site`), then, centered, Uso, Claves, Documentación, Equipo and the avatar (Cuenta), then the
+  theme toggle. An electric dot on the avatar means invitations wait on Cuenta. The current
   page's icon takes the island's look; others are `muted` and brighten on hover. Each shows a
-  tooltip to its right with its number key; `1`–`6` go there when no field has focus.
+  tooltip to its right with its number key; `1`–`5` go there when no field has focus.
 - **Pages.** A 20px title, then islands, each with its name and an optional `muted`
   note on the right.
 - **Padding is measured to the letters, 20px on every side.** Radio Grotesk at 14px on a 20px
@@ -40,9 +40,12 @@ This file records only where the dashboard adds to it or departs from it. Values
   photo or initial in a hairline circle (dashed while only invited), the name with a `muted`
   "(tú)", the email under it, and the role as a small squared label in a `fg`/8 well. Without a
   name, the email's local part in words ("maria.lopez@" reads "Maria Lopez"). Adding is a row of
-  its own, a plus and the action ("Invitar a alguien"), first in the list. Transitive's dialogs
-  and "⋯" menus become in-place rows here: the add row turns into the form, "Editar" turns the
-  role label into a select with "Quitar", and every removal asks in place.
+  its own, a plus and the action ("Invitar a alguien"), first in the list. Transitive's "⋯" menus
+  become in-place rows here: the add row turns into the form, "Editar" turns the role label into
+  a select with "Quitar", and every removal asks in place.
+- **Dialogs**: shadcn's Dialog (`src/components/ui/dialog.tsx`, on Radix), restyled like the
+  tooltip: an island with a `line` border on a dimmed ground, a 16px title, the cross at the top
+  right. Only for creating something from a page's header button ("Nueva clave").
 - **Groups (Uso)**: `Group` in `ui.tsx`, an island whose first row is its name, then its rows,
   divided edge to edge by `line`/60 in both themes. Islands are 24px apart, as on every page.
 - **The usage chart** (`src/components/usage-chart.tsx`, after Transitive's
@@ -61,17 +64,16 @@ This file records only where the dashboard adds to it or departs from it. Values
 ## Pages
 
 - **Uso** (`/`): 7 or 30 Mexico City days (`?dias=30`), stepped with the bordered date control
-  (`?hasta=YYYY-MM-DD`). One card with tabs along its top, Claves (the team's keys) and Miembros
-  (each member through the keys they created and their MCP clients, `?vista=miembros`; a key's
-  row names its creator): the period's total, large, with its
+  (`?hasta=YYYY-MM-DD`). One card with tabs along its top, Miembros (each member through
+  the keys they created and their MCP clients, the default) and Claves (the team's keys,
+  `?vista=claves`; a key's row names its creator): the period's total, large, with its
   change against the period before, the error rate and mean time beside it, and the chart. Under
   it, the series' table (calls, share, change) and "Operaciones" for the same scope (calls,
   errors, change), each its own island.
-- **Claves** (`/keys`): a new key (shown once, with copy), the team's keys with who created each
-  ("Tuya", or "De Ana"; revoke asks in place, no dialog, and shows only where the user may), and
-  "Conectar": the API and MCP URLs and the header to copy.
-- **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected
-  in place, and the MCP URL to connect another.
+- **Claves** (`/keys`): "Nueva clave" in the header opens a dialog that names the key, then shows
+  it once to copy. "Claves del equipo": who created each ("Tuya", or "De Ana"; revoke asks in
+  place and shows only where the user may). "Asistentes conectados": the MCP clients the user
+  connected through OAuth, each disconnected in place, then the MCP URL as one copy row.
 - **Equipo** (`/team`): the active team's settings. "General" (its name, editable by owners and
   admins; the user's role as the note), "Miembros" (invite, then each person with their role),
   "Invitaciones" (open ones, revoked in place) and, for a team that is not personal, leaving it.

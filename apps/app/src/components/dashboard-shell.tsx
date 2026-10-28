@@ -4,7 +4,6 @@ import {
   IconContrast,
   IconKey2,
   IconGroup1,
-  IconPlugin1,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, getRouteApi, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ComponentType, type ReactNode } from "react";
@@ -16,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type Destination = { label: string; key: string } & (
   | {
-      to: "/" | "/keys" | "/clients" | "/team" | "/account";
+      to: "/" | "/keys" | "/team" | "/account";
       icon?: ComponentType<{ size?: number }>;
     }
   | { href: string; icon: ComponentType<{ size?: number }> }
@@ -26,11 +25,10 @@ type Destination = { label: string; key: string } & (
 // user's own account, which is the avatar, last.
 const USAGE: Destination = { to: "/", label: "Uso", key: "1", icon: IconChart4 };
 const KEYS: Destination = { to: "/keys", label: "Claves", key: "2", icon: IconKey2 };
-const CLIENTS: Destination = { to: "/clients", label: "Clientes", key: "3", icon: IconPlugin1 };
-const DOCS: Destination = { href: "/docs", label: "Documentación", key: "4", icon: IconBook };
-const TEAM: Destination = { to: "/team", label: "Equipo", key: "5", icon: IconGroup1 };
-const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "6" };
-const PLACES = [USAGE, KEYS, CLIENTS, DOCS, TEAM, ACCOUNT];
+const DOCS: Destination = { href: "/docs", label: "Documentación", key: "3", icon: IconBook };
+const TEAM: Destination = { to: "/team", label: "Equipo", key: "4", icon: IconGroup1 };
+const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "5" };
+const PLACES = [USAGE, KEYS, DOCS, TEAM, ACCOUNT];
 
 const dashboardRoute = getRouteApi("/_dashboard");
 

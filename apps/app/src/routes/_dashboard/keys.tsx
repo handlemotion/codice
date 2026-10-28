@@ -12,35 +12,61 @@ import {
   SECONDARY,
   Section,
 } from "../../components/ui";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../components/ui/dialog";
 import { createKey, listKeys, revokeKey } from "../../server/functions";
+import { disconnectConnectedClient, getConnectedClients } from "../../server/oauth-functions";
 import type { KeyRow } from "../../server/teams";
 
 export const Route = createFileRoute("/_dashboard/keys")({
   head: () => ({ meta: [{ title: "Claves · Códice" }] }),
   loader: async ({ context }) => {
     const team = context.dashboard.team;
-    return { team, keys: team ? await listKeys({ data: team.id }) : [] };
+    const [keys, clients] = await Promise.all([
+      team ? listKeys({ data: team.id }) : [],
+      getConnectedClients(),
+    ]);
+    return { team, keys, clients };
   },
   component: Keys,
 });
 
 const FAILED = "No se pudo completar. Intenta de nuevo.";
 
-function Keys() {
-  const { dashboard } = Route.useRouteContext();
-  const { team, keys } = Route.useLoaderData();
+/** "Nueva clave": a dialog that names the key, then shows it once to copy. */
+function NewKey({ teamId }: { teamId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [created, setCreated] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function run(action: () => Promise<void>) {
+  function toggle(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setName("");
+      setCreated(null);
+      setError(null);
+    }
+  }
+
+  async function create(event: FormEvent) {
+    event.preventDefault();
+    if (!name.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await action();
+      const { key } = await createKey({ data: { organizationId: teamId, name } });
+      setCreated(key);
       await router.invalidate();
     } catch {
       setError(FAILED);
@@ -49,14 +75,118 @@ function Keys() {
     }
   }
 
-  function create(event: FormEvent) {
-    event.preventDefault();
-    if (!team || !name.trim()) return;
-    void run(async () => {
-      const { key } = await createKey({ data: { organizationId: team.id, name } });
-      setCreated(key);
-      setName("");
-    });
+  return (
+    <Dialog onOpenChange={toggle} open={open}>
+      <DialogTrigger asChild>
+        <button className={PRIMARY} type="button">
+          Nueva clave
+        </button>
+      </DialogTrigger>
+      <DialogContent>
+        {created ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Clave creada</DialogTitle>
+              <DialogDescription>Cópiala ahora: no se vuelve a mostrar.</DialogDescription>
+            </DialogHeader>
+            <Copyable label="la clave" value={created} />
+            <DialogFooter>
+              <DialogClose asChild>
+                <button className={SECONDARY} type="button">
+                  Listo
+                </button>
+              </DialogClose>
+            </DialogFooter>
+          </>
+        ) : (
+          <form className="grid gap-4" onSubmit={(event) => void create(event)}>
+            <DialogHeader>
+              <DialogTitle>Nueva clave</DialogTitle>
+              <DialogDescription>
+                Para la API:{" "}
+                <code className="font-mono text-[12px]">Authorization: Bearer cdc_…</code>
+              </DialogDescription>
+            </DialogHeader>
+            <input
+              aria-label="Nombre de la clave"
+              autoFocus
+              className={FIELD}
+              maxLength={32}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Nombre, por ejemplo producción"
+              required
+              value={name}
+            />
+            {error && <p className="text-[13px] text-muted">{error}</p>}
+            <DialogFooter>
+              <DialogClose asChild>
+                <button className={SECONDARY} type="button">
+                  Cancelar
+                </button>
+              </DialogClose>
+              <button className={PRIMARY} disabled={busy || !name.trim()} type="submit">
+                Crear clave
+              </button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** A row's removal, asked in place: the action, then Cancelar and the action again. */
+function Confirm({
+  label,
+  asking,
+  busy,
+  onAsk,
+  onCancel,
+  onConfirm,
+}: {
+  label: string;
+  asking: boolean;
+  busy: boolean;
+  onAsk: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return asking ? (
+    <span className="flex shrink-0 items-center gap-3">
+      <button className={GHOST} onClick={onCancel} type="button">
+        Cancelar
+      </button>
+      <button className={PRIMARY} disabled={busy} onClick={onConfirm} type="button">
+        {label}
+      </button>
+    </span>
+  ) : (
+    <button className={GHOST} disabled={busy} onClick={onAsk} type="button">
+      {label}
+    </button>
+  );
+}
+
+function Keys() {
+  const { dashboard } = Route.useRouteContext();
+  const { team, keys, clients } = Route.useLoaderData();
+  const router = useRouter();
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      setConfirming(null);
+      await router.invalidate();
+    } catch {
+      setError(FAILED);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Owners and admins revoke any key; members, the ones they created (`permissions.ts`).
@@ -64,53 +194,12 @@ function Keys() {
     return team?.manages || key.createdBy?.id === dashboard.user.id;
   }
 
-  function revoke(keyId: string) {
-    void run(async () => {
-      await revokeKey({ data: keyId });
-      setConfirming(null);
-    });
-  }
-
   return (
-    <Page title="Claves">
-      {team ? (
-        <Section title="Nueva clave">
-          {created ? (
-            <div className="flex flex-col gap-3">
-              <Copyable label="la clave" value={created} />
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-[13px] text-muted">Cópiala ahora: no se vuelve a mostrar.</p>
-                <button className={SECONDARY} onClick={() => setCreated(null)} type="button">
-                  Listo
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form className="flex gap-2" onSubmit={create}>
-              <input
-                aria-label="Nombre de la clave"
-                className={`${FIELD} flex-1`}
-                maxLength={32}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Nombre, por ejemplo producción"
-                required
-                value={name}
-              />
-              <button className={PRIMARY} disabled={busy || !name.trim()} type="submit">
-                Crear clave
-              </button>
-            </form>
-          )}
-          {error && <p className="text-[13px] text-muted">{error}</p>}
-        </Section>
-      ) : (
-        <Section title="Nueva clave">
-          <p className="text-muted">Únete a un equipo para crear claves.</p>
-        </Section>
-      )}
-
+    <Page action={team && <NewKey teamId={team.id} />} title="Claves">
       <Section note={team?.name} title="Claves del equipo">
-        {keys.length === 0 ? (
+        {!team ? (
+          <p className="text-muted">Únete a un equipo para crear claves.</p>
+        ) : keys.length === 0 ? (
           <p className="text-muted">Aún no hay claves.</p>
         ) : (
           <ul className="-my-3 flex flex-col divide-y divide-edge">
@@ -131,29 +220,15 @@ function Keys() {
                       : `Creada el ${dateFormat.format(new Date(key.createdAt))}, sin usar`}
                   </span>
                 </div>
-                {!revocable(key) ? null : confirming === key.id ? (
-                  <span className="flex shrink-0 items-center gap-3">
-                    <button className={GHOST} onClick={() => setConfirming(null)} type="button">
-                      Cancelar
-                    </button>
-                    <button
-                      className={PRIMARY}
-                      disabled={busy}
-                      onClick={() => revoke(key.id)}
-                      type="button"
-                    >
-                      Revocar
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    className={GHOST}
-                    disabled={busy}
-                    onClick={() => setConfirming(key.id)}
-                    type="button"
-                  >
-                    Revocar
-                  </button>
+                {revocable(key) && (
+                  <Confirm
+                    asking={confirming === key.id}
+                    busy={busy}
+                    label="Revocar"
+                    onAsk={() => setConfirming(key.id)}
+                    onCancel={() => setConfirming(null)}
+                    onConfirm={() => void run(() => revokeKey({ data: key.id }))}
+                  />
                 )}
               </li>
             ))}
@@ -161,32 +236,41 @@ function Keys() {
         )}
       </Section>
 
-      <Section
-        note={
-          <a
-            className="underline decoration-line underline-offset-4 hover:text-fg"
-            href="/docs/primeros-pasos"
-          >
-            Guía de inicio
-          </a>
-        }
-        title="Conectar"
-      >
-        <dl className="grid items-center gap-x-4 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)]">
-          <dt className="text-muted">API</dt>
-          <dd>
-            <Copyable label="la URL de la API" value={`${ORIGIN}/v1`} />
-          </dd>
-          <dt className="text-muted">MCP</dt>
-          <dd>
-            <Copyable label="la URL de MCP" value={`${ORIGIN}/mcp`} />
-          </dd>
-          <dt className="text-muted">Encabezado</dt>
-          <dd>
-            <Copyable label="el encabezado" value="Authorization: Bearer cdc_…" />
-          </dd>
-        </dl>
+      <Section title="Asistentes conectados">
+        {clients.length === 0 ? (
+          <p className="text-muted">
+            Agrega la URL de MCP como conector en Claude, ChatGPT o Cursor y entra con tu cuenta.
+          </p>
+        ) : (
+          <ul className="-my-3 flex flex-col divide-y divide-edge">
+            {clients.map((client) => (
+              <li className="flex items-center justify-between gap-4 py-3" key={client.clientId}>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate">{client.name}</span>
+                  <span className="truncate text-[13px] text-muted">
+                    Conectado el {dateFormat.format(new Date(client.connectedAt))}
+                    {client.lastActiveAt
+                      ? ` · Activo el ${dateFormat.format(new Date(client.lastActiveAt))}`
+                      : " · Sin usar"}
+                  </span>
+                </div>
+                <Confirm
+                  asking={confirming === client.clientId}
+                  busy={busy}
+                  label="Desconectar"
+                  onAsk={() => setConfirming(client.clientId)}
+                  onCancel={() => setConfirming(null)}
+                  onConfirm={() =>
+                    void run(() => disconnectConnectedClient({ data: client.clientId }))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        <Copyable label="la URL de MCP" value={`${ORIGIN}/mcp`} />
       </Section>
+      {error && <p className="text-[13px] text-muted">{error}</p>}
     </Page>
   );
 }
