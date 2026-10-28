@@ -267,7 +267,8 @@ app.get("/v1/search", async (context) =>
     await search(context.env, {
       q: context.req.query("q"),
       asOf: context.req.query("asOf"),
-      source: context.req.query("source"),
+      // `?source=a&source=b` searches both sources.
+      source: context.req.queries("source"),
       kind: context.req.query("kind"),
       limit: context.req.query("limit"),
       format: context.req.query("format"),

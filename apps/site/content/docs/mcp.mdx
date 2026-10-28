@@ -56,17 +56,17 @@ Cada asistente que apruebas queda conectado hasta que lo desconectes desde tu pa
 
 Todas son de solo lectura: consultan, nunca modifican nada.
 
-| Herramienta      | Para qué                                  | Argumentos                                                    |
-| ---------------- | ----------------------------------------- | ------------------------------------------------------------- |
-| `search`         | Busca reglas por pregunta o por clave.    | `q`, y opcionales `asOf`, `source`, `kind`, `limit`, `format` |
-| `read_passage`   | Lee una regla completa por su id.         | `id`                                                          |
-| `lookup_error`   | Explica un código de error `CFDI40xxx`.   | `code`                                                        |
-| `lookup_catalog` | Busca una clave en un catálogo del SAT.   | `name`, `key`, y opcional `where`                             |
-| `search_catalog` | Busca claves de un catálogo por su texto. | `name`, `q`, y opcional `limit`                               |
-| `list_sources`   | Lista los documentos que contiene Códice. | Ninguno                                                       |
-| `list_changes`   | Lista qué reglas cambiaron en un periodo. | `since`, y opcionales `until`, `source`                       |
+| Herramienta      | Para qué                                        | Argumentos                                                    |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------- |
+| `search`         | Busca reglas por pregunta o por clave.          | `q`, y opcionales `asOf`, `source`, `kind`, `limit`, `format` |
+| `read_passage`   | Lee una regla completa por su id.               | `id`                                                          |
+| `lookup_error`   | Explica hasta 25 códigos de error `CFDI40xxx`.  | `codes`                                                       |
+| `lookup_catalog` | Busca hasta 25 claves en los catálogos del SAT. | `lookups`: una lista de `{ name, key, where }`                |
+| `search_catalog` | Busca claves de un catálogo por su texto.       | `name`, `q`, y opcional `limit`                               |
+| `list_sources`   | Lista los documentos que contiene Códice.       | Ninguno                                                       |
+| `list_changes`   | Lista qué reglas cambiaron en un periodo.       | `since`, y opcionales `until`, `source`                       |
 
-Son las mismas consultas que la API, con los mismos argumentos. Una diferencia: por MCP, `search` responde breve por omisión (`format: brief`), con la ruta de títulos de cada pasaje y un extracto exacto de su texto; el asistente lee el que responde con `read_passage`, y un pasaje corto llega entero en el extracto. Así cada búsqueda ocupa entre 30% y 70% menos del contexto del asistente. Con `format: full` recibe el texto que coincidió y su fuente, como la API (ver [Resultados breves](/docs/buscar#resultados-breves)). `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten). `search_catalog` encuentra la clave cuando solo sabes qué es: `{ "name": "c_ClaveProdServ", "q": "servicios de consultoría" }`; ver [Buscar por descripción](/docs/catalogos#buscar-por-descripción). `list_changes` se explica en [Cambios en las reglas](/docs/cambios).
+Son las mismas consultas que la API. Una diferencia: por MCP, `search` responde breve por omisión (`format: brief`), con la ruta de títulos de cada pasaje y un extracto exacto de su texto; el asistente lee el que responde con `read_passage`, y un pasaje corto llega entero en el extracto. Así cada búsqueda ocupa entre 30% y 70% menos del contexto del asistente. Con `format: full` recibe el texto que coincidió y su fuente, como la API (ver [Resultados breves](/docs/buscar#resultados-breves)). `source` en `search` es un id o una lista de ids: `["anexo-20-guia-de-llenado", "matriz-de-errores-cfdi-40"]`. `lookup_error` y `lookup_catalog` reciben varios códigos o claves a la vez, para revisar un comprobante completo en una sola llamada: `{ "codes": ["CFDI40149", "CFDI40147"] }`, o `{ "lookups": [{ "name": "c_UsoCFDI", "key": "G03" }, { "name": "c_RegimenFiscal", "key": "601" }] }`. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Códigos de error](/docs/errores#varios-códigos-a-la-vez) y [Catálogos del SAT](/docs/catalogos#varias-claves-a-la-vez). `search_catalog` encuentra la clave cuando solo sabes qué es: `{ "name": "c_ClaveProdServ", "q": "servicios de consultoría" }`; ver [Buscar por descripción](/docs/catalogos#buscar-por-descripción). `list_changes` se explica en [Cambios en las reglas](/docs/cambios).
 
 ## Qué preguntarle
 
@@ -80,8 +80,10 @@ El asistente decide qué herramientas usar: busca, lee el pasaje y responde cita
 
 ## Respuestas y errores
 
-Cada herramienta devuelve el mismo `data` que la ruta de la API, como contenido estructurado y como texto JSON. Cuando una consulta no encuentra nada o está mal formada, la herramienta responde con un error (`isError`) que trae el mismo `code` y estado que la API, por ejemplo `error_code_not_found`.
+Cada herramienta devuelve el mismo `data` que la ruta de la API, como contenido estructurado y como texto JSON. Cuando una consulta no encuentra nada o está mal formada, la herramienta responde con un error (`isError`) que trae el mismo `code` y estado que la API, por ejemplo `passage_not_found`.
+
+`lookup_error` y `lookup_catalog` responden `results`, uno por código o clave y en el orden en que los pediste. Cada resultado trae `data` (lo que devolvería la API) o `error` con su `code`, `message` y `status`, así que un código que no existe no hace fallar a los demás. Solo una lista vacía, de más de 25 o con un argumento mal formado hace fallar la llamada completa.
 
 ## Límites
 
-Conectado con tu cuenta, tus asistentes comparten un límite de 60 consultas por minuto. Con una clave, las consultas por MCP cuentan contra el mismo límite que la API: 60 por minuto por clave. Un asistente puede hacer varias consultas por pregunta, así que usa una clave aparte para él.
+Conectado con tu cuenta, tus asistentes comparten un límite de 60 consultas por minuto. Con una clave, las consultas por MCP cuentan contra el mismo límite que la API: 60 por minuto por clave. Una llamada que consulta varios códigos o claves cuenta como una sola. Un asistente puede hacer varias consultas por pregunta, así que usa una clave aparte para él.

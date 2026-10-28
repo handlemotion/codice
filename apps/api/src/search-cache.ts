@@ -21,7 +21,7 @@ export function searchCacheKey(input: SearchInput, version: string): string {
   const parameters = new URLSearchParams({
     q: input.q,
     asOf: String(input.asOf),
-    source: input.source ?? "",
+    source: input.sources?.join(",") ?? "",
     kind: input.kind ?? "",
     limit: String(input.limit),
   });

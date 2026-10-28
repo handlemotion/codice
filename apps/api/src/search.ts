@@ -69,8 +69,11 @@ export type SearchInput = {
   readonly q: string;
   /** `YYYYMMDD`: only passages in force that day. */
   readonly asOf: number;
-  /** A source id, the passages' AI Search folder, such as `anexo-20-guia-de-llenado`. */
-  readonly source?: string;
+  /**
+   * Source ids, each the passages' AI Search folder, such as `anexo-20-guia-de-llenado`: only
+   * passages of one of them. Sorted and without repeats, so the order asked does not matter.
+   */
+  readonly sources?: readonly string[];
   /** A passage kind (SPEC.md, "Items"), such as `guia` for the filling guides' definitions. */
   readonly kind?: string;
   readonly limit: number;
@@ -91,7 +94,16 @@ export function validityFilter(asOf: number) {
   return { valid_from: { $lte: asOf }, valid_until: { $gte: asOf } };
 }
 
-/** The `search()` request: the question, the validity filter, and the source and kind when given. */
+/**
+ * The source filter on the AI Search folder: an equality for one source, `$in` for several (a
+ * stored scalar against any of the candidates, as AI Search's filtering docs give it).
+ */
+function folderFilter(sources: readonly string[]) {
+  const folders = sources.map((source) => `${source}/`);
+  return folders.length === 1 ? folders[0]! : { $in: folders };
+}
+
+/** The `search()` request: the question, the validity filter, and the sources and kind when given. */
 export function searchRequest(input: SearchInput) {
   return {
     messages: [{ role: "user" as const, content: input.q }],
@@ -99,7 +111,7 @@ export function searchRequest(input: SearchInput) {
       retrieval: {
         filters: {
           ...validityFilter(input.asOf),
-          ...(input.source ? { folder: `${input.source}/` } : {}),
+          ...(input.sources?.length ? { folder: folderFilter(input.sources) } : {}),
           ...(input.kind ? { kind: input.kind } : {}),
         },
         max_num_results: input.limit,

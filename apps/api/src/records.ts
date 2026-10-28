@@ -188,19 +188,23 @@ export function errorCodePassageId(sourceId: string, code: string) {
   return `${sourceId}/${code.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}.md`;
 }
 
-export async function errorCode(db: Database, code: string) {
-  const [row] = await db
+/** The matrix rows of the codes, by their `matrixCode`, in one query; an unknown code is left out. */
+export async function errorCodeRows(db: Database, codes: readonly string[]) {
+  const rows = await db
     .select()
     .from(errorCodes)
-    .where(eq(errorCodes.code, matrixCode(code)))
-    .limit(1);
-  if (!row) return null;
-  const provenance = await sourcesById(db, [row.sourceId]);
-  return {
-    ...row,
-    passageId: errorCodePassageId(row.sourceId, row.code),
-    source: provenance.get(row.sourceId) ?? null,
-  };
+    .where(inArray(errorCodes.code, [...new Set(codes.map(matrixCode))]));
+  const provenance = await sourcesById(db, [...new Set(rows.map((row) => row.sourceId))]);
+  return new Map(
+    rows.map((row) => [
+      row.code,
+      {
+        ...row,
+        passageId: errorCodePassageId(row.sourceId, row.code),
+        source: provenance.get(row.sourceId) ?? null,
+      },
+    ]),
+  );
 }
 
 /** `UsoCFDI` and `c_usocfdi` both name c_UsoCFDI. */

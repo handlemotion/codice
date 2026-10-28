@@ -149,7 +149,7 @@ await env.CODICE_SEARCH.search({
       filters: {
         valid_from: { $lte: asOf },
         valid_until: { $gte: asOf },
-        // optional: folder: "rmf-2026/", kind: "guia", authority: "SAT"
+        // optional: folder: "rmf-2026/" (or { $in: ["rmf-2026/", …] }), kind: "guia"
       },
       max_num_results: limit,
     },
@@ -161,6 +161,16 @@ The Worker maps each returned chunk to a result: `item.key` → passage id, `tex
 `item.metadata` → validity, `score` and `scoring_details` → relevance, and the provenance of the
 source version in force on `asOf` from D1 (`sources`, else the `source_versions` row whose validity
 holds `asOf`). `context_expansion` (0–3 neighbouring chunks) serves passages longer than one chunk.
+
+`source` takes one source id or up to 10 (`SEARCH_SOURCES_MAX`, `src/handlers.ts`), each matching
+`^[a-z0-9][a-z0-9-]{0,63}$`, trimmed, without repeats and sorted. One is the folder equality
+`folder: "<source>/"`; several are `folder: { $in: ["<a>/", "<b>/"] }`. AI Search's filtering docs
+(<https://developers.cloudflare.com/ai-search/configuration/retrieval/filtering/>, "`$in`
+operator"): "Match a stored scalar field against any value in the candidate array. `$in` does not
+search inside stored arrays", with the example `{ "folder": { "$in": ["docs/guides/",
+"docs/tutorials/"] } }`; the same page notes "Filters only match the first 64 UTF-8 bytes of each
+indexed string", which a source id plus its slash (65 at most) stays within for every id Códice
+holds. The response's `source` is that sorted list, or null when the search took every source.
 
 `format` (`full` or `brief`) shapes the answer, never the request. `full` returns each result as
 above. `brief` returns each as `{ passageId, heading, excerpt, truncated: { before, after }, kind,
@@ -181,7 +191,7 @@ MCP to `brief` ([MCP surface](#mcp-surface-mcp)).
 `CodiceKnowledge` entrypoint) keeps AI Search's chunks for a repeated search in the Cache API
 (`src/search-cache.ts`), so a hit makes no AI Search call; the provenance is still read from D1 each
 time. The key is the validated input `searchRequest` reads, `q` (trimmed), `asOf` (today in Mexico
-City when absent), `source`, `kind` and `limit`, plus the corpus version: a hash of every source's
+City when absent), `source` (the sorted list, so the order asked does not matter), `kind` and `limit`, plus the corpus version: a hash of every source's
 `sha256` and every passage's `sha256`, `kind` and validity in D1 (`corpusVersion`, `src/records.ts`),
 which the isolate rereads every `SOURCES_CACHE_MS` (5 minutes). The ingestion writes those rows
 after it uploads, and a re-split changes passages under the same source hash, so an ingestion
@@ -368,17 +378,17 @@ time spent in its calls, a Sentry span each; `src/timing.ts`), and, for a search
 [search cache](#search-cache)'s reads and writes; a hit has no `search`). Every `/v1` route takes
 an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 
-| Method and path                                        | Backed by                                                 |
-| ------------------------------------------------------ | --------------------------------------------------------- |
-| `GET /v1/search?q=&asOf=&source=&kind=&limit=&format=` | AI Search `search()` + D1 `sources` (`brief`: `passages`) |
-| `GET /v1/passages/:id`                                 | D1 `passages` + D1 `sources`                              |
-| `GET /v1/sources`, `/v1/sources/:id`                   | D1 `sources`                                              |
-| `GET /v1/changes?since=&until=&source=`                | D1 `passages` + D1 `sources`, `source_versions`           |
-| `GET /v1/errors/:code`                                 | D1 `error_codes`                                          |
-| `GET /v1/catalogs/:name`                               | D1 `catalog_entries`                                      |
-| `GET /v1/catalogs/:name?q=&limit=`                     | D1 `catalog_entries_fts` + `catalog_entries`              |
-| `GET /v1/catalogs/:name/:key?<column>=`                | D1 `catalog_entries`                                      |
-| `POST /v1/chat`                                        | Claude Sonnet 5.5 over the handlers above ([Chat](#chat)) |
+| Method and path                                        | Backed by                                                                   |
+| ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `GET /v1/search?q=&asOf=&source=&kind=&limit=&format=` | AI Search `search()` + D1 `sources` (`brief`: `passages`); `source` repeats |
+| `GET /v1/passages/:id`                                 | D1 `passages` + D1 `sources`                                                |
+| `GET /v1/sources`, `/v1/sources/:id`                   | D1 `sources`                                                                |
+| `GET /v1/changes?since=&until=&source=`                | D1 `passages` + D1 `sources`, `source_versions`                             |
+| `GET /v1/errors/:code`                                 | D1 `error_codes`                                                            |
+| `GET /v1/catalogs/:name`                               | D1 `catalog_entries`                                                        |
+| `GET /v1/catalogs/:name?q=&limit=`                     | D1 `catalog_entries_fts` + `catalog_entries`                                |
+| `GET /v1/catalogs/:name/:key?<column>=`                | D1 `catalog_entries`                                                        |
+| `POST /v1/chat`                                        | Claude Sonnet 5.5 over the handlers above ([Chat](#chat))                   |
 
 The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them their input.
 
@@ -432,19 +442,22 @@ entrypoint (`src/index.ts`; contract `@codice/contracts`, mirrored by Transitive
 `readPassage`, `lookupError`, `lookupCatalog` and `listCatalog`, each answering
 `{ ok: true, data }` with the route's `data`, or `{ ok: false, problem: { status, code, title } }`
 (RPC keeps only an error's message). It takes no API key and skips the per-key rate limit: only a
-Worker the account binds can call it. The Agent binds it as `CODICE`.
+Worker the account binds can call it. The Agent binds it as `CODICE`. `search`'s `source` takes
+one id or a list, and its answer's `source` is the sorted list or null (since 2026-10-28; before,
+one id or null), so Transitive's mirror updates `CodiceSearchParameters.source` and
+`CodiceSearch.source` with it.
 
 ## MCP surface (`/mcp`)
 
-| Tool             | Arguments                                        | Handler, as                          |
-| ---------------- | ------------------------------------------------ | ------------------------------------ |
-| `search`         | `q`, `asOf`, `source`, `kind`, `limit`, `format` | `GET /v1/search`, `brief` by default |
-| `read_passage`   | `id`                                             | `GET /v1/passages/:id`               |
-| `lookup_error`   | `code`                                           | `GET /v1/errors/:code`               |
-| `lookup_catalog` | `name`, `key`, `where`                           | `GET /v1/catalogs/:name/:key`        |
-| `search_catalog` | `name`, `q`, `limit`                             | `GET /v1/catalogs/:name?q=`          |
-| `list_sources`   | none                                             | `GET /v1/sources`                    |
-| `list_changes`   | `since`, `until`, `source`                       | `GET /v1/changes`                    |
+| Tool             | Arguments                                        | Handler, as                                 |
+| ---------------- | ------------------------------------------------ | ------------------------------------------- |
+| `search`         | `q`, `asOf`, `source`, `kind`, `limit`, `format` | `GET /v1/search`, `brief` by default        |
+| `read_passage`   | `id`                                             | `GET /v1/passages/:id`                      |
+| `lookup_error`   | `codes` (1–25)                                   | `GET /v1/errors/:code`, for each code       |
+| `lookup_catalog` | `lookups` (1–25 `{ name, key, where }`)          | `GET /v1/catalogs/:name/:key`, for each key |
+| `search_catalog` | `name`, `q`, `limit`                             | `GET /v1/catalogs/:name?q=`                 |
+| `list_sources`   | none                                             | `GET /v1/sources`                           |
+| `list_changes`   | `since`, `until`, `source`                       | `GET /v1/changes`                           |
 
 Each is a thin call to the same handler as `/v1` and returns its `data` as `structuredContent` (and
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
@@ -455,7 +468,7 @@ matrix rows and guide attributes) fits the excerpt whole (`truncated` false on b
 agent quotes it with no further call; only a long one (an RMF regla) costs a `read_passage`, which
 answers from D1 in about 20 ms. `format: full` keeps the old answer. HTTP, `CodiceKnowledge` (the
 Agent, whose prompt quotes from search results) and the chat keep `full`; the chat's tool does not
-take `format`.
+take `format`. `search`'s `source` is one id or a list of them.
 
 Measured 2026-10-28 on `pnpm dev:up` (the real instance), `asOf` 2026-10-28, `/v1/search` body
 bytes; the brief answer was the cache's (15–35 ms, no AI Search call), and every excerpt was an exact
@@ -473,8 +486,17 @@ A brief result costs 640–880 bytes, much of it the heading path (up to 280 cha
 Pagos guide), so reading two short passages after a brief search can cost more than one full search;
 reading one never did in these five.
 
-`lookup_catalog`'s optional `where` object
-(`{ c_CodigoPostal: "01000" }`) is the route's column filters. All are annotated read-only and idempotent. Built with `createMcpHandler` from the `agents` package, as in
+The two lookups take a batch, so checking a whole invoice is one call each: `lookup_error`
+`{ codes: ["CFDI40149", "CFDI40147"] }` reads every code's matrix row in one D1 query
+(`lookupErrors`), and `lookup_catalog` `{ lookups: [{ name, key, where? }, …] }` runs each lookup
+as the route does, concurrently (`lookupCatalogEntries`); each `where` object
+(`{ c_CodigoPostal: "01000" }`) is the route's column filters. Both answer `{ results: [...] }` in
+the order asked, each item its input (`code`, or `name`, `key` and `where`) and either `data` (what
+the route's `data` would hold) or `error: { code, message, status }` (the problem the route would
+have sent), so one unknown code or key does not fail the rest. A batch of 0 or more than 25
+(`LOOKUP_BATCH_MAX`), or a malformed argument, fails the whole call as a tool error. A batch is one
+tool call: it counts once toward [usage](#usage) and the [rate limit](#rate-limiting). `/v1` keeps
+one code or key a request. The site's chat tools take the same arguments. All are annotated read-only and idempotent. Built with `createMcpHandler` from the `agents` package, as in
 `apps/mcp`. Read-only. MCP clients connect with OAuth ([MCP authorization](#mcp-authorization));
 a team's API key (`Authorization: Bearer cdc_…` or `x-api-key`) still works, and shares the key's
 rate limit with `/v1`.

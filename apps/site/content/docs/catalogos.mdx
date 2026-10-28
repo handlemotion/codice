@@ -125,6 +125,22 @@ curl "https://codice.io/v1/catalogs/c_Municipio/001?c_Estado=JAL" \
 | `c_Municipio` | Por estado          | `c_Estado`       |
 | `c_Localidad` | Por estado          | `c_Estado`       |
 
+## Varias claves a la vez
+
+Para revisar un comprobante completo (uso del CFDI, régimen fiscal, forma de pago, código postal…), `lookup_catalog` por [MCP](/docs/mcp) consulta hasta 25 claves en una sola llamada, de catálogos distintos y cada una con su propio `where`:
+
+```json
+{
+  "lookups": [
+    { "name": "c_UsoCFDI", "key": "G03" },
+    { "name": "c_RegimenFiscal", "key": "601" },
+    { "name": "c_Colonia", "key": "0001", "where": { "c_CodigoPostal": "01000" } }
+  ]
+}
+```
+
+La respuesta trae `results` en el mismo orden. Cada resultado repite lo que pediste (`name`, `key` y `where`) y trae `data`, lo mismo que devuelve `/v1/catalogs/{name}/{key}`, o `error` si esa consulta falla (`catalog_entry_not_found`, o `invalid_request` por una columna que no existe). Una clave que falla no afecta a las demás. La API HTTP consulta una clave por petición.
+
 ## Listar un catálogo
 
 ```bash

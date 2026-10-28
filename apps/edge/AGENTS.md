@@ -10,8 +10,8 @@ forwards the unmodified request through a service binding.
   `/.well-known/oauth-protected-resource` (`/mcp`'s OAuth metadata) and its subpaths, `/health` and
   `/ready`, for any method, signed in or not, whatever `SITE_ENABLED` says.
 - `SITE` (`codice-site`, `apps/site`) gets `/` for anonymous `GET`/`HEAD`, `/?site`, `/_site/*`,
-  and its pages (`SITE_PAGE_PREFIXES`: `/docs` and its subpaths) for `GET`/`HEAD`, signed in or
-  not.
+  its pages (`SITE_PAGE_PREFIXES`: `/docs` and its subpaths) and `SITE_PATHS` (`/llms.txt`,
+  `/llms-full.txt`) for `GET`/`HEAD`, signed in or not.
 - A stale-cookie `/` that the app answers with a redirect to `/login` is served by the site
   (`isLoginRedirect`).
 - `APP` (`codice-app`, `apps/app`, the dashboard) gets everything else, including `/` when the
