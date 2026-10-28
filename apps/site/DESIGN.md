@@ -107,8 +107,9 @@ marks turning while Códice answers), and the favicon.
   start on the sections' text column (48%, the line of the bar's links), a little above the
   middle, over the wave field; on phones they start under the bar. No section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
-  page's links (Producto, Documentación, Precios), 48px apart, with no fill and drawn with
-  `mix-blend-mode: difference` so they stay readable over whatever scrolls under them, start on the text
+  page's links (Producto, Documentación, Precios), 48px apart, with no fill, in `fg` (the bar only
+  ever floats over the hero or the strip's fill, both `ink`; `mix-blend-mode: difference` was
+  dropped: the fixed bar isolates the blend, so the links drew white on the light theme), start on the text
   column's edge (48%), the same line as the section text below; the compact pair of buttons sits on the right (Entrar
   outlined, Obtener clave electric). The links show from 1280px up (narrower, they would run into the buttons). Until `/docs` exists,
   Documentación and API point at the developer section.
