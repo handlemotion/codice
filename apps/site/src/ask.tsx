@@ -1,5 +1,8 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
-import { IconArrowCornerDownLeft } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
+import {
+  IconArrowCornerDownLeft,
+  IconArrowRight,
+} from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import {
   memo,
   useEffect,
@@ -50,6 +53,9 @@ const TOOL_LABELS: Record<string, string> = {
 // The answer's markdown, in the page's own type: links underlined, lists and paragraphs spaced.
 const ANSWER =
   "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
+
+// The small raw-text actions around the bubble: how to send, how to go on, how to start over.
+const HINT = "flex items-center gap-1.5 text-[13px] text-muted";
 
 type ChatMessage = ReturnType<typeof useChat>["messages"][number];
 type Part = ChatMessage["parts"][number];
@@ -134,10 +140,10 @@ const Answer = memo(function Answer({
 });
 
 /**
- * The chat of the first screen. The composer is the visitor's next bubble: grey, on the right,
- * under the title before any question and under the last answer after. Enter sends it where it
- * stands and Códice answers under it; the thread scrolls inside the first screen, faded at
- * whichever edge has more to read. Esc starts over.
+ * The chat of the first screen: one question, one answer. The composer is the visitor's bubble,
+ * grey, on the right under the title; Enter sends it where it stands and Códice answers under it,
+ * scrolling inside the first screen, faded at whichever edge has more to read. After the answer,
+ * going on takes an account; Esc starts over.
  */
 export function Ask() {
   const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
@@ -160,15 +166,10 @@ export function Ask() {
     return () => clearInterval(timer);
   }, [query, isLoading]);
 
-  // Once an answer is in, the next bubble takes the keyboard.
-  useEffect(() => {
-    if (open && !isLoading) input.current?.focus({ preventScroll: true });
-  }, [open, isLoading]);
-
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const text = query.trim() || (ghost ?? "");
-    if (!text || isLoading) return;
+    if (!text || open) return;
     setQuery("");
     void sendMessage(text);
   }
@@ -199,7 +200,7 @@ export function Ask() {
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-10">
       {/* Balanced, so its two lines run about the same length; the ground sits behind the lines only,
           so the field shows past where each line ends. */}
       <h1 className="text-[20px] leading-snug text-balance">
@@ -245,29 +246,36 @@ export function Ask() {
                   </p>
                 </MessageScrollerItem>
               )}
-              {!isLoading && (
+              {!open && (
                 <MessageScrollerItem messageId="composer">
                   <div className="flex flex-col items-end gap-2">
                     <Composer
                       input={input}
-                      label={open ? "Pregunta algo más" : "Pregúntale a Códice"}
+                      label="Pregúntale a Códice"
                       onSubmit={onSubmit}
                       query={query}
                       rest={rest}
                       setQuery={setQuery}
                     />
-                    {/* Under the bubble, in small raw text: how to send it, and how to start over. */}
-                    <div className="flex items-center gap-4 bg-ink text-[13px] text-muted">
-                      {open && (
-                        <button className="hover:text-fg" onClick={reset} type="button">
-                          Empezar de nuevo
-                        </button>
-                      )}
-                      <span className="flex items-center gap-1.5">
-                        <IconArrowCornerDownLeft size={14} />
-                        Enviar
-                      </span>
-                    </div>
+                    {/* Under the bubble, in small raw text: how to send it. */}
+                    <span className={`${HINT} bg-ink`}>
+                      <IconArrowCornerDownLeft size={14} />
+                      Enviar
+                    </span>
+                  </div>
+                </MessageScrollerItem>
+              )}
+              {/* One question, one answer: to keep talking, the visitor makes an account. */}
+              {open && !isLoading && (
+                <MessageScrollerItem className="message-in" messageId="after">
+                  <div className="flex items-center gap-4 bg-ink">
+                    <a className={`${HINT} hover:text-fg`} href="/login">
+                      <IconArrowRight size={14} />
+                      Continuar la conversación con una cuenta
+                    </a>
+                    <button className={`${HINT} hover:text-fg`} onClick={reset} type="button">
+                      Empezar de nuevo
+                    </button>
                   </div>
                 </MessageScrollerItem>
               )}
