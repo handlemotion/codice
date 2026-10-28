@@ -75,6 +75,14 @@ every local search is a real, billed query to the instance `codice`.
   any email (the code is printed in the dashboard's output) and create a key at `/keys`. Without
   the dashboard, every keyed call fails with a `500`.
 
+- **MCP over OAuth**: with the dashboard running and `MCP_RESOURCE=https://codice.localhost/mcp`
+  in `apps/app/.env`, an MCP client given `https://codice.localhost/mcp` discovers the dashboard
+  at `http://localhost:5173/api/auth`, signs in on `/login` and asks on `/consent`. Node clients
+  need `NODE_EXTRA_CA_CERTS=~/.portless/ca.pem` and `NO_PROXY=localhost,127.0.0.1,.localhost`.
+  Portless rewrites `https://codice.localhost` to `http://` in response headers, so the
+  `resource_metadata` of `/mcp`'s challenge reads `http://` through the proxy; the Worker sends
+  `https://`, as in production.
+
 Check it with real calls (`KEY` is that key):
 
 ```sh

@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
-import { authClient } from "../auth-client";
+import { authClient, inAuthorization } from "../auth-client";
 import type { SocialProvider } from "../server/auth";
 import { getDashboard, getSignInProviders } from "../server/functions";
 
@@ -48,7 +48,9 @@ function Login() {
       return;
     }
     if (await run(() => authClient.signIn.emailOtp({ email, otp }))) {
-      await navigate({ to: "/" });
+      // During an MCP client's authorization, the sign-in answers with the next step (consent
+      // or the client's redirect) and the auth client follows it.
+      if (!inAuthorization()) await navigate({ to: "/" });
     }
   }
 

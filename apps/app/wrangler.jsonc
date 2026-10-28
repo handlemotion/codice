@@ -5,7 +5,9 @@
   // The TanStack Start entry plus the `CodiceAccounts` entrypoint `codice-api` binds as `ACCOUNTS`.
   "main": "src/server.ts",
   "compatibility_date": "2026-08-15",
-  "compatibility_flags": ["nodejs_compat"],
+  // `global_fetch_strictly_public`: a fetch of an MCP client's metadata document can never reach
+  // this account's own zones or Workers (src/server/client-metadata-fetch.ts).
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Reached through the `APP` service binding of `codice-edge`; `dashboard.codice.io` is added as a
   // custom domain once the zone is in the account (apps/edge/AGENTS.md, "Domains").
   "workers_dev": false,
@@ -16,6 +18,8 @@
     "BETTER_AUTH_URL": "https://codice.io",
     // The sender of sign-in codes; its domain must be onboarded to Cloudflare Email Sending.
     "AUTH_EMAIL_FROM": "acceso@codice.io",
+    // The MCP resource OAuth tokens are bound to (`aud`): `codice-api`'s `/mcp` on the same host.
+    "MCP_RESOURCE": "https://codice.io/mcp",
   },
   "secrets": {
     "required": [
