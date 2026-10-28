@@ -16,7 +16,7 @@ export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, and the CFDI40xxx validation matrix. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
 
 export const SearchArguments = z.object({
   q: z
@@ -35,7 +35,7 @@ export const SearchArguments = z.object({
     .string()
     .optional()
     .describe(
-      "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado` or `matriz-de-errores-cfdi-40`.",
+      "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` or `rmf-2026`.",
     ),
   kind: z
     .enum(PASSAGE_KINDS)
@@ -144,7 +144,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Search SAT rules",
       description:
-        "Search the SAT's CFDI 4.0 rules in force on a date. Returns passages quoted verbatim, each with its passage id, source URL, validity dates and relevance score.",
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF. Catalog keys are not searched; use `lookup_catalog`. Returns passages quoted verbatim, each with its passage id, source URL, validity dates and relevance score.",
       inputSchema: SearchArguments,
     },
     (args) => search(env, args),

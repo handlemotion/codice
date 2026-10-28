@@ -93,13 +93,38 @@ Our own code is CPU only: validation, mapping rows and JSON. The 20 invocations 
 5–12 ms of CPU each, including isolate start-up (`startup_time_ms` 55 for version `a6945917`),
 so a warm request's own code is a few milliseconds at most.
 
+## Local measurement, 2026-10-28
+
+`pnpm dev:up` on a cloud session: local D1, the real AI Search instance `codice` through Wrangler's
+remote binding, the dashboard's `CodiceAccounts` for keys. Each route was called 6 to 20 times after
+one warm-up call; times are curl's total, in ms.
+
+| Route                                | Before p50 | Before p95 | After p50 | After p95 |
+| ------------------------------------ | ---------: | ---------: | --------: | --------: |
+| `GET /v1/passages/:id` (a 2 KB body) |      3,442 |      4,180 |        21 |        23 |
+| `GET /v1/passages/:id` (66 KB body)  |          – |          – |        22 |        27 |
+| `GET /v1/search`                     |      1,099 |      3,821 |     1,473 |     2,500 |
+| `GET /v1/errors/:code`               |         22 |         24 |        21 |        26 |
+| `GET /v1/catalogs/:name/:key`        |         22 |         26 |        20 |        22 |
+| `GET /v1/sources`                    |         22 |         25 |        24 |        32 |
+
+- A passage read made two serial AI Search Items API calls (`items.list`, then the download);
+  it now reads the body D1 holds (`passages.body`, migration `0006`). The stored bodies matched AI
+  Search's downloads byte for byte (SHA-256) for the three passages compared, the largest
+  (`rmf-2026/regla-2.1.12.md`, 66 KB) among them.
+- A search is AI Search's time: its `server-timing` read `total;dur=3959.0, search;dur=3943.0`.
+  Its spread is the instance's (reranking on), not the Worker's.
+- The D1 routes do not show the sources cache or the replica session: the local D1 has no network
+  round trip. Production's split shows in Sentry once traffic arrives.
+
 ## Before optimizing: make the split visible
 
 Do this first, so each change below has a before and after:
 
-- Add spans: `Sentry.instrumentD1WithSentry` on `CODICE_DATABASE`, a `Sentry.startSpan` around
-  each `CODICE_SEARCH` call (`op` `ai_search.search`, `ai_search.items.list`,
-  `ai_search.items.download`), and a transaction per `CodiceKnowledge` method (for example
+- Done 2026-10-28: `Sentry.instrumentD1WithSentry` on `CODICE_DATABASE`, a `Sentry.startSpan`
+  around each `CODICE_SEARCH` call (`op` `ai_search.search`, `ai_search.items.list`,
+  `ai_search.items.download`), and the `server-timing` header (`src/timing.ts`). Left: a
+  transaction per `CodiceKnowledge` method (no caller binds `codice-api`'s entrypoint yet; for example
   `Sentry.startSpan({ name: "CodiceKnowledge.search", op: "rpc.server" }, …)` in `internalCall`,
   with the Sentry client set up for the entrypoint as for `fetch`).
 - Raise `observability.traces.head_sampling_rate` to `1` while traffic stays low; lower it once
@@ -116,20 +141,23 @@ Then repeat the queries in "Reproduce" after a week of Agent traffic and fill th
 Each gain is in serial round trips removed, from the code; its value in milliseconds needs the
 spans above. None changes an answer.
 
-1. **`readPassage`: four serial round trips down to two.** `passageRow` (D1) and `items.list`
+1. **`readPassage`** (done 2026-10-28, further than planned: one D1 query, no AI Search call;
+   see "Local measurement"). The plan was **four serial round trips down to two.** `passageRow` (D1) and `items.list`
    (AI Search) both take only the id, so run them together; then run `items.get().download` and
    `sourcesById` together, since `row.sourceId` is known. Expected gain: one AI Search round trip
    and one D1 round trip per passage read, about half of the call's waiting time. The Agent calls
    it for every knowledge passage it reads (`read_file` on `knowledge/…`) and the workspace for
    every passage a member opens.
-2. **Hold the sources in the isolate.** `sourcesById` is the second serial D1 query of `search`,
+2. **Hold the sources in the isolate** (done 2026-10-28, `SOURCES_CACHE_MS`, `src/records.ts`). `sourcesById` is the second serial D1 query of `search`,
    `lookupError`, `listCatalog` and `lookupCatalog`. The `sources` table is a few rows that only
    the ingestion writes, so read it once per isolate (`allSources`) and keep it for a short time
    (for example 5 minutes, so an ingestion shows within that time). Expected gain: one D1 round
    trip on each of those calls, which halves the D1 wait of every lookup and leaves `search` with
    AI Search plus our code only. The Agent's `search_knowledge` runs `search`, `lookupError` and
    `listCatalog` in parallel, so its wait drops by one D1 round trip.
-3. **Read D1 from the nearest replica.** Every Worker query is a read of data that changes only at
+3. **Read D1 from the nearest replica** (code done 2026-10-28: every query goes through a
+   `first-unconstrained` session. Read replication was enabled on `codice` the same day,
+   `read_replication.mode: auto`; its primary runs in `WNAM`). Every Worker query is a read of data that changes only at
    ingestion, so enable D1 read replication and query through a session
    (`env.CODICE_DATABASE.withSession("first-unconstrained")`). Expected gain: each remaining D1
    round trip goes to a replica near the calling colo instead of the primary; it is largest when

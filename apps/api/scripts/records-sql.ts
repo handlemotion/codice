@@ -169,12 +169,14 @@ export function recordsSql(
     ...versions.sourceVersions.map(upsertSourceVersion),
     ...insertStatements(
       "passages",
-      ["key", "source_id", "heading", "sha256", "valid_from", "valid_until"],
+      ["key", "source_id", "heading", "sha256", "body", "kind", "valid_from", "valid_until"],
       versions.passages.map((row) => [
         row.key,
         row.sourceId,
         row.heading,
         row.sha256,
+        row.body,
+        row.kind,
         row.validFrom,
         row.validUntil,
       ]),

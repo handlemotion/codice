@@ -251,6 +251,8 @@ describe("D1 batches", () => {
           sourceId: SOURCE_ROW.id,
           heading: "X",
           sha256: "1",
+          body: "# X\n\nIt's the old text.\n",
+          kind: "guia",
           validFrom: 20220101,
           validUntil: 20261014,
         },
@@ -258,7 +260,7 @@ describe("D1 batches", () => {
       sourceVersions: [{ ...SOURCE_ROW, validFrom: 20220101, validUntil: 20261014 }],
     });
     expect(sql).toContain(
-      "INSERT INTO passages (key, source_id, heading, sha256, valid_from, valid_until) VALUES ('catalogos-cfdi-40/x.20220101.md', 'catalogos-cfdi-40', 'X', '1', 20220101, 20261014);",
+      "INSERT INTO passages (key, source_id, heading, sha256, body, kind, valid_from, valid_until) VALUES ('catalogos-cfdi-40/x.20220101.md', 'catalogos-cfdi-40', 'X', '1', '# X\n\nIt''s the old text.\n', 'guia', 20220101, 20261014);",
     );
     expect(sql).toMatch(
       /INSERT INTO source_versions \(source_id, .*\) VALUES \('catalogos-cfdi-40', .*, 20220101, 20261014\) ON CONFLICT \(source_id, valid_from\) DO UPDATE/u,

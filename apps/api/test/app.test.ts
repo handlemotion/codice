@@ -30,6 +30,12 @@ describe("liveness", () => {
 });
 
 describe("request ids", () => {
+  it("reports the request's time in Server-Timing", async () => {
+    const response = await app.request("https://codice.test/health", {}, env);
+
+    expect(response.headers.get("server-timing")).toMatch(/^total;dur=\d+\.\d$/u);
+  });
+
   it("returns the caller's x-request-id", async () => {
     const response = await SELF.fetch("https://codice.test/health", {
       headers: { "x-request-id": "caller-request" },

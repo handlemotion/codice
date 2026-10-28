@@ -172,11 +172,13 @@ hand-written migrations).
   published_at, retrieved_at, valid_from, valid_until), one per (source id, valid_from). `sources`
   holds the version in force; a superseded passage cites the version it was read from through
   this table.
-- `passages`: item key, source id, heading path, the sha256 of the body uploaded, and the item's
-  valid_from and valid_until, current and superseded passages alike. The ingestion compares the
-  hash to upload only new or changed passages (AI Search's own item `checksum` is `0` for uploaded
-  items, so it cannot). `/v1/passages/:id` reads it first, so an unknown id costs no AI Search
-  call.
+- `passages`: item key, source id, heading path, the sha256 of the body uploaded, the body itself
+  and the item's `kind`, and the item's valid_from and valid_until, current and superseded passages
+  alike. The ingestion compares the hash to upload only new or changed passages (AI Search's own
+  item `checksum` is `0` for uploaded items, so it cannot). `/v1/passages/:id` answers from this
+  row alone (see [HTTP API](#http-api-v1)). `body` and `kind` are null only in a row written
+  before `0006`, until the next ingestion rewrites every row; a superseded row keeps the body D1
+  recorded for it, or the text the ingestion copies from AI Search for one that has none.
 - `error_codes`: the `CFDI40xxx` matrix (code, node, attribute, validation, message). Each row
   is also a search passage, so a plain-language question (_"código postal de un receptor con RFC
   genérico"_) finds its code; the record answers the exact lookup.
@@ -191,7 +193,15 @@ The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generate
 `0002_*.sql` (the NOCASE catalog index) and `0003_*.sql` to `0005_*.sql` (versions:
 `source_versions`, then the passages' validity in three steps, because SQLite cannot add a
 `NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
-custom `0004`, then tighten it with its check).
+custom `0004`, then tighten it with its check), and `0006_*.sql` (the passages' `body` and
+`kind`).
+
+The Worker only reads D1, so it queries through a session that starts `first-unconstrained`
+(`withSession`): with read replication on, a query goes to the nearest replica; without it, to the
+primary as before. Each query is a Sentry span (`Sentry.instrumentD1WithSentry`). An isolate keeps
+the `sources` table (a few rows, cited by every search and lookup) for 5 minutes
+(`SOURCES_CACHE_MS`, `src/records.ts`) and reads it again sooner when asked for an id it does not
+hold, so an ingestion's change to a source shows within 5 minutes.
 
 - `sources.id` is the AI Search folder of the source's passages (`rmf-2026`). `authority` is one of
   `SAT`, `DOF`, `SCJN`, `TFJA`, `Congreso` (a check constraint).
@@ -232,13 +242,15 @@ identify a row, the parts of a pedimento number the SAT checks. A repeated key r
 
 Responses use the repo envelope (`{ data, meta: { requestId } }`, `apiJson` in `src/http.ts`);
 errors are `application/problem+json`. Every response, including `/health` and `/ready`, carries
-`x-request-id`: the caller's when it is 1–128 characters, else a new UUID. Every `/v1` route takes
+`x-request-id`: the caller's when it is 1–128 characters, else a new UUID, and `server-timing`:
+`total` (the Worker's time to the response headers) and, when it called AI Search, `search` (the
+time spent in its calls, a Sentry span each; `src/timing.ts`). Every `/v1` route takes
 an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 
 | Method and path                                | Backed by                                                 |
 | ---------------------------------------------- | --------------------------------------------------------- |
 | `GET /v1/search?q=&asOf=&source=&kind=&limit=` | AI Search `search()` + D1 `sources`                       |
-| `GET /v1/passages/:id`                         | D1 `passages` + AI Search Items API + D1 sources          |
+| `GET /v1/passages/:id`                         | D1 `passages` + D1 `sources`                              |
 | `GET /v1/sources`, `/v1/sources/:id`           | D1 `sources`                                              |
 | `GET /v1/errors/:code`                         | D1 `error_codes`                                          |
 | `GET /v1/catalogs/:name`                       | D1 `catalog_entries`                                      |
@@ -249,15 +261,20 @@ The handlers live in `src/handlers.ts`; the routes and MCP tools only pass them 
 
 - **`/v1/passages/:id`**: `:id` is the item key `<source>/<anchor>.md` a search result gives as
   `passageId`, its slash plain or encoded (`%2F`). The handler reads the D1 `passages` row (404
-  `passage_not_found` when absent), finds the item with `items.list({ key, per_page: 1 })`
-  (`items.get` takes the item's id, not its key), and downloads its body with
-  `items.get(id).download()`. It answers `{ passageId, heading, text, authority, kind, validFrom,
-validUntil, source }`: `text` is the whole body as uploaded (heading path, then the verbatim
-  Markdown), not one chunk; the validity comes from the item's metadata; `source` is the D1
+  `passage_not_found` when absent), which holds the body as uploaded, so a read makes no AI Search
+  call (about 20 ms locally, against 3.4 s for the two serial Items API calls it used to make). It
+  answers `{ passageId, heading, text, authority, kind, validFrom, validUntil, source }`: `text` is
+  the whole body as uploaded (heading path, then the verbatim Markdown), not one chunk; `kind` and
+  the validity are the row's, the same values as the item's metadata; `authority` is its
+  source's. A row without a body (written before `0006`) reads the item instead: it finds it
+  with `items.list({ key, per_page: 1 })` (`items.get` takes the item's id, not its key) and
+  downloads it with `items.get(id).download()`, its metadata giving `authority`, `kind` and the
+  validity. `source` is the D1
   provenance of the version the passage was last read from (the one in force on its
   `valid_until`: a superseded passage's own version, else the current one). A superseded passage's
   dated id (`…/nodo-receptor-usocfdi.20220101.md`) reads like any other. A malformed id is `400 invalid_request`; an item AI Search does not hold is 404
-  `passage_not_found`; an Items API failure is `502 search_unavailable`.
+  `passage_not_found`; an Items API failure is `502 search_unavailable` (both only for a row
+  without a body).
 - **`/v1/sources`**: `{ sources: [...] }`, every source by id. **`/v1/sources/:id`**: one source,
   or `404 source_not_found`. A source is `{ id, title, authority, url, sha256, publishedAt,
 retrievedAt, validFrom, validUntil }`, the same provenance the other routes attach.
@@ -317,6 +334,12 @@ that call the same handlers as the MCP tools (`search`, `read_passage`, `lookup_
 `lookup_catalog`, `list_sources`), through TanStack AI (`@tanstack/ai`, `@tanstack/ai-anthropic`),
 the stack Transitive's Agent uses. A tool refusal goes back to the model as
 `{ error: { code, message } }`.
+
+Effort `low` was compared on 2026-10-28: the same 6 questions, run locally against the real AI
+Search, finished in 58.9 s against 68.5 s at `medium` (median 11.7 s against 14.6 s; most of a
+turn is the searches and model turns, not thinking). The answers were as good or better, except
+that one named a law article that no tool had returned ("artículo 29-A del CFF"), which breaks
+"only from the tools", so `medium` stays.
 
 - The site calls it server-side: the browser's `useChat` posts to the site's `POST /_site/chat`,
   which forwards the turn over the site's `API` service binding with the site's own key
@@ -402,8 +425,12 @@ fetch source → sha256 → unchanged? stop
   plan counts each item id once and a skipped item is handled on the next run. `--dry-run` prints
   the plan; `--local` writes D1 records to the local database for `wrangler dev`; `--wait` waits,
   before D1, until AI Search has indexed every item (none queued, running or outdated). It does not
-  wait for stuck items: once only they are left, it fails the run and names each by key, and the
-  next run repairs them. `--instance <name>` loads a comparison instance for an eval of
+  wait for stuck items, and stops waiting after 120 minutes. Then it still writes D1 for what did
+  index (`settledRecords` in `scripts/corpus.ts`): an unfinished current passage keeps its earlier
+  record, or none, and drops a dated copy made from it in this run; superseded records are always
+  written. It then fails the run, naming each unfinished item, and the next run uploads only those
+  again. Before 2026-10-28 a single stuck item stopped the whole D1 write, so each retry uploaded
+  every changed passage again (1,214 RMF reglas on 2026-10-27) and met new stuck items. `--instance <name>` loads a comparison instance for an eval of
   other settings: every passage it lacks, no D1 and no catalogs. A change to the splitter changes
   passage keys, and with them the Agent's citations: prove the corpus with
   `test/corpus.unit.test.ts` and `test/sections.unit.test.ts` first.
@@ -704,6 +731,21 @@ The eight misses left, none fixed by changing expected passages:
   tengo que hacer complemento de pago?"_ and _"¿Cómo hago una nota de crédito que aplique a varias
   facturas?"_. Four of the eight are plain-language questions.
 
+### Reranking and latency (2026-10-28)
+
+The eval now times each query (from the machine that runs it, through the REST API) and takes
+`--rerank on|off` and `--rewrite on|off`. Both runs on the 172 questions, `asOf` 2026-10-27, the
+instance as configured (query rewriting off, reranking on with the default model):
+
+| Reranking   | Top 3 | Top 1 | MRR@10 | Latency p50 | Latency p95 |
+| ----------- | ----: | ----: | -----: | ----------: | ----------: |
+| on (as now) |   161 |   141 |  0.879 |    2,455 ms |    4,460 ms |
+| off         |   153 |   133 |  0.838 |    1,052 ms |    1,898 ms |
+
+Reranking costs more than half of a search's time and earns 8 questions in the top 3 (the
+corpus workflow's floor is 155), so it stays on. The 161 of 172 is the first measurement on the
+172 questions.
+
 ## Infrastructure
 
 Created 2026-10-24 on the Jaantonio account; Phase 0 loaded the same day. Moved on 2026-10-27 to
@@ -822,7 +864,7 @@ to match.
    questions before the RMF, 48 top 3, 43 top 1, MRR@10 0.909). `codice-corpus.yml` checks the SAT
    every Monday, opens a `docs/sat-md` PR, ingests `main` and runs the eval with a floor of 155 of
    172 (provisional) (see [Ingestion](#ingestion)).
-3. **The rest of the API** (done). `GET /v1/passages/:id` (Items API `get` and download), `GET /v1/sources`
+3. **The rest of the API** (done). `GET /v1/passages/:id` (from D1 since `0006`), `GET /v1/sources`
    and `/v1/sources/:id`, and the MCP tools `read_passage`, `lookup_error`, `lookup_catalog` and
    `list_sources`.
 4. **Deploy** (done 2026-10-25 from this repository's Git build). Left: attach `codice.io` once

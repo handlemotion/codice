@@ -132,6 +132,13 @@ export const passages = sqliteTable(
     /** The heading path, such as `Nodo: Receptor › UsoCFDI`. */
     heading: text("heading").notNull(),
     sha256: text("sha256").notNull(),
+    /**
+     * The body uploaded to AI Search, verbatim, so `readPassage` answers from D1 alone. Null only
+     * for a row written before this column, until the next ingestion rewrites it.
+     */
+    body: text("body"),
+    /** The item's `kind` metadata (SPEC.md, "Items"); null as `body` is. */
+    kind: text("kind"),
     ...validity,
   },
   (table) => [

@@ -61,7 +61,7 @@
             "name": "source",
             "in": "query",
             "required": false,
-            "description": "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado` or `matriz-de-errores-cfdi-40`.",
+            "description": "Only one source: `anexo-20-guia-de-llenado`, `complemento-pagos-guia-de-llenado`, `matriz-de-errores-cfdi-40` or `rmf-2026`.",
             "schema": {
               "type": "string"
             }

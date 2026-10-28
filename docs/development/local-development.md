@@ -67,7 +67,9 @@ every local search is a real, billed query to the instance `codice`.
 
 - **API keys**: `/v1` and `/mcp` need a key, verified by the dashboard's `CodiceAccounts` over
   the `ACCOUNTS` service binding, which Wrangler connects to a local dashboard through its dev
-  registry. Run the dashboard beside it (`pnpm --filter @codice/app dev`, with `apps/app/.env` as
+  registry. The API's runtime keeps that registry in this checkout's `.wrangler/registry`
+  (`scripts/worker-dev.mjs`, `WRANGLER_REGISTRY_PATH`); the dashboard and the site run Vite, which
+  reads `MINIFLARE_REGISTRY_PATH` instead, so their `dev` scripts set it to the same directory. Run the dashboard beside it (`pnpm --filter @codice/app dev`, with `apps/app/.env` as
   in `apps/app/AGENTS.md`), apply its migrations once
   (`pnpm --filter @codice/app db:migrate:local`), sign in at `http://localhost:5173/login` with
   any email (the code is printed in the dashboard's output) and create a key at `/keys`. Without

@@ -6,12 +6,15 @@
  *   pnpm --filter @codice/api eval                 the instance's keyword match mode
  *   pnpm --filter @codice/api eval --match or      override it for this run
  *   pnpm --filter @codice/api eval --rerank-threshold 0.1   override the reranking threshold
+ *   pnpm --filter @codice/api eval --rerank off    turn reranking off (or on) for this run
+ *   pnpm --filter @codice/api eval --rewrite off   turn query rewriting off (or on) for this run
  *   pnpm --filter @codice/api eval --out run.json  also write every rank to a file
  *   pnpm --filter @codice/api eval --min-top3 47   exit 1 when fewer questions pass
  *   pnpm --filter @codice/api eval --instance codice-bge-m3   a comparison instance
  *
  * Runs under Doppler `codice` `dev`, whose `CODICE_AI_SEARCH_TOKEN` has AI Search Run and Read only;
- * without it, `CLOUDFLARE_API_TOKEN`. About 170 queries a run.
+ * without it, `CLOUDFLARE_API_TOKEN`. About 170 queries a run. Each query is timed, and the
+ * summary gives the p50 and p95 latency, as measured from the machine that runs the eval.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -30,6 +33,8 @@ const { values } = parseArgs({
   options: {
     match: { type: "string" },
     "rerank-threshold": { type: "string" },
+    rerank: { type: "string" },
+    rewrite: { type: "string" },
     out: { type: "string" },
     "min-top3": { type: "string" },
     instance: { type: "string", default: "codice" },
@@ -42,6 +47,14 @@ if (values.match !== undefined && values.match !== "and" && values.match !== "or
 const match = values.match;
 const rerankingThreshold =
   values["rerank-threshold"] === undefined ? undefined : Number(values["rerank-threshold"]);
+function onOff(flag: string) {
+  const value = values[flag as "rerank" | "rewrite"];
+  if (value === undefined) return undefined;
+  if (value !== "on" && value !== "off") throw new Error(`--${flag} is \`on\` or \`off\``);
+  return value === "on";
+}
+const reranking = onOff("rerank");
+const queryRewrite = onOff("rewrite");
 const minTop3 = values["min-top3"] === undefined ? undefined : Number(values["min-top3"]);
 if (minTop3 !== undefined && !Number.isInteger(minTop3)) {
   throw new Error("--min-top3 is a whole number of questions");
@@ -89,6 +102,10 @@ async function main() {
     chunk_size?: number;
     indexing_options?: { keyword_tokenizer?: string };
     retrieval_options?: { keyword_match_mode?: string };
+    reranking?: boolean;
+    reranking_model?: string;
+    rewrite_query?: boolean;
+    rewrite_model?: string;
   }>("");
   const config = {
     instance: values.instance,
@@ -97,12 +114,17 @@ async function main() {
     keywordTokenizer: instance.indexing_options?.keyword_tokenizer ?? "porter",
     keywordMatchMode: match ?? instance.retrieval_options?.keyword_match_mode ?? "and",
     rerankingThreshold: rerankingThreshold ?? RERANKING_THRESHOLD,
+    reranking: reranking ?? instance.reranking ?? null,
+    rerankingModel: instance.reranking_model ?? null,
+    queryRewrite: queryRewrite ?? instance.rewrite_query ?? null,
+    rewriteModel: instance.rewrite_model ?? null,
   };
   console.log(JSON.stringify(config));
 
   const asOf = todayInMexicoCity();
-  const runs: { q: string; rank: number | null; top: string[] }[] = [];
+  const runs: { q: string; rank: number | null; top: string[]; ms: number }[] = [];
   for (const question of questions) {
+    const started = performance.now();
     const result = await api<AiSearchSearchResponse>("/search", {
       method: "POST",
       body: JSON.stringify(
@@ -113,13 +135,16 @@ async function main() {
           limit: DEPTH,
           keywordMatchMode: match,
           rerankingThreshold,
+          reranking,
+          queryRewrite,
         }),
       ),
     });
+    const ms = Math.round(performance.now() - started);
     const ranked = [...new Set(result.chunks.map((chunk) => chunk.item.key))];
     const index = ranked.findIndex((key) => question.expect.includes(key));
     const rank = index === -1 ? null : index + 1;
-    runs.push({ q: question.q, rank, top: ranked.slice(0, TOP) });
+    runs.push({ q: question.q, rank, top: ranked.slice(0, TOP), ms });
     const mark = rank !== null && rank <= TOP ? "pass" : "MISS";
     console.log(`${mark} rank=${rank ?? "-"} ${question.q}`);
     if (mark === "MISS") console.log(`     top: ${ranked.slice(0, TOP).join(", ") || "(none)"}`);
@@ -128,6 +153,9 @@ async function main() {
   const hits = runs.filter((run) => run.rank !== null && run.rank <= TOP).length;
   const first = runs.filter((run) => run.rank === 1).length;
   const mrr = runs.reduce((total, run) => total + (run.rank ? 1 / run.rank : 0), 0) / runs.length;
+  const times = runs.map((run) => run.ms).sort((a, b) => a - b);
+  const percentile = (p: number) =>
+    times[Math.min(times.length - 1, Math.ceil(p * times.length) - 1)];
   const summary = {
     ...config,
     asOf,
@@ -135,6 +163,8 @@ async function main() {
     top3: hits,
     top1: first,
     mrr10: Number(mrr.toFixed(3)),
+    latencyMsP50: percentile(0.5),
+    latencyMsP95: percentile(0.95),
   };
   console.log(JSON.stringify(summary));
   if (values.out) writeFileSync(values.out, `${JSON.stringify({ summary, runs }, null, 2)}\n`);

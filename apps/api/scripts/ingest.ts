@@ -39,6 +39,7 @@ import {
   catalogEntryRows,
   ingestionPlan,
   passageRecord,
+  settledRecords,
   sha256,
   stuckItem,
   type Corpus,
@@ -211,10 +212,11 @@ async function remove(id: string) {
 
 /**
  * Waits until no item is queued, running or outdated (needs re-indexing), so a search sees every
- * passage. A stuck item (`stuckItem`) never finishes, so it is not waited for: it fails the wait,
- * reported by key, and the next run deletes and uploads it again.
+ * passage, and returns the items that did not finish: the stuck ones (`stuckItem`), which never
+ * will, and at the time limit those still indexing. The run records the rest and then fails, naming
+ * them; the next run deletes and uploads them again.
  */
-async function waitForIndexing() {
+async function waitForIndexing(): Promise<RemoteItem[]> {
   const deadline = Date.now() + WAIT_LIMIT_MS;
   for (;;) {
     const [queued, running, outdated, failed] = await Promise.all([
@@ -225,12 +227,17 @@ async function waitForIndexing() {
     ]);
     const stuck = [...outdated, ...failed].filter(stuckItem);
     const pending = queued + running + outdated.length - outdated.filter(stuckItem).length;
-    if (pending === 0 && stuck.length > 0) {
-      const keys = stuck.map((item) => `\n  ${item.key} (${item.status})`).join("");
-      throw new Error(`AI Search: ${stuck.length} items will never finish indexing:${keys}`);
+    if (pending === 0) {
+      if (stuck.length === 0) console.log("AI Search: every item indexed");
+      return stuck;
     }
-    if (pending === 0) return console.log("AI Search: every item indexed");
-    if (Date.now() > deadline) throw new Error(`AI Search: ${pending} items still indexing`);
+    if (Date.now() > deadline) {
+      const [queuedItems, runningItems] = await Promise.all([
+        listItems("queued"),
+        listItems("running"),
+      ]);
+      return [...queuedItems, ...runningItems, ...outdated, ...failed];
+    }
     console.log(`AI Search: ${pending} items indexing, ${stuck.length} stuck`);
     await new Promise((done) => setTimeout(done, POLL_MS));
   }
@@ -267,7 +274,7 @@ function wrangler(commandArgs: string[]) {
 /** Item key → what was last uploaded and when it applies, from D1, current and superseded. */
 function recordedPassages() {
   const rows = query<PassageRecord>(
-    "SELECT key, source_id AS sourceId, heading, sha256, valid_from AS validFrom, valid_until AS validUntil FROM passages",
+    "SELECT key, source_id AS sourceId, heading, sha256, body, kind, valid_from AS validFrom, valid_until AS validUntil FROM passages",
   );
   return new Map(rows.map((row) => [row.key, row]));
 }
@@ -390,18 +397,15 @@ async function main() {
     }
     return;
   }
+  // A comparison instance takes the passages as they are now: it uploads only what it lacks.
+  const recorded = comparison
+    ? new Map(corpus.passages.map((passage) => [passage.key, passageRecord(passage)]))
+    : recordedPassages();
   const plan = ingestionPlan({
     passages: corpus.passages,
     sources: corpus.sources,
-    // A comparison instance takes the passages as they are now: it uploads only what it lacks.
-    ...(comparison
-      ? {
-          recordedSources: corpus.sources,
-          recorded: new Map(
-            corpus.passages.map((passage) => [passage.key, passageRecord(passage)]),
-          ),
-        }
-      : { recordedSources: recordedSources(), recorded: recordedPassages() }),
+    recordedSources: comparison ? corpus.sources : recordedSources(),
+    recorded,
     items: await listItems(),
   });
   console.log(
@@ -442,14 +446,34 @@ async function main() {
   await each(plan.upload, upload);
   await each(plan.remove, (item) => remove(item.id));
   if (comparison) {
-    if (wait) await waitForIndexing();
+    if (wait) failUnfinished(await waitForIndexing());
     return;
   }
   await loadLargeCatalogs(corpus, manifest);
-  // Before D1: a run that times out waiting leaves the old hashes, so the next run plans the same
-  // changes again and its eval still runs.
-  if (wait) await waitForIndexing();
-  writeRecords(corpus, plan);
+  // Before D1: a passage that did not finish indexing keeps its old record, so the next run uploads
+  // it again (and its eval still runs), while everything that did index is recorded.
+  const unfinished = wait ? await waitForIndexing() : [];
+  // A superseded record D1 kept before it held bodies takes the text just copied from AI Search.
+  const copied = new Map(copies.map((copy) => [copy.key, copy]));
+  const records = plan.records.map((record) => {
+    const copy = copied.get(record.key);
+    return record.body === null && copy
+      ? { ...record, body: copy.body, kind: copy.metadata.kind }
+      : record;
+  });
+  writeRecords(corpus, {
+    ...plan,
+    records: settledRecords(records, recorded, new Set(unfinished.map((item) => item.key))),
+  });
+  failUnfinished(unfinished);
+}
+
+function failUnfinished(unfinished: readonly RemoteItem[]) {
+  if (unfinished.length === 0) return;
+  const keys = unfinished.map((item) => `\n  ${item.key} (${item.status})`).join("");
+  throw new Error(
+    `AI Search: ${unfinished.length} items did not finish indexing; the next run uploads them again:${keys}`,
+  );
 }
 
 await main();

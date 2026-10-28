@@ -27,6 +27,9 @@ const PASSAGE_ID = "matriz-de-errores-cfdi-40/cfdi40149.md";
 const PASSAGE_BODY =
   "# Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149\n\nCódigo: CFDI40149\n";
 
+const STORED_PASSAGE_ID = "matriz-de-errores-cfdi-40/cfdi40158.md";
+const STORED_PASSAGE_BODY = "# Matriz › cfdi:Receptor › UsoCFDI › CFDI40158\n\nCódigo: CFDI40158\n";
+
 type ItemsCall = ["list", AiSearchListItemsParams | undefined] | ["download", string];
 
 /** A recorded Items API: `list` by key finds the stored item, `get(id).download()` its body. */
@@ -140,13 +143,25 @@ beforeAll(async () => {
       message: "Mensaje",
     },
   ]);
-  await db.insert(passages).values({
-    key: PASSAGE_ID,
-    sourceId: "matriz-de-errores-cfdi-40",
-    heading: "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
-    sha256: "1".repeat(64),
-    validFrom: 20260325,
-  });
+  await db.insert(passages).values([
+    // Written before D1 kept bodies: its text is only in AI Search.
+    {
+      key: PASSAGE_ID,
+      sourceId: "matriz-de-errores-cfdi-40",
+      heading: "Matriz › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
+      sha256: "1".repeat(64),
+      validFrom: 20260325,
+    },
+    {
+      key: STORED_PASSAGE_ID,
+      sourceId: "matriz-de-errores-cfdi-40",
+      heading: "Matriz › cfdi:Receptor › UsoCFDI › CFDI40158",
+      sha256: "5".repeat(64),
+      body: STORED_PASSAGE_BODY,
+      kind: "anexo",
+      validFrom: 20260325,
+    },
+  ]);
   // Inserted in sheet order, as the ingestion does.
   await db.insert(catalogEntries).values([
     {
@@ -227,6 +242,7 @@ describe("GET /v1/search", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("server-timing")).toMatch(/^total;dur=[\d.]+, search;dur=[\d.]+$/u);
     expect(calls).toEqual([
       {
         messages: [{ role: "user", content: "código postal RFC genérico" }],
@@ -490,7 +506,33 @@ describe("GET /v1/passages/:id", () => {
     },
   ];
 
-  it("lists the item by key, downloads it by id and returns its full text with provenance", async () => {
+  it("returns a passage D1 holds whole with its provenance, without calling AI Search", async () => {
+    const calls: ItemsCall[] = [];
+    const response = await request(`/v1/passages/${STORED_PASSAGE_ID}`, fakeItems([], calls), {
+      "x-request-id": "ray-1",
+    });
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual([]);
+    expect(await response.json()).toEqual({
+      data: {
+        passageId: STORED_PASSAGE_ID,
+        heading: "Matriz › cfdi:Receptor › UsoCFDI › CFDI40158",
+        text: STORED_PASSAGE_BODY,
+        authority: "SAT",
+        kind: "anexo",
+        validFrom: "2026-03-25",
+        validUntil: null,
+        source: expect.objectContaining({
+          id: "matriz-de-errores-cfdi-40",
+          url: "http://omawww.sat.gob.mx/matriz.xls",
+        }),
+      },
+      meta: { requestId: "ray-1" },
+    });
+  });
+
+  it("reads a row recorded without its body from AI Search: lists the item by key, downloads it by id", async () => {
     const calls: ItemsCall[] = [];
     const response = await request(`/v1/passages/${PASSAGE_ID}`, fakeItems(stored, calls), {
       "x-request-id": "ray-2",

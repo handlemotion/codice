@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/cloudflare";
 import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
@@ -12,15 +13,24 @@ import {
 import type { CodiceBindings } from "./env";
 import { dateNumber, isoDate } from "./search";
 
-/** Exact lookups and provenance from D1 `codice` (SPEC.md, "Records and provenance"). */
+/**
+ * Exact lookups and provenance from D1 `codice` (SPEC.md, "Records and provenance"). Only the
+ * ingestion writes it, so every read may go to the nearest read replica: a session that starts
+ * `first-unconstrained`. Each query is a Sentry span.
+ */
 export function recordsDatabase(env: CodiceBindings) {
   if (!env.CODICE_DATABASE) throw new Error("CODICE_DATABASE is not bound");
-  return drizzle(env.CODICE_DATABASE);
+  const session = Sentry.instrumentD1WithSentry(env.CODICE_DATABASE).withSession(
+    "first-unconstrained",
+  );
+  // Drizzle types its client as a D1Database; it calls only `prepare` and `batch`, which a
+  // session has.
+  return drizzle(session as unknown as D1Database);
 }
 
 type Database = ReturnType<typeof recordsDatabase>;
 
-function validity(validFrom: number, validUntil: number) {
+export function validity(validFrom: number, validUntil: number) {
   return {
     validFrom: isoDate(validFrom),
     validUntil: validUntil === IN_FORCE_UNTIL ? null : isoDate(validUntil),
@@ -49,23 +59,41 @@ function provenanceOf({
   return { ...row, retrievedAt: retrievedAt.toISOString(), ...validity(validFrom, validUntil) };
 }
 
-/** Every source, by id. */
+/**
+ * How long an isolate keeps the `sources` table: a few rows only the ingestion writes, which
+ * every search and lookup cites. An ingestion's change shows within this time.
+ */
+export const SOURCES_CACHE_MS = 5 * 60 * 1000;
+
+let sourcesCache: { readonly at: number; readonly byId: ReadonlyMap<string, SourceProvenance> } = {
+  at: -Infinity,
+  byId: new Map(),
+};
+
+/** Every source, by id; it refreshes the isolate's copy. */
 export async function allSources(db: Database): Promise<SourceProvenance[]> {
-  const rows = await db.select().from(sources).orderBy(asc(sources.id));
-  return rows.map(provenanceOf);
+  const rows = (await db.select().from(sources).orderBy(asc(sources.id))).map(provenanceOf);
+  sourcesCache = { at: Date.now(), byId: new Map(rows.map((row) => [row.id, row])) };
+  return rows;
 }
 
-/** The sources by id; an id D1 does not hold is left out. */
+/**
+ * The sources by id, from the isolate's copy of the table; an id D1 does not hold is left out. A
+ * copy older than `SOURCES_CACHE_MS`, or one without an id asked for, is read again first.
+ */
 export async function sourcesById(
   db: Database,
   ids: readonly string[],
 ): Promise<ReadonlyMap<string, SourceProvenance>> {
   if (ids.length === 0) return new Map();
-  const rows = await db
-    .select()
-    .from(sources)
-    .where(inArray(sources.id, [...new Set(ids)]));
-  return new Map(rows.map((row) => [row.id, provenanceOf(row)]));
+  const fresh = Date.now() - sourcesCache.at < SOURCES_CACHE_MS;
+  if (!fresh || ids.some((id) => !sourcesCache.byId.has(id))) await allSources(db);
+  return new Map(
+    ids.flatMap((id) => {
+      const source = sourcesCache.byId.get(id);
+      return source ? [[id, source] as const] : [];
+    }),
+  );
 }
 
 /**
