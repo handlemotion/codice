@@ -4,6 +4,7 @@
  * `sat-knowledge.ts` into `docs/sat-md/*.json`, which the ingestion loads into D1 for the exact
  * lookups (`/v1/errors/:code`, `/v1/catalogs/:name`).
  */
+import { searchWords } from "../src/search";
 
 /**
  * The catalogs the corpus holds: those the CFDI's header, Receptor, tax, and payment fields use.
@@ -100,6 +101,38 @@ export function catalogEntryFields(catalog: SatCatalog, row: readonly string[]) 
     if (column && value) fields[column] = value;
   });
   return fields;
+}
+
+/**
+ * The columns that describe an entry in words, by the SAT's headers: `Descripción` in most
+ * catalogs, `Nombre` in c_ClaveUnidad, the names in c_Estado and c_Colonia, and c_ClaveProdServ's
+ * `Palabras similares`. Left out: c_ClaveUnidad's `Nota` (mostly UNECE boilerplate), flags,
+ * codes and dates.
+ */
+export const CATALOG_DESCRIPTION_COLUMNS = [
+  "Descripción",
+  "Nombre",
+  "Nombre del estado",
+  "Nombre del asentamiento",
+  "Palabras similares",
+] as const;
+
+/**
+ * What a catalog description search matches (D1 `catalog_entries.search_text`): the key, then the
+ * entry's descriptions in the catalog's column order, one per line, each as its `searchWords`
+ * (`kilogramo`), so a query that is a whole line ranks that entry first. Null when the entry has
+ * no description (c_CodigoPostal, c_TasaOCuota), so the full-text index leaves it out.
+ */
+export function catalogSearchText(key: string, fields: Readonly<Record<string, string>>) {
+  const columns: readonly string[] = CATALOG_DESCRIPTION_COLUMNS;
+  const descriptions = Object.entries(fields).flatMap(([column, value]) =>
+    columns.includes(column) ? [value] : [],
+  );
+  if (descriptions.length === 0) return null;
+  return [key, ...descriptions]
+    .map((line) => searchWords(line).join(" "))
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** The matrix row as its Markdown table shows it: code, attribute, validation, message. */

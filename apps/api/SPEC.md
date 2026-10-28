@@ -229,15 +229,17 @@ hand-written migrations).
   validity columns, else the catalog's). A key can repeat (`c_TasaOCuota`); the ingestion inserts
   each catalog in its sheet's order, so the surrogate id keeps the SAT's order. It holds every
   catCFDI catalog: the 17 in `docs/sat-md`, and the 8 large ones that are not in `docs/sat-md`, which the ingestion reads from the same catCFDI file (see
-  [Large catalogs](#large-catalogs)).
+  [Large catalogs](#large-catalogs)). `search_text` holds what a description search matches, and
+  the FTS5 table `catalog_entries_fts` indexes it (see [Catalog search](#catalog-search)).
 
 The shapes follow `scripts/sat-records.ts`, the records `sat:knowledge` generates. Schema:
 `src/db/schema.ts`, migrations `migrations/0000_*.sql` (records), `0001_*.sql` (`passages`),
 `0002_*.sql` (the NOCASE catalog index) and `0003_*.sql` to `0005_*.sql` (versions:
 `source_versions`, then the passages' validity in three steps, because SQLite cannot add a
 `NOT NULL` column without a default: add it, backfill it from its source's `valid_from` with the
-custom `0004`, then tighten it with its check), and `0006_*.sql` (the passages' `body` and
-`kind`).
+custom `0004`, then tighten it with its check), `0006_*.sql` (the passages' `body` and
+`kind`), and `0007_*.sql` and `0008_*.sql` (catalog search: the `search_text` column, then the
+custom `0008` with the full-text index Drizzle cannot declare; see [Catalog search](#catalog-search)).
 
 The Worker only reads D1, so it queries through a session that starts `first-unconstrained`
 (`withSession`): with read replication on, a query goes to the nearest replica; without it, to the
@@ -281,6 +283,63 @@ identify a row, the parts of a pedimento number the SAT checks. A repeated key r
 `c_Municipio` or `c_Localidad` narrow by `c_Estado`. The filter runs after the indexed
 (catalog, key) match, so it only reads the rows that share the key.
 
+### Catalog search
+
+`GET /v1/catalogs/:name?q=` and the MCP tool `search_catalog` find a catalog's keys by the words of
+their description (`servicios de consultoría` in c_ClaveProdServ, `kilogramo` in c_ClaveUnidad,
+`gastos médicos` in c_UsoCFDI), from D1 alone: SQLite's FTS5 full-text index, no AI Search query and
+no AI Search cost. Picking one of c_ClaveProdServ's 52,513 product and service codes is an issuer's
+daily problem, and a key lookup only answers a code already known.
+
+- **What is indexed.** `catalog_entries.search_text`, written by the ingestion
+  (`catalogSearchText` in `scripts/sat-records.ts`): the key, then each column that describes the
+  entry in words (`Descripción`, `Nombre`, `Nombre del estado`, `Nombre del asentamiento`, and
+  c_ClaveProdServ's `Palabras similares`), in the catalog's column order, one per line, each as its
+  words lowercase and without accents (`searchWords` in `src/search.ts`, which the query uses too).
+  c_ClaveUnidad's `Nota` is left out (mostly the same UNECE notice), as are flags, codes and dates.
+  An entry with no such column (c_CodigoPostal, c_TasaOCuota, c_NumPedimentoAduana,
+  c_PatenteAduanal) has a null `search_text` and is not indexed: 204,134 of the 362,380 entries
+  are, c_Colonia's 145,366 among them.
+- **The index.** `catalog_entries_fts`, an FTS5 external-content table (columns `catalog`,
+  `search_text`; tokenizer `porter unicode61 remove_diacritics 2`) over the view
+  `catalog_entries_searchable` (the entries with search text), so it stores only the index, and
+  FTS5's `integrity-check` and `rebuild` agree with it. Triggers on `catalog_entries` (insert,
+  delete, update) keep it in step with every write, so the ingestion fills it by writing
+  `search_text` and nothing else. Drizzle cannot declare a virtual table, a view it does not own
+  or a trigger, so they are the custom migration `0008` (`drizzle-kit generate --custom`, as `0004`
+  was; https://orm.drizzle.team/docs/drizzle-kit-generate: "generate empty SQL for custom
+  migration"); `0007` adds the column through `db:generate`. D1 supports FTS5
+  (https://developers.cloudflare.com/d1/sql-api/sql-statements/: "D1 supports a subset of SQLite
+  extensions for added functionality, including: FTS5 module for full-text search"). The porter
+  stemmer is English, applied to index and query alike: it folds some plurals and takes some
+  English words to their Spanish stem (`consulting services` finds `consultoría`), with no
+  translation or synonyms (`resico` finds nothing: the SAT writes _Régimen Simplificado de
+  Confianza_).
+- **The query** (`catalogSearch` in `src/records.ts`). `q`'s words, as `searchWords` gives them,
+  without Spanish and English stop words (`de`, `la`, `the`, …) unless they are all it has, each
+  quoted as an FTS5 prefix term (`"consultoria"*`), so the caller's text is never FTS5 syntax. It
+  matches the catalog's phrase in the `catalog` column and every term in `search_text`; when no
+  entry holds every term, any term (the entries that hold the most rank first). Order: an entry
+  with a line that is the whole query first (the key `kgm`, the name `kilogramo`: BM25 alone ranks
+  short names such as _Kilogramo por kilogramo_ above _Kilogramo_), then BM25 on `search_text`,
+  then the SAT's order (`id`).
+- **The answer** is a listing's shape: `{ catalog, query, entries: [{ key, fields, validFrom,
+validUntil }], source }`, best first, at most `limit` (1–50, default 10), every entry whatever
+  its validity. No match is `200` with no entries; an unknown catalog `404 catalog_not_found`; an
+  empty `q`, one longer than 200 characters or with no letter or digit, or a bad `limit`,
+  `400 invalid_request`.
+- **Cost and speed**, measured locally on 2026-10-28 with every catalog loaded: the index is
+  9.0 MB (`catalog_entries_fts_data` 6.7 MB, `_docsize` 2.3 MB) and `search_text` 5.6 MB, on a
+  database of about 106 MB; the large catalogs load in 121 s, against 108 s without it. Searches
+  over HTTP to `wrangler dev` answer in 15–40 ms (`server-timing` `total`), the broadest
+  (`c_Colonia`, `san`) 77 ms.
+- D1 cannot export a database that holds a virtual table
+  (https://developers.cloudflare.com/d1/best-practices/import-export-data/: "Export is not
+  supported for virtual tables, including databases with virtual tables"). To copy `codice` with
+  `wrangler d1 export`, as on 2026-10-27, drop `catalog_entries_fts` and its triggers first, then
+  recreate them with `0008`'s statements and fill the index with
+  `INSERT INTO catalog_entries_fts (catalog_entries_fts) VALUES ('rebuild')`.
+
 ## HTTP API (`/v1`)
 
 Responses use the repo envelope (`{ data, meta: { requestId } }`, `apiJson` in `src/http.ts`);
@@ -298,6 +357,7 @@ an API key ([Auth](#auth)); without a valid one it answers `401 unauthorized`.
 | `GET /v1/sources`, `/v1/sources/:id`           | D1 `sources`                                              |
 | `GET /v1/errors/:code`                         | D1 `error_codes`                                          |
 | `GET /v1/catalogs/:name`                       | D1 `catalog_entries`                                      |
+| `GET /v1/catalogs/:name?q=&limit=`             | D1 `catalog_entries_fts` + `catalog_entries`              |
 | `GET /v1/catalogs/:name/:key?<column>=`        | D1 `catalog_entries`                                      |
 | `POST /v1/chat`                                | Claude Sonnet 5.5 over the handlers above ([Chat](#chat)) |
 
@@ -339,7 +399,9 @@ source }`, every entry of the key in the SAT's order, or `404 catalog_entry_not_
 - **`/v1/catalogs/:name`**: the whole catalog in the SAT's order, `{ catalog, entries: [{ key,
 fields, validFrom, validUntil }], truncated, source }`, at most 500 entries (`truncated` says
   when there are more; the largest small catalog, c_Pais, has 250, while the large ones such as
-  c_CodigoPostal come back truncated). `404 catalog_not_found`.
+  c_CodigoPostal come back truncated). `404 catalog_not_found`. With `q`, a search of the catalog
+  by description instead ([Catalog search](#catalog-search)): `{ catalog, query, entries: [{ key,
+fields, validFrom, validUntil }], source }`, best first, at most `limit` (1–50, default 10).
 
 ### Internal entrypoint
 
@@ -359,6 +421,7 @@ Worker the account binds can call it. The Agent binds it as `CODICE`.
 | `read_passage`   | `id`                                   | `GET /v1/passages/:id`        |
 | `lookup_error`   | `code`                                 | `GET /v1/errors/:code`        |
 | `lookup_catalog` | `name`, `key`, `where`                 | `GET /v1/catalogs/:name/:key` |
+| `search_catalog` | `name`, `q`, `limit`                   | `GET /v1/catalogs/:name?q=`   |
 | `list_sources`   | none                                   | `GET /v1/sources`             |
 
 Each is a thin call to the same handler as `/v1` and returns its `data` as `structuredContent` (and
@@ -588,7 +651,9 @@ publicada en el DOF el 09 de julio de 2026.`) through its references line, label
   `sources.json` pins, refuses it unless its SHA-256 is the manifest's (so every catalog comes from
   one version), converts it with LibreOffice (`workbookSheets`, shared with `sat:knowledge`), and
   parses it with `parseCatalogSheet` (`scripts/sat-knowledge-render.ts`). It loads them only when D1's catalog source hash
-  differs from the manifest's or one of them has no rows; `--catalogs` forces a reload. With
+  differs from the manifest's, one of them has no rows, or c_ClaveProdServ has no search text (a
+  load from before `0007`; [Catalog search](#catalog-search)); `--catalogs` forces a reload. Each
+  row carries its `search_text`, and `0008`'s triggers index it as it is inserted. With
   `--local` they load only with `--catalogs`, so the local stack's seed stays fast and needs no
   LibreOffice.
 - D1 limits (<https://developers.cloudflare.com/d1/platform/limits/>): a statement holds at most
@@ -878,7 +943,8 @@ corpus workflow's floor is 155), so it stays on. The 161 of 172 is the first mea
 
 Created 2026-10-24 on the Jaantonio account; Phase 0 loaded the same day. Moved on 2026-10-27 to
 the Handle account (`473fbe436e39d8f3d33b6bb09afd3dd7`) as the Worker `codice-api`: the D1 database
-was copied with `wrangler d1 export` and re-imported (same rows), the AI Search instance re-created
+was copied with `wrangler d1 export` and re-imported (same rows; since `0008` an export first needs
+the full-text index dropped, see [Catalog search](#catalog-search)), the AI Search instance re-created
 with the settings above and filled by `ingest`. The Jaantonio Worker `codice` and its resources stay
 until Transitive's Agent stops binding it.
 
@@ -1048,6 +1114,13 @@ to match.
     and the user's connected clients are listed and disconnected through `codice-app`'s server
     functions. Proved locally end to end with the MCP TypeScript SDK 2.0 and Chromium, by DCR and
     with Claude's published metadata document. Next: the dashboard page that lists them.
+
+12. **Catalog search** (done in code; see [Catalog search](#catalog-search)). `GET
+/v1/catalogs/:name?q=` and the MCP tool `search_catalog` find catalog keys by description from
+    D1's FTS5 index. `0007` and `0008` apply with the next `deploy:production`; the index then
+    fills on the next ingestion, which rewrites the small catalogs and reloads the large ones
+    because they have no search text yet (the Monday run, or `codice-corpus.yml` by hand). Until
+    then a search answers no entries.
 
 ## Open questions
 

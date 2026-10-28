@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseCsv } from "../scripts/sat-knowledge-render";
-import type { SatSource } from "../scripts/sat-records";
+import { catalogSearchText, type SatSource } from "../scripts/sat-records";
 import {
   catalogEntryRows,
   type CatalogEntryRow,
@@ -81,6 +81,7 @@ function entry(catalog: string, key: string, fields: Record<string, string>): Ca
     key,
     sourceId: SOURCE_ROW.id,
     fields,
+    searchText: null,
     validFrom: 20220101,
     validUntil: 99991231,
   };
@@ -119,6 +120,7 @@ describe("parseLargeCatalogs", () => {
         c_Localidad: "01",
         "Fecha inicio de vigencia": "2019-01-07",
       },
+      searchText: null,
       validFrom: 20190107,
       validUntil: 99991231,
     });
@@ -126,6 +128,18 @@ describe("parseLargeCatalogs", () => {
       "0001",
       "0001",
     ]);
+    // The description search reads the key and the descriptions; a postal code has none.
+    expect(
+      Object.fromEntries(
+        rows.filter((row) => row.searchText).map((row) => [row.catalog, row.searchText]),
+      ),
+    ).toEqual({
+      c_ClaveProdServ: "01010101\nno existe en el catalogo",
+      c_ClaveUnidad: "h87\npieza",
+      c_Colonia: "0001\ntetitla la gallera",
+      c_Localidad: "01\naguascalientes",
+      c_Municipio: "001\naguascalientes",
+    });
     expect(rows.find((row) => row.catalog === "c_NumPedimentoAduana")).toMatchObject({
       key: "16-2069-2026",
       validFrom: 20260731,
@@ -155,6 +169,32 @@ describe("parseLargeCatalogs", () => {
       const bad = { ...catalog!, rows: [["01010101", "No existe", value]] };
       expect(() => catalogEntryRows({ source: SOURCE, catalogs: [bad] })).toThrow(/no date in/u);
     }
+  });
+});
+
+describe("catalogSearchText", () => {
+  it("holds the key and the descriptions as their words, one per line, and nothing without one", () => {
+    expect(
+      catalogSearchText("80101500", {
+        c_ClaveProdServ: "80101500",
+        Descripción: "Servicios de consultoría de negocios y administración corporativa",
+        "Incluir IVA trasladado": "Sí",
+        FechaInicioVigencia: "2022-01-01",
+        "Palabras similares": "Asesoría empresarial",
+      }),
+    ).toBe(
+      "80101500\nservicios de consultoria de negocios y administracion corporativa\nasesoria empresarial",
+    );
+    expect(
+      catalogSearchText("KGM", {
+        c_ClaveUnidad: "KGM",
+        Nombre: "Kilogramo",
+        Descripción: "Una unidad de masa igual a mil gramos.",
+        Nota: "Las unidades marcadas como borradas…",
+        Símbolo: "kg",
+      }),
+    ).toBe("kgm\nkilogramo\nuna unidad de masa igual a mil gramos");
+    expect(catalogSearchText("01000", { c_CodigoPostal: "01000", c_Estado: "CMX" })).toBeNull();
   });
 });
 
@@ -213,6 +253,9 @@ describe("D1 batches", () => {
       `BETWEEN ${1_001 + DELETE_ROWS_MAX * 2} AND ${1_001 + DELETE_ROWS_MAX * 2}`,
     );
     expect(inserts.join("")).toContain("'c_CodigoPostal', '09999'");
+    expect(inserts[0]).toMatch(
+      /^INSERT INTO catalog_entries \(catalog, key, fields, search_text, source_id, valid_from, valid_until\) VALUES \('c_CodigoPostal', '00000', '\{[^}]*\}', NULL, 'catalogos-cfdi-40', /u,
+    );
     expect(
       largeCatalogFiles({ source: SOURCE_ROW, rows, catalogs: LARGE_CATALOG_NAMES, ids: null })[0],
     ).not.toContain("DELETE");

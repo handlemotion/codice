@@ -145,6 +145,59 @@ describe("D1 schema", () => {
     expect(stored.every((row) => row.validUntil === IN_FORCE_UNTIL)).toBe(true);
   });
 
+  it("keeps the full-text index in step with the entries that have search text", async () => {
+    const matches = async (words: string) =>
+      (
+        await database
+          .prepare(
+            "SELECT catalog_entries.key AS key FROM catalog_entries_fts JOIN catalog_entries ON catalog_entries.id = catalog_entries_fts.rowid WHERE catalog_entries_fts MATCH ? ORDER BY catalog_entries.id",
+          )
+          .bind(words)
+          .all<{ key: string }>()
+      ).results.map((row) => row.key);
+    const [indexed] = await db
+      .insert(catalogEntries)
+      .values([
+        {
+          catalog: "c_Meses",
+          key: "01",
+          fields: { c_Meses: "01", Descripción: "Enero" },
+          searchText: "01\nenero",
+          sourceId: SOURCE.id,
+          validFrom: 20220101,
+        },
+        // No description: never in the index.
+        {
+          catalog: "c_Meses",
+          key: "02",
+          fields: { c_Meses: "02" },
+          sourceId: SOURCE.id,
+          validFrom: 20220101,
+        },
+      ])
+      .returning({ id: catalogEntries.id });
+
+    // The tokenizer drops accents, so `Énero` finds `enero`.
+    expect(await matches('{catalog} : "c_meses" AND Énero')).toEqual(["01"]);
+    expect(await matches('{catalog} : "c_meses"')).toEqual(["01"]);
+
+    await db
+      .update(catalogEntries)
+      .set({ searchText: "01\njanuary" })
+      .where(eq(catalogEntries.id, indexed!.id));
+    expect(await matches("enero")).toEqual([]);
+    expect(await matches("january")).toEqual(["01"]);
+
+    await db.delete(catalogEntries).where(eq(catalogEntries.catalog, "c_Meses"));
+    expect(await matches("january")).toEqual([]);
+    // FTS5's own check that the index matches its content table.
+    await database
+      .prepare(
+        "INSERT INTO catalog_entries_fts (catalog_entries_fts, rank) VALUES ('integrity-check', 1)",
+      )
+      .run();
+  });
+
   it("looks a catalog entry up through the (catalog, key) index, in any case", async () => {
     // The lookup in `records.ts` compares NOCASE; c_CodigoPostal alone holds ~95k rows.
     const plan = await database

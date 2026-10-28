@@ -3,12 +3,15 @@ import { z } from "zod";
 
 import type { CodiceBindings } from "./env";
 import {
+  CATALOG_SEARCH_LIMIT_DEFAULT,
+  CATALOG_SEARCH_LIMIT_MAX,
   CodiceProblem,
   listSources,
   lookupCatalog,
   lookupError,
   readPassage,
   search,
+  searchCatalog,
 } from "./handlers";
 import { PASSAGE_KINDS, SEARCH_LIMIT_DEFAULT, SEARCH_LIMIT_MAX } from "./search";
 
@@ -16,7 +19,7 @@ export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `list_sources` names the documents Códice holds.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key or by description. Results quote the SAT's text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages; `read_passage` returns one in full by its passage id; `lookup_error` and `lookup_catalog` answer an exact CFDI40xxx code or catalog key; `search_catalog` finds catalog keys by description (`servicios de consultoría` in c_ClaveProdServ); `list_sources` names the documents Códice holds.";
 
 export const SearchArguments = z.object({
   q: z
@@ -87,6 +90,24 @@ export const LookupCatalogArguments = z.object({
     ),
 });
 
+export const SearchCatalogArguments = z.object({
+  name: LookupCatalogArguments.shape.name,
+  q: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "Words of the entry's description, accents optional, such as `servicios de consultoría` (c_ClaveProdServ), `kilogramo` (c_ClaveUnidad) or `gastos médicos` (c_UsoCFDI). A key matches too.",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(CATALOG_SEARCH_LIMIT_MAX)
+    .optional()
+    .describe(`How many entries to return; ${CATALOG_SEARCH_LIMIT_DEFAULT} by default.`),
+});
+
 const READ_ONLY = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -144,7 +165,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Search SAT rules",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF. Catalog keys are not searched; use `lookup_catalog`. Returns passages quoted verbatim, each with its passage id, source URL, validity dates and relevance score.",
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix and the RMF. Catalog keys are not searched; use `lookup_catalog` for a key and `search_catalog` to find one by description. Returns passages quoted verbatim, each with its passage id, source URL, validity dates and relevance score.",
       inputSchema: SearchArguments,
     },
     (args) => search(env, args),
@@ -181,6 +202,17 @@ export function createCodiceMcpServer(env: CodiceBindings) {
       inputSchema: LookupCatalogArguments,
     },
     (args) => lookupCatalog(env, args.name, args.key, args.where),
+  );
+  registerTool(
+    server,
+    "search_catalog",
+    {
+      title: "Search a SAT catalog by description",
+      description:
+        "Find the keys of a SAT CFDI catalog by the words of their description: the product or service codes of c_ClaveProdServ for `servicios de consultoría`, c_ClaveUnidad's `KGM` for `kilogramo`, c_UsoCFDI's `D01` for `gastos médicos`. Write `q` in Spanish, as the SAT does (translate an English request; there are no synonyms), accents optional; with no entry holding every word, the entries holding the most come first. Returns the best matches first, each with its key, fields and validity dates, and the source; confirm one with `lookup_catalog`.",
+      inputSchema: SearchCatalogArguments,
+    },
+    (args) => searchCatalog(env, args.name, args),
   );
   registerTool(
     server,

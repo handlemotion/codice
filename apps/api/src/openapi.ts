@@ -6,6 +6,7 @@ import {
   MCP_SERVER_VERSION,
   ReadPassageArguments,
   SearchArguments,
+  SearchCatalogArguments,
 } from "./mcp";
 
 /**
@@ -104,6 +105,15 @@ const Catalog = z.object({
     }),
   ),
   truncated: z.boolean().describe("True when the catalog has more than the 500 entries returned."),
+  source: Source.nullable(),
+});
+
+const CatalogSearch = z.object({
+  catalog: z.string(),
+  query: z.string(),
+  entries: Catalog.shape.entries.describe(
+    "The matching entries, best first; empty when none matches.",
+  ),
   source: Source.nullable(),
 });
 
@@ -233,9 +243,22 @@ export function openApiDocument() {
           operationId: "listCatalog",
           tags: ["Registros"],
           summary: "Listar un catálogo",
-          description: "A SAT catalog in the SAT's order, at most 500 entries.",
-          parameters: parametersOf(LookupCatalogArguments, "path", ["name"]),
-          responses: { 200: success(Catalog, "The catalog."), ...problems(404) },
+          description:
+            "A SAT catalog in the SAT's order, at most 500 entries. With `q`, a search of the catalog by description instead: the entries whose key or descriptions hold every word of `q` (or, when none does, the most of them), best first, from D1's full-text index.",
+          parameters: [
+            ...parametersOf(LookupCatalogArguments, "path", ["name"]),
+            ...parametersOf(SearchCatalogArguments, "query", ["q", "limit"]).map((parameter) => ({
+              ...parameter,
+              required: false,
+            })),
+          ],
+          responses: {
+            200: success(
+              z.union([Catalog, CatalogSearch]),
+              "The catalog; with `q`, the matching entries.",
+            ),
+            ...problems(400, 404),
+          },
         },
       },
       "/v1/catalogs/{name}/{key}": {

@@ -1,0 +1,1 @@
+ALTER TABLE `catalog_entries` ADD `search_text` text;

@@ -4,6 +4,8 @@ import {
   catalogColumns,
   catalogEntry,
   catalogListing,
+  catalogSearch,
+  catalogSearchTerms,
   type CatalogFilter,
   corpusVersion,
   errorCode,
@@ -247,6 +249,42 @@ export async function listCatalog(env: CodiceBindings, name: string) {
   const listing = await catalogListing(recordsDatabase(env), name);
   if (!listing) throw new CodiceProblem(404, "catalog_not_found", "Catalog not found");
   return listing;
+}
+
+export type CatalogSearchParameters = {
+  readonly q?: string | undefined;
+  readonly limit?: string | number | undefined;
+};
+
+export const CATALOG_SEARCH_LIMIT_DEFAULT = 10;
+export const CATALOG_SEARCH_LIMIT_MAX = 50;
+const CATALOG_QUERY_MAX = 200;
+
+/**
+ * Finds a catalog's entries by description (SPEC.md, "Catalog search"), from D1's full-text index
+ * alone: no AI Search query. No match is an empty list; an unknown catalog is a 404.
+ */
+export async function searchCatalog(
+  env: CodiceBindings,
+  name: string,
+  parameters: CatalogSearchParameters,
+) {
+  const q = parameters.q?.trim() ?? "";
+  if (!q) throw invalid("`q` is required.");
+  if (q.length > CATALOG_QUERY_MAX) {
+    throw invalid(`\`q\` is longer than ${CATALOG_QUERY_MAX} characters.`);
+  }
+  if (catalogSearchTerms(q).length === 0) throw invalid("`q` has no word to search for.");
+  const limit =
+    parameters.limit === undefined || parameters.limit === ""
+      ? CATALOG_SEARCH_LIMIT_DEFAULT
+      : Number(parameters.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > CATALOG_SEARCH_LIMIT_MAX) {
+    throw invalid(`\`limit\` must be a whole number from 1 to ${CATALOG_SEARCH_LIMIT_MAX}.`);
+  }
+  const result = await catalogSearch(recordsDatabase(env), name, q, limit);
+  if (!result) throw new CodiceProblem(404, "catalog_not_found", "Catalog not found");
+  return result;
 }
 
 export async function listSources(env: CodiceBindings) {

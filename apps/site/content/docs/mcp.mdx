@@ -62,15 +62,17 @@ Todas son de solo lectura: consultan, nunca modifican nada.
 | `read_passage`   | Lee una regla completa por su id.         | `id`                                                |
 | `lookup_error`   | Explica un código de error `CFDI40xxx`.   | `code`                                              |
 | `lookup_catalog` | Busca una clave en un catálogo del SAT.   | `name`, `key`, y opcional `where`                   |
+| `search_catalog` | Busca claves de un catálogo por su texto. | `name`, `q`, y opcional `limit`                     |
 | `list_sources`   | Lista los documentos que contiene Códice. | Ninguno                                             |
 
-Son las mismas consultas que la API, con los mismos argumentos. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten).
+Son las mismas consultas que la API, con los mismos argumentos. `where` filtra las claves que se repiten, como en la API: `{ "c_CodigoPostal": "01000" }` para una colonia. Ver [Catálogos del SAT](/docs/catalogos#claves-que-se-repiten). `search_catalog` encuentra la clave cuando solo sabes qué es: `{ "name": "c_ClaveProdServ", "q": "servicios de consultoría" }`; ver [Buscar por descripción](/docs/catalogos#buscar-por-descripción).
 
 ## Qué preguntarle
 
 - "El SAT me rechazó una factura con CFDI40149, ¿qué hago?"
 - "¿Qué uso de CFDI le pongo a una factura de honorarios médicos?"
 - "¿Qué régimen fiscal es el 626 y lo puede usar una persona moral?"
+- "¿Qué clave de producto o servicio uso para una factura de consultoría fiscal?"
 - "¿Cuál era el plazo para cancelar un CFDI en junio de 2025?"
 
 El asistente decide qué herramientas usar: busca, lee el pasaje y responde citando la fuente.

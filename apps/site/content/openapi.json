@@ -602,7 +602,7 @@
         "operationId": "listCatalog",
         "tags": ["Registros"],
         "summary": "Listar un catálogo",
-        "description": "A SAT catalog in the SAT's order, at most 500 entries.",
+        "description": "A SAT catalog in the SAT's order, at most 500 entries. With `q`, a search of the catalog by description instead: the entries whose key or descriptions hold every word of `q` (or, when none does, the most of them), best first, from D1's full-text index.",
         "parameters": [
           {
             "name": "name",
@@ -614,107 +614,225 @@
               "minLength": 1,
               "maxLength": 64
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Words of the entry's description, accents optional, such as `servicios de consultoría` (c_ClaveProdServ), `kilogramo` (c_ClaveUnidad) or `gastos médicos` (c_UsoCFDI). A key matches too.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "How many entries to return; 10 by default.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "The catalog.",
+            "description": "The catalog; with `q`, the matching entries.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "catalog": {
-                          "type": "string"
-                        },
-                        "entries": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "key": {
-                                "type": "string"
-                              },
-                              "fields": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "catalog": {
+                              "type": "string"
+                            },
+                            "entries": {
+                              "type": "array",
+                              "items": {
                                 "type": "object",
-                                "propertyNames": {
-                                  "type": "string"
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "fields": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": ["string", "null"]
+                                    }
+                                  },
+                                  "validFrom": {
+                                    "type": "string"
+                                  },
+                                  "validUntil": {
+                                    "type": ["string", "null"]
+                                  }
                                 },
-                                "additionalProperties": {
-                                  "type": ["string", "null"]
-                                }
-                              },
-                              "validFrom": {
-                                "type": "string"
-                              },
-                              "validUntil": {
-                                "type": ["string", "null"]
+                                "required": ["key", "fields", "validFrom", "validUntil"]
                               }
                             },
-                            "required": ["key", "fields", "validFrom", "validUntil"]
-                          }
-                        },
-                        "truncated": {
-                          "type": "boolean",
-                          "description": "True when the catalog has more than the 500 entries returned."
-                        },
-                        "source": {
-                          "anyOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "id": {
-                                  "type": "string"
-                                },
-                                "title": {
-                                  "type": "string"
-                                },
-                                "authority": {
-                                  "type": "string"
-                                },
-                                "url": {
-                                  "type": "string",
-                                  "description": "Where the SAT publishes the document."
-                                },
-                                "sha256": {
-                                  "type": "string",
-                                  "description": "Hash of the document Códice read, to check it against the original."
-                                },
-                                "publishedAt": {
-                                  "type": ["string", "null"]
-                                },
-                                "retrievedAt": {
-                                  "type": "string"
-                                },
-                                "validFrom": {
-                                  "type": "string"
-                                },
-                                "validUntil": {
-                                  "type": ["string", "null"]
-                                }
-                              },
-                              "required": [
-                                "id",
-                                "title",
-                                "authority",
-                                "url",
-                                "sha256",
-                                "publishedAt",
-                                "retrievedAt",
-                                "validFrom",
-                                "validUntil"
-                              ]
+                            "truncated": {
+                              "type": "boolean",
+                              "description": "True when the catalog has more than the 500 entries returned."
                             },
-                            {
-                              "type": "null"
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "authority": {
+                                      "type": "string"
+                                    },
+                                    "url": {
+                                      "type": "string",
+                                      "description": "Where the SAT publishes the document."
+                                    },
+                                    "sha256": {
+                                      "type": "string",
+                                      "description": "Hash of the document Códice read, to check it against the original."
+                                    },
+                                    "publishedAt": {
+                                      "type": ["string", "null"]
+                                    },
+                                    "retrievedAt": {
+                                      "type": "string"
+                                    },
+                                    "validFrom": {
+                                      "type": "string"
+                                    },
+                                    "validUntil": {
+                                      "type": ["string", "null"]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "authority",
+                                    "url",
+                                    "sha256",
+                                    "publishedAt",
+                                    "retrievedAt",
+                                    "validFrom",
+                                    "validUntil"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
-                          ]
+                          },
+                          "required": ["catalog", "entries", "truncated", "source"]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "catalog": {
+                              "type": "string"
+                            },
+                            "query": {
+                              "type": "string"
+                            },
+                            "entries": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "fields": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": ["string", "null"]
+                                    }
+                                  },
+                                  "validFrom": {
+                                    "type": "string"
+                                  },
+                                  "validUntil": {
+                                    "type": ["string", "null"]
+                                  }
+                                },
+                                "required": ["key", "fields", "validFrom", "validUntil"]
+                              },
+                              "description": "The matching entries, best first; empty when none matches."
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "authority": {
+                                      "type": "string"
+                                    },
+                                    "url": {
+                                      "type": "string",
+                                      "description": "Where the SAT publishes the document."
+                                    },
+                                    "sha256": {
+                                      "type": "string",
+                                      "description": "Hash of the document Códice read, to check it against the original."
+                                    },
+                                    "publishedAt": {
+                                      "type": ["string", "null"]
+                                    },
+                                    "retrievedAt": {
+                                      "type": "string"
+                                    },
+                                    "validFrom": {
+                                      "type": "string"
+                                    },
+                                    "validUntil": {
+                                      "type": ["string", "null"]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "authority",
+                                    "url",
+                                    "sha256",
+                                    "publishedAt",
+                                    "retrievedAt",
+                                    "validFrom",
+                                    "validUntil"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["catalog", "query", "entries", "source"]
                         }
-                      },
-                      "required": ["catalog", "entries", "truncated", "source"]
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -727,6 +845,16 @@
                     }
                   },
                   "required": ["data", "meta"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is malformed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
