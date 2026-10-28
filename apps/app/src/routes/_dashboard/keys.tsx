@@ -14,6 +14,8 @@ import {
   ORIGIN,
   PRIMARY,
   PRIMARY_SMALL,
+  DANGER_SMALL,
+  SECONDARY_SMALL,
   Page,
   ROW,
   SECONDARY,
@@ -28,6 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { createKey, listKeys, revokeKey } from "../../server/functions";
 import { disconnectConnectedClient, getConnectedClients } from "../../server/oauth-functions";
 import type { KeyRow } from "../../server/teams";
@@ -46,6 +49,29 @@ export const Route = createFileRoute("/_dashboard/keys")({
 });
 
 const FAILED = "No se pudo completar. Intenta de nuevo.";
+
+/** Connecting an assistant is adding the MCP URL as a connector: one button copies it. */
+function CopyMcpUrl() {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await navigator.clipboard.writeText(`${ORIGIN}/mcp`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button className={SECONDARY_SMALL} onClick={() => void copy()} type="button">
+          {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
+          {copied ? "Copiada" : "URL de MCP"}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="font-mono" side="bottom">
+        {ORIGIN}/mcp
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** "Nueva clave": a dialog that names the key, then shows it once to copy. */
 function NewKey({ teamId }: { teamId: string }) {
@@ -202,8 +228,14 @@ function TableRow({
           <button className={GHOST} onClick={onCancel} type="button">
             Cancelar
           </button>
-          <button className={`${GHOST} text-fg`} disabled={busy} onClick={onConfirm} type="button">
-            {action} definitivamente
+          {/* 28px in a 20px line: the row keeps its height. */}
+          <button
+            className={`${DANGER_SMALL} -my-1`}
+            disabled={busy}
+            onClick={onConfirm}
+            type="button"
+          >
+            {action}
           </button>
         </span>
       ) : (
@@ -230,8 +262,6 @@ function Keys() {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
     setError(null);
@@ -246,12 +276,6 @@ function Keys() {
     }
   }
 
-  async function copyMcp() {
-    await navigator.clipboard.writeText(`${ORIGIN}/mcp`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
   // Owners and admins revoke any key; members, the ones they created (`permissions.ts`).
   function revocable(key: KeyRow) {
     return team?.manages || key.createdBy?.id === dashboard.user.id;
@@ -262,7 +286,15 @@ function Keys() {
   }
 
   return (
-    <Page action={team && <NewKey teamId={team.id} />} title="Claves">
+    <Page
+      action={
+        <div className="flex items-center gap-2">
+          <CopyMcpUrl />
+          {team && <NewKey teamId={team.id} />}
+        </div>
+      }
+      title="Claves"
+    >
       <TableIsland columns={["Creada por", "Último uso"]} title="Claves del equipo">
         {!team || keys.length === 0 ? (
           <p className={`${ROW} text-muted`}>
@@ -316,21 +348,7 @@ function Keys() {
             onConfirm={() => void run(() => disconnectConnectedClient({ data: client.clientId }))}
           />
         ))}
-        {/* The MCP URL to connect another, one row. */}
-        <div className={`flex items-center justify-between gap-4 ${ROW}`}>
-          <span className="min-w-0 truncate">
-            <span className="text-muted">URL de MCP</span>{" "}
-            <code className="font-mono text-[12px] leading-none">{ORIGIN}/mcp</code>
-          </span>
-          <button
-            aria-label={copied ? "Copiado" : "Copiar la URL de MCP"}
-            className="-my-1 grid size-7 shrink-0 place-items-center text-muted hover:text-fg"
-            onClick={() => void copyMcp()}
-            type="button"
-          >
-            {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
-          </button>
-        </div>
+        {clients.length === 0 && <p className={`${ROW} text-muted`}>Ningún asistente conectado.</p>}
       </TableIsland>
       {error && <p className="text-[13px] text-muted">{error}</p>}
     </Page>

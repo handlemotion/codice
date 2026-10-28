@@ -35,6 +35,8 @@
   --color-fg: #ededef;
   --color-muted: #7c7c84;
   --color-electric: #2346ff;
+  /* A destructive action's fill, in both themes. */
+  --color-danger: #e5484d;
   /* Dark: an island is the ground itself, drawn by a hairline. Light: a white island on the grey
      ground, with no border. */
   --color-island: #0a0a0b;
@@ -102,10 +104,13 @@ kbd {
   }
 }
 
-/* Dialogs fade and settle in (shadcn's entrance without tw-animate-css). */
+/* Dialogs and menus fade (and dialogs settle) in (shadcn's entrance without tw-animate-css). */
 @media (prefers-reduced-motion: no-preference) {
   .dialog-overlay[data-state="open"] {
     animation: dialog-fade 150ms ease-out;
+  }
+  .dropdown-content[data-state="open"] {
+    animation: dialog-fade 120ms ease-out;
   }
   .dialog-content[data-state="open"] {
     animation: dialog-in 150ms ease-out;

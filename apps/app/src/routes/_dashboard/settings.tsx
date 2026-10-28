@@ -33,7 +33,7 @@ import type { MemberRow } from "../../server/teams";
  * their roles, the invitations still open, and leaving it. Owners and admins change everything;
  * members see it all and may leave.
  */
-export const Route = createFileRoute("/_dashboard/team")({
+export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({ meta: [{ title: "Equipo · Códice" }] }),
   loader: async ({ context }) => {
     const team = context.dashboard.team;
@@ -70,7 +70,7 @@ function TeamSettings() {
 
   if (!team || !people) {
     return (
-      <Page title="Equipo">
+      <Page title="Configuración">
         <Section title="Equipo">
           <p className="text-muted">No perteneces a ningún equipo. Crea uno desde tu cuenta.</p>
         </Section>
@@ -200,7 +200,7 @@ function TeamSettings() {
   const soleOwner = team.role.includes("owner") && owners <= 1;
 
   return (
-    <Page title="Equipo">
+    <Page title="Configuración">
       <Section note={ROLE_LABELS[team.role] ?? team.role} title="General">
         {manages ? (
           <form className="flex gap-2" onSubmit={rename}>

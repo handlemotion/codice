@@ -3,32 +3,37 @@ import {
   IconChart4,
   IconContrast,
   IconKey2,
-  IconGroup1,
+  IconSettingsGear1,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, getRouteApi, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ComponentType, type ReactNode } from "react";
 
-import { Mark } from "../brand/mark";
 import { toggleTheme } from "../theme";
+import { TeamSwitcher } from "./team-switcher";
 import { Key, PersonAvatar } from "./ui";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type Destination = { label: string; key: string } & (
   | {
-      to: "/" | "/keys" | "/team" | "/account";
+      to: "/" | "/keys" | "/settings" | "/account";
       icon?: ComponentType<{ size?: number }>;
     }
   | { href: string; icon: ComponentType<{ size?: number }> }
 );
 
 // The rail's places, in order, each on its number key. The team's settings come before the
-// user's own account, which is the avatar, last.
+// user's own account, which is the avatar, last; the team itself is switched at the rail's top.
 const USAGE: Destination = { to: "/", label: "Uso", key: "1", icon: IconChart4 };
 const KEYS: Destination = { to: "/keys", label: "Claves", key: "2", icon: IconKey2 };
 const DOCS: Destination = { href: "/docs", label: "Documentación", key: "3", icon: IconBook };
-const TEAM: Destination = { to: "/team", label: "Equipo", key: "4", icon: IconGroup1 };
+const SETTINGS: Destination = {
+  to: "/settings",
+  label: "Configuración",
+  key: "4",
+  icon: IconSettingsGear1,
+};
 const ACCOUNT: Destination = { to: "/account", label: "Cuenta", key: "5" };
-const PLACES = [USAGE, KEYS, DOCS, TEAM, ACCOUNT];
+const PLACES = [USAGE, KEYS, DOCS, SETTINGS, ACCOUNT];
 
 const dashboardRoute = getRouteApi("/_dashboard");
 
@@ -129,12 +134,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         aria-label="Principal"
         className="fixed z-30 flex items-center bg-ink max-sm:inset-x-0 max-sm:bottom-0 max-sm:h-14 max-sm:justify-center sm:inset-y-0 sm:left-0 sm:w-16 sm:flex-col sm:py-3"
       >
-        {/* `/?site` is the edge's switch to the marketing site for a signed-in visitor. */}
-        <Hint label="Sitio de Códice">
-          <a aria-label="Sitio de Códice" className={`${ITEM} ${IDLE} max-sm:hidden`} href="/?site">
-            <Mark className="size-[18px]" strokeWidth={1.5} />
-          </a>
-        </Hint>
+        <TeamSwitcher
+          className={`${ITEM} ${IDLE} max-sm:mr-6`}
+          hint={(label, trigger) => <Hint label={label}>{trigger}</Hint>}
+        />
         <div className="flex items-center gap-2 max-sm:gap-6 sm:flex-1 sm:flex-col sm:justify-center">
           {PLACES.map((place) => (
             <RailItem

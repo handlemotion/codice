@@ -55,7 +55,7 @@ function Invitation() {
     try {
       if (accept) {
         await acceptInvitation({ data: invitation.id });
-        await navigate({ to: "/team" });
+        await navigate({ to: "/settings" });
       } else {
         await rejectInvitation({ data: invitation.id });
         await navigate({ to: "/" });
