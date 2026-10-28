@@ -880,6 +880,318 @@
     "expect": ["rmf-2026/regla-11.18.1.md"]
   },
   {
+    "q": "¿Qué valor lleva el atributo Version del complemento Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-autotransporte/traslado-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-maritimo/ingreso-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-maritimo/traslado-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-aereo/ingreso-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-aereo/traslado-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-ferroviario/ingreso-informacion-del-complemento-carta-porte-version.md",
+      "complemento-carta-porte-ferroviario/traslado-informacion-del-complemento-carta-porte-version.md"
+    ]
+  },
+  {
+    "q": "¿Cómo se forma el identificador IdCCP del complemento Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-autotransporte/traslado-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-maritimo/ingreso-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-maritimo/traslado-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-aereo/ingreso-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-aereo/traslado-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-ferroviario/ingreso-informacion-del-complemento-carta-porte-idccp.md",
+      "complemento-carta-porte-ferroviario/traslado-informacion-del-complemento-carta-porte-idccp.md"
+    ]
+  },
+  {
+    "q": "Carta Porte: ¿cuándo se registra Sí en el campo TranspInternac?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-autotransporte/traslado-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-maritimo/ingreso-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-maritimo/traslado-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-aereo/ingreso-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-aereo/traslado-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-ferroviario/ingreso-informacion-del-complemento-carta-porte-transpinternac.md",
+      "complemento-carta-porte-ferroviario/traslado-informacion-del-complemento-carta-porte-transpinternac.md"
+    ]
+  },
+  {
+    "q": "¿Qué clave de unidad lleva el concepto de la factura de ingreso por un flete con complemento Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-conceptos-concepto-claveunidad.md",
+      "complemento-carta-porte-maritimo/ingreso-conceptos-concepto-claveunidad.md",
+      "complemento-carta-porte-aereo/ingreso-conceptos-concepto-claveunidad.md",
+      "complemento-carta-porte-ferroviario/ingreso-conceptos-concepto-claveunidad.md"
+    ]
+  },
+  {
+    "q": "En un CFDI de traslado con complemento Carta Porte, ¿qué valor llevan el Subtotal y el Total?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/traslado-informacion-del-comprobante-subtotal.md",
+      "complemento-carta-porte-autotransporte/traslado-informacion-del-comprobante-total.md",
+      "complemento-carta-porte-maritimo/traslado-informacion-de-comprobante-subtotal.md",
+      "complemento-carta-porte-maritimo/traslado-informacion-de-comprobante-total.md",
+      "complemento-carta-porte-aereo/traslado-informacion-del-comprobante-subtotal.md",
+      "complemento-carta-porte-aereo/traslado-informacion-del-comprobante-total.md",
+      "complemento-carta-porte-ferroviario/traslado-informacion-del-comprobante-subtotal.md",
+      "complemento-carta-porte-ferroviario/traslado-informacion-del-comprobante-total.md"
+    ]
+  },
+  {
+    "q": "Muevo mi propia mercancía con mis propios medios, ¿qué RFC pongo como receptor en el CFDI de traslado con Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/traslado-receptor-rfc.md",
+      "complemento-carta-porte-maritimo/traslado-receptor-rfc.md",
+      "complemento-carta-porte-aereo/traslado-receptor-rfc.md",
+      "complemento-carta-porte-ferroviario/traslado-receptor-rfc.md"
+    ]
+  },
+  {
+    "q": "¿Cuándo se retiene IVA en la factura de un servicio de autotransporte de carga con Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-conceptos-impuestos-del-concepto.md",
+      "complemento-carta-porte-autotransporte/ingreso-conceptos-impuestos-del-concepto-retencion-tasaocuota.md"
+    ]
+  },
+  {
+    "q": "¿Cómo se forma el IDUbicacion de origen y de destino en la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-ubicaciones-ubicacion-idubicacion.md",
+      "complemento-carta-porte-autotransporte/traslado-ubicaciones-ubicacion-idubicacion.md",
+      "complemento-carta-porte-maritimo/ingreso-ubicaciones-ubicacion-idubicacion.md",
+      "complemento-carta-porte-maritimo/traslado-ubicaciones-ubicacion-idubicacion.md",
+      "complemento-carta-porte-aereo/ingreso-ubicaciones-ubicacion-idubicacion.md",
+      "complemento-carta-porte-aereo/traslado-ubicaciones-ubicacion-idubicacion.md",
+      "complemento-carta-porte-ferroviario/ingreso-ubicaciones-ubicacion-idubicacion.md"
+    ]
+  },
+  {
+    "q": "¿Cómo se calcula el total de la distancia recorrida TotalDistRec en la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-informacion-del-complemento-carta-porte-totaldistrec.md",
+      "complemento-carta-porte-autotransporte/traslado-informacion-del-complemento-carta-porte-totaldistrec.md",
+      "complemento-carta-porte-ferroviario/ingreso-informacion-del-complemento-carta-porte-totaldistrec.md",
+      "complemento-carta-porte-ferroviario/traslado-informacion-del-complemento-carta-porte-totaldistrec.md"
+    ]
+  },
+  {
+    "q": "¿Qué clave de permiso SICT lleva el autotransporte federal de carga general en la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-autotransporte-permsct.md",
+      "complemento-carta-porte-autotransporte/traslado-autotransporte-permsct.md"
+    ]
+  },
+  {
+    "q": "¿Qué se registra en el campo ConfigVehicular de la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-autotransporte-identificador-vehicular-configvehicular.md",
+      "complemento-carta-porte-autotransporte/traslado-autotransporte-identificador-vehicular-configvehicular.md"
+    ]
+  },
+  {
+    "q": "¿Qué aseguradora se registra en AseguraRespCivil del complemento Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-autotransporte-seguros-asegurarespcivil.md",
+      "complemento-carta-porte-autotransporte/traslado-autotransporte-seguros-asegurarespcivil.md"
+    ]
+  },
+  {
+    "q": "¿Cómo sé si la mercancía que transporto es material peligroso para la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-autotransporte/traslado-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-maritimo/ingreso-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-maritimo/traslado-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-aereo/ingreso-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-aereo/traslado-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-ferroviario/ingreso-mercancias-mercancia-materialpeligroso.md",
+      "complemento-carta-porte-ferroviario/traslado-mercancias-mercancia-materialpeligroso.md"
+    ]
+  },
+  {
+    "q": "¿Cuándo se registra el número de licencia del operador en la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/ingreso-figura-del-transporte-tipos-de-figura-numlicencia.md"
+    ]
+  },
+  {
+    "q": "Carta Porte marítima: ¿qué se registra en NumAutorizacionNaviero?",
+    "expect": [
+      "complemento-carta-porte-maritimo/ingreso-transporte-maritimo-numautorizacionnaviero.md",
+      "complemento-carta-porte-maritimo/traslado-transporte-maritimo-numautorizacionnaviero.md"
+    ]
+  },
+  {
+    "q": "¿Tengo que emitir factura con complemento Carta Porte para mover contenedores vacíos?",
+    "expect": [
+      "complemento-carta-porte-maritimo/apendice-1-nota-8.md",
+      "complemento-carta-porte-ferroviario/apendice-1-nota-11.md"
+    ]
+  },
+  {
+    "q": "¿Qué clave de tipo de contenedor marítimo se registra en la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-maritimo/ingreso-transporte-maritimo-contenedor-tipocontenedor.md",
+      "complemento-carta-porte-maritimo/traslado-transporte-maritimo-contenedor-tipocontenedor.md"
+    ]
+  },
+  {
+    "q": "Carta Porte aérea: ¿qué número se registra en NumeroGuia?",
+    "expect": [
+      "complemento-carta-porte-aereo/ingreso-transporte-aereo-numeroguia.md",
+      "complemento-carta-porte-aereo/traslado-transporte-aereo-numeroguia.md"
+    ]
+  },
+  {
+    "q": "Carta Porte ferroviaria: ¿qué clave lleva el tipo de carro?",
+    "expect": [
+      "complemento-carta-porte-ferroviario/ingreso-transporte-ferroviario-carro-tipocarro.md",
+      "complemento-carta-porte-ferroviario/traslado-transporte-ferroviario-carro-tipocarro.md"
+    ]
+  },
+  {
+    "q": "Doy servicio de paquetería y mensajería, ¿tengo que emitir el complemento Carta Porte por cada envío?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/apendice-6.md",
+      "complemento-carta-porte-maritimo/apendice-5.md",
+      "complemento-carta-porte-aereo/apendice-5.md",
+      "complemento-carta-porte-ferroviario/apendice-5.md"
+    ]
+  },
+  {
+    "q": "Si el camión se descompone en el camino y cambio de unidad, ¿qué hago con la Carta Porte?",
+    "expect": [
+      "complemento-carta-porte-autotransporte/apendice-12.md",
+      "complemento-carta-porte-maritimo/apendice-9.md",
+      "complemento-carta-porte-aereo/apendice-8.md",
+      "complemento-carta-porte-ferroviario/apendice-9.md"
+    ]
+  },
+  {
+    "q": "Traslado local de mercancías sin pasar por tramos federales: ¿necesito el complemento Carta Porte?",
+    "expect": ["complemento-carta-porte-autotransporte/apendice-4.md"]
+  },
+  {
+    "q": "¿En qué operaciones se debe emitir el CFDI con complemento para Comercio Exterior?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comprobante-exportacion.md",
+      "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-1.md"
+    ]
+  },
+  {
+    "q": "Exportación definitiva A1 a título gratuito, ¿puedo usar el complemento para Comercio Exterior?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/introduccion.md",
+      "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-4.md"
+    ]
+  },
+  {
+    "q": "¿Qué clave se registra en ClaveDePedimento del complemento de comercio exterior?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comercioexterior-clavedepedimento.md"
+    ]
+  },
+  {
+    "q": "¿Cuándo se registra el campo MotivoTraslado del complemento de comercio exterior?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comercioexterior-motivotraslado.md"
+    ]
+  },
+  {
+    "q": "¿Qué valor lleva CertificadoOrigen cuando la factura no funge como certificado de origen?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comercioexterior-certificadoorigen.md"
+    ]
+  },
+  {
+    "q": "¿Cuándo se registra el Incoterm en el complemento de comercio exterior?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/nodo-comercioexterior-incoterm.md"]
+  },
+  {
+    "q": "¿Qué tipo de cambio se registra en TipoCambioUSD?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comercioexterior-tipocambiousd.md",
+      "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-7.md"
+    ]
+  },
+  {
+    "q": "¿Cómo se calcula el TotalUSD del complemento de comercio exterior?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/nodo-comercioexterior-totalusd.md"]
+  },
+  {
+    "q": "Facturo la exportación en pesos, ¿cómo calculo el ValorDolares de cada mercancía?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/nodo-mercancia-valordolares.md"]
+  },
+  {
+    "q": "¿Cuándo no se debe capturar la FraccionArancelaria de la mercancía exportada?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-mercancia-fraccionarancelaria.md",
+      "complemento-comercio-exterior-guia-de-llenado/nodo-mercancia-unidadaduana.md"
+    ]
+  },
+  {
+    "q": "¿Cuándo debe existir el nodo Propietario en el complemento de comercio exterior?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/nodo-propietario.md"]
+  },
+  {
+    "q": "Código postal del domicilio del receptor extranjero en el complemento de comercio exterior",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-receptor-nodo-domicilio-codigopostal.md",
+      "complemento-comercio-exterior-guia-de-llenado/nodo-destinatario-nodo-domicilio-codigopostal.md"
+    ]
+  },
+  {
+    "q": "Comercio exterior: ¿qué número de identificación fiscal se registra en NumRegIdTrib del receptor extranjero?",
+    "expect": [
+      "anexo-20-guia-de-llenado/nodo-receptor-numregidtrib.md",
+      "complemento-comercio-exterior-guia-de-llenado/nodo-receptor-numregidtrib.md",
+      "complemento-comercio-exterior-guia-de-llenado/nodo-receptor-numregidtrib-2.md",
+      "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-21.md"
+    ]
+  },
+  {
+    "q": "Mi cliente en el extranjero rechazó la mercancía exportada, ¿qué hago con la factura?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-12.md"]
+  },
+  {
+    "q": "Exporto mi propia mercancía con mi transporte y un CFDI de traslado, ¿puedo poner el RFC genérico extranjero en el receptor?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-receptor-rfc.md",
+      "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-24.md"
+    ]
+  },
+  {
+    "q": "El código postal del domicilio no existe en el catálogo del SAT, ¿qué registro en el complemento de comercio exterior?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-19.md"]
+  },
+  {
+    "q": "¿Cómo declaro el folio fiscal del CFDI de exportación en pedimentos consolidados?",
+    "expect": ["complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-16.md"]
+  },
+  {
+    "q": "¿Qué tipo de comprobante se emite en una exportación definitiva con enajenación?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comprobante-tipodecomprobante.md"
+    ]
+  },
+  {
+    "q": "¿Se puede repetir el NoIdentificacion de los conceptos en las mercancías del complemento de comercio exterior?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-mercancias.md",
+      "complemento-comercio-exterior-guia-de-llenado/nodo-mercancia-noidentificacion.md"
+    ]
+  },
+  {
+    "q": "Le vendo a un cliente en Estados Unidos y la mercancía sale con pedimento A1, ¿qué complemento lleva la factura?",
+    "expect": [
+      "complemento-comercio-exterior-guia-de-llenado/nodo-comprobante-exportacion.md",
+      "complemento-comercio-exterior-guia-de-llenado/apendice-3-pregunta-1.md"
+    ]
+  },
+  {
     "q": "¿Qué requisitos deben contener los comprobantes fiscales digitales por Internet según el Código Fiscal?",
     "expect": ["cff/articulo-29-a.md"]
   },

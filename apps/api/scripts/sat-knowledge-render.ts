@@ -237,6 +237,42 @@ export function rmfCompilationMarkdown(converted: string) {
   return kept.join("\n");
 }
 
+/**
+ * The title a Carta Porte instructivo prints at the top of every page: the section the page is in,
+ * on up to three lines (`CFDI de tipo ingreso` / `con complemento` / `Carta Porte`).
+ */
+const RUNNING_HEADER =
+  /^(?:Índice|Introducción|Antecedentes|Marco jurídico|Autotransporte|Transporte (?:marítimo|aéreo|ferroviario)|CFDI de tipo (?:ingreso|traslado) con complemento Carta Porte|Apéndices)$/iu;
+const RUNNING_HEADER_MAX_LINES = 3;
+
+/**
+ * A Carta Porte instructivo as MarkItDown converts it, without its page furniture: each
+ * `Página 12 de 106` line goes, and so does the running header at the top of the next page. The
+ * blank line where the page broke stays. A field that runs across a page then reads as one text.
+ */
+export function instructivoMarkdown(converted: string) {
+  const lines = converted.split("\n");
+  const kept: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!PAGE_NUMBER.test(lines[index]!.trim())) {
+      kept.push(lines[index]!);
+      continue;
+    }
+    let next = index + 1;
+    while (next < lines.length && !lines[next]!.trim()) next += 1;
+    kept.push(...lines.slice(index + 1, next));
+    for (let count = 1; count <= RUNNING_HEADER_MAX_LINES; count += 1) {
+      const header = lines.slice(next, next + count).map((line) => line.trim());
+      if (RUNNING_HEADER.test(header.join(" "))) {
+        next += count;
+        break;
+      }
+    }
+    index = next - 1;
+  }
+  return kept.join("\n");
+}
+
 /** The lines the Cámara de Diputados prints at the top of every page of a law. */
 const LAW_PAGE_HEADER = [
   /^[A-ZÁÉÍÓÚÑ ,]+$/u,

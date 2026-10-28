@@ -8,7 +8,13 @@
 import { createHash } from "node:crypto";
 
 import { dateNumber, IN_FORCE_UNTIL, isoDate } from "../src/search";
-import { buildSatLibrary, type SatDocument, type SatSourceManifest } from "./sat-documents";
+import {
+  buildSatLibrary,
+  CARTA_PORTE_MODES,
+  type CartaPorteSourceId,
+  type SatDocument,
+  type SatSourceManifest,
+} from "./sat-documents";
 import {
   catalogEntryFields,
   catalogEntryKey,
@@ -16,7 +22,14 @@ import {
   type SatErrorMatrix,
   type SatSource,
 } from "./sat-records";
-import { guideSections, lawArticles, nameVocabulary, rmfReglas } from "./sections";
+import {
+  type GuideSection,
+  guideSections,
+  instructivoSections,
+  lawArticles,
+  nameVocabulary,
+  rmfReglas,
+} from "./sections";
 
 /** AI Search's limit on an item key. */
 export const ITEM_KEY_MAX = 128;
@@ -86,6 +99,23 @@ const SOURCES = {
   matrix: { id: "matriz-de-errores-cfdi-40", kind: "anexo", authority: "SAT" },
   catalogs: { id: "catalogos-cfdi-40", kind: "anexo", authority: "SAT" },
   rmf: { id: "rmf-2026", kind: "regla", authority: "SAT" },
+  cartaPorteAutotransporte: {
+    id: "complemento-carta-porte-autotransporte",
+    kind: "guia",
+    authority: "SAT",
+  },
+  cartaPorteMaritimo: { id: "complemento-carta-porte-maritimo", kind: "guia", authority: "SAT" },
+  cartaPorteAereo: { id: "complemento-carta-porte-aereo", kind: "guia", authority: "SAT" },
+  cartaPorteFerroviario: {
+    id: "complemento-carta-porte-ferroviario",
+    kind: "guia",
+    authority: "SAT",
+  },
+  comercioExterior: {
+    id: "complemento-comercio-exterior-guia-de-llenado",
+    kind: "guia",
+    authority: "SAT",
+  },
   cff: { id: "cff", kind: "ley", authority: "Congreso" },
 } as const satisfies Record<
   keyof SatSourceManifest,
@@ -162,20 +192,21 @@ export function guideTitle(document: SatDocument) {
 }
 
 /**
- * One passage a section; an anchor that repeats (a section cut in parts, a node both parts of a
- * guide have) takes `-2`, `-3`, ….
+ * One passage a section, as `split` cuts the document under its title (`guideSections` for a
+ * guide, `instructivoSections` for a Carta Porte instructivo); an anchor that repeats (a section
+ * cut in parts, a node both parts of a guide have) takes `-2`, `-3`, ….
  */
 export function guidePassages(
   document: SatDocument,
   sourceId: string,
   validFrom: number,
-  vocabulary: ReadonlySet<string>,
+  split: (title: string) => readonly GuideSection[],
 ): Passage[] {
   const title = guideTitle(document);
   // `<source>/` + anchor + an optional `-NNN` + a superseded version's `.YYYYMMDD` + `.md`.
   const anchorMax = ITEM_KEY_MAX - sourceId.length - 1 - 4 - 9 - 3;
   const seen = new Map<string, number>();
-  return guideSections(document.markdown, { title, vocabulary }).map((section) => {
+  return split(title).map((section) => {
     const base = anchorOf(section.anchor, anchorMax);
     const count = (seen.get(base) ?? 0) + 1;
     seen.set(base, count);
@@ -291,7 +322,7 @@ export function catalogEntryRows(set: SatCatalogSet): CatalogEntryRow[] {
   });
 }
 
-/** The whole Phase 0 corpus from `docs/sat-md`'s files. */
+/** The whole corpus from `docs/sat-md`'s files. */
 export function buildCorpus(files: SatMarkdownFiles): Corpus {
   const sources = JSON.parse(files.read("sources.json")) as SatSourceManifest;
   const errorMatrix = JSON.parse(files.read("matriz-de-errores-cfdi-4.0.json")) as SatErrorMatrix;
@@ -301,7 +332,7 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
     sources,
     records: { errorMatrix, catalogs },
   });
-  const guide = (id: "anexo20" | "pagos" | "rmf" | "cff", slug: string) => {
+  const guide = (id: Exclude<keyof SatSourceManifest, "matrix" | "catalogs">, slug: string) => {
     const document = library.documents.find((candidate) => candidate.slug === slug);
     if (!document) throw new Error(`SAT document ${slug} is missing`);
     return { document, row: sourceRow(id, guideTitle(document), sources[id]) };
@@ -309,14 +340,29 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
   const anexo20 = guide("anexo20", "anexo-20-guia-de-llenado-cfdi");
   const pagos = guide("pagos", "complemento-pagos-guia-de-llenado");
   const rmf = guide("rmf", "resolucion-miscelanea-fiscal-2026");
-  const cff = guide("cff", "codigo-fiscal-de-la-federacion");
-  // The CFDI documents' names only: the RMF's and the CFF's words would rejoin other wrapped names
-  // in the guides, and change their passage keys.
-  const vocabulary = nameVocabulary(
-    library.documents
-      .filter((document) => document !== rmf.document && document !== cff.document)
-      .map((document) => document.markdown),
+  const cartaPorte = (Object.keys(CARTA_PORTE_MODES) as CartaPorteSourceId[]).map((id) =>
+    guide(id, `complemento-carta-porte-${CARTA_PORTE_MODES[id].slug}`),
   );
+  const comercioExterior = guide(
+    "comercioExterior",
+    "complemento-comercio-exterior-guia-de-llenado",
+  );
+  const cff = guide("cff", "codigo-fiscal-de-la-federacion");
+  // The CFDI documents' names only: another document's words would rejoin other wrapped names in
+  // the guides, and change their passage keys. The Comercio Exterior guide adds its own.
+  const cfdiDocuments = new Set([
+    "anexo-20-guia-de-llenado-cfdi",
+    "complemento-pagos-guia-de-llenado",
+    "matriz-de-errores-cfdi-4-0",
+    "catalogos-cfdi-4-0",
+  ]);
+  const cfdiMarkdown = library.documents
+    .filter((document) => cfdiDocuments.has(document.slug))
+    .map((document) => document.markdown);
+  const guideSplit = (document: SatDocument, extra: readonly string[] = []) => {
+    const vocabulary = nameVocabulary([...cfdiMarkdown, ...extra]);
+    return (title: string) => guideSections(document.markdown, { title, vocabulary });
+  };
   const catalogTitle = "Catálogos del CFDI 4.0 (catCFDI)";
   return {
     sources: [
@@ -325,13 +371,36 @@ export function buildCorpus(files: SatMarkdownFiles): Corpus {
       sourceRow("matrix", errorMatrix.title, sources.matrix),
       sourceRow("catalogs", catalogTitle, sources.catalogs),
       rmf.row,
+      ...cartaPorte.map((instructivo) => instructivo.row),
+      comercioExterior.row,
       cff.row,
     ],
     passages: [
-      ...guidePassages(anexo20.document, anexo20.row.id, anexo20.row.validFrom, vocabulary),
-      ...guidePassages(pagos.document, pagos.row.id, pagos.row.validFrom, vocabulary),
+      ...guidePassages(
+        anexo20.document,
+        anexo20.row.id,
+        anexo20.row.validFrom,
+        guideSplit(anexo20.document),
+      ),
+      ...guidePassages(
+        pagos.document,
+        pagos.row.id,
+        pagos.row.validFrom,
+        guideSplit(pagos.document),
+      ),
       ...errorCodePassages(errorMatrix),
       ...rmfPassages(rmf.document),
+      ...cartaPorte.flatMap(({ document, row }) =>
+        guidePassages(document, row.id, row.validFrom, (title) =>
+          instructivoSections(document.markdown, { title }),
+        ),
+      ),
+      ...guidePassages(
+        comercioExterior.document,
+        comercioExterior.row.id,
+        comercioExterior.row.validFrom,
+        guideSplit(comercioExterior.document, [comercioExterior.document.markdown]),
+      ),
       ...cffPassages(cff.document, cff.row.validFrom),
     ],
     errorCodes: errorMatrix.codes.map((row) => ({

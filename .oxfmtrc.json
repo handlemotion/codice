@@ -18,6 +18,8 @@
     ".claude/skills/ui-review/**",
     "pnpm-lock.yaml",
     "docs/sat-md/resolucion-miscelanea-fiscal-*.md",
+    "docs/sat-md/complemento-carta-porte-*.md",
+    "docs/sat-md/complemento-comercio-exterior-*.md",
     "docs/sat-md/codigo-fiscal-de-la-federacion.md"
   ]
 }

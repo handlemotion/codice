@@ -1,3 +1,4 @@
+import { IN_FORCE_UNTIL } from "./db/schema";
 import type { CodiceBindings } from "./env";
 import {
   allSources,
@@ -7,6 +8,7 @@ import {
   type CatalogFilter,
   corpusVersion,
   errorCode,
+  passageChanges,
   passageRow,
   recordsDatabase,
   sourcesById,
@@ -247,6 +249,40 @@ export async function listCatalog(env: CodiceBindings, name: string) {
   const listing = await catalogListing(recordsDatabase(env), name);
   if (!listing) throw new CodiceProblem(404, "catalog_not_found", "Catalog not found");
   return listing;
+}
+
+export type ChangesParameters = {
+  readonly since?: string | undefined;
+  readonly until?: string | undefined;
+  readonly source?: string | undefined;
+};
+
+/**
+ * The passages added, changed or removed from `since` through `until` (SPEC.md, "Changes"). With
+ * no `until`, every change from `since` on, including one Códice already holds for a later date.
+ * It reads D1 alone.
+ */
+export async function listChanges(env: CodiceBindings, parameters: ChangesParameters) {
+  const since = parameters.since?.trim() ? parseAsOf(parameters.since.trim()) : null;
+  if (since === null) throw invalid("`since` is required, a date as YYYY-MM-DD.");
+  const until = parameters.until?.trim() ? parseAsOf(parameters.until.trim()) : undefined;
+  if (until === null) throw invalid("`until` must be a date as YYYY-MM-DD.");
+  if (until !== undefined && until < since) throw invalid("`until` must not precede `since`.");
+  const source = parameters.source?.trim() || undefined;
+  if (source && !SOURCE.test(source)) throw invalid("`source` is not a source id.");
+  const changes = await passageChanges(
+    recordsDatabase(env),
+    since,
+    // The last day a change can apply from: the day before the in-force sentinel.
+    until ?? IN_FORCE_UNTIL - 1,
+    source,
+  );
+  return {
+    since: isoDate(since),
+    until: until === undefined ? null : isoDate(until),
+    source: source ?? null,
+    changes,
+  };
 }
 
 export async function listSources(env: CodiceBindings) {

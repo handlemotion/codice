@@ -11,12 +11,13 @@
  *   pnpm --filter @codice/api eval --out run.json  also write every rank to a file
  *   pnpm --filter @codice/api eval --min-top3 47   exit 1 when fewer questions pass
  *   pnpm --filter @codice/api eval --instance codice-bge-m3   a comparison instance
- *   pnpm --filter @codice/api eval --source cff    only the questions that expect a passage of
- *                                                  one source, such as a source just added
+ *   pnpm --filter @codice/api eval --source complemento-carta-porte   only the questions that
+ *     expect a passage of a source whose id starts so (here the four Carta Porte instructivos)
  *
  * Runs under Doppler `codice` `dev`, whose `CODICE_AI_SEARCH_TOKEN` has AI Search Run and Read only;
- * without it, `CLOUDFLARE_API_TOKEN`. About 170 queries a run. Each query is timed, and the
- * summary gives the p50 and p95 latency, as measured from the machine that runs the eval.
+ * without it, `CLOUDFLARE_API_TOKEN`. About 215 queries a run, or one for each question
+ * `--source` keeps. Each query is timed, and the summary gives the p50 and p95 latency, as
+ * measured from the machine that runs the eval.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -24,6 +25,7 @@ import { parseArgs } from "node:util";
 
 import { RERANKING_THRESHOLD, searchRequest, todayInMexicoCity } from "../src/search";
 import { buildCorpus } from "./corpus";
+import { type Question, questionsFor } from "./eval-questions";
 
 const APP = resolve(import.meta.dirname, "..");
 const ACCOUNT_ID = "473fbe436e39d8f3d33b6bb09afd3dd7";
@@ -63,9 +65,6 @@ if (minTop3 !== undefined && !Number.isInteger(minTop3)) {
   throw new Error("--min-top3 is a whole number of questions");
 }
 
-/** `kind` narrows the search to one passage kind, as a caller would for a definition question. */
-type Question = { readonly q: string; readonly expect: readonly string[]; readonly kind?: string };
-
 function token() {
   const value = process.env.CODICE_AI_SEARCH_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN;
   if (!value) throw new Error("Set CODICE_AI_SEARCH_TOKEN (or CLOUDFLARE_API_TOKEN)");
@@ -89,12 +88,9 @@ async function api<T>(path: string, init: RequestInit = {}) {
 }
 
 async function main() {
-  const questions = (
-    JSON.parse(readFileSync(join(APP, "scripts/eval-questions.json"), "utf8")) as Question[]
-  ).filter(
-    (question) =>
-      values.source === undefined ||
-      question.expect.some((key) => key.startsWith(`${values.source}/`)),
+  const questions = questionsFor(
+    JSON.parse(readFileSync(join(APP, "scripts/eval-questions.json"), "utf8")) as Question[],
+    values.source,
   );
   if (questions.length === 0) throw new Error(`No question expects a passage of ${values.source}`);
   const corpus = buildCorpus({
