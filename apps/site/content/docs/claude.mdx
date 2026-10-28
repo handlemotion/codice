@@ -1,0 +1,40 @@
+---
+title: Claude
+description: Conecta Códice a Claude en claude.ai y en la app de escritorio para que cite las reglas del SAT.
+---
+
+Códice se agrega a Claude como un conector personalizado: le das la dirección del servidor, inicias sesión con tu cuenta de Códice y Claude puede consultar las reglas en cualquier chat. Funciona en claude.ai, en la app de escritorio y en la app móvil, con la misma cuenta.
+
+## Agregar el conector
+
+En los planes Free, Pro y Max lo agregas tú. En el plan Free cabe un conector personalizado.
+
+1. En Claude, abre **Customize > Connectors** ([claude.ai/customize/connectors](https://claude.ai/customize/connectors)).
+2. Elige **Add custom connector**.
+3. Escribe un nombre, por ejemplo `Códice`, y la dirección `https://codice.io/mcp`. No hace falta llenar las credenciales de OAuth.
+4. Elige **Add**, y luego **Connect**.
+5. Se abre Códice en tu navegador: entra con tu cuenta y aprueba la conexión.
+
+### En un plan Team o Enterprise
+
+Un Owner de la organización agrega el conector una vez, en **Organization settings > Connectors**: **Add**, luego **Custom**, con la dirección `https://codice.io/mcp`. Después, cada miembro lo encuentra en **Customize > Connectors** con la etiqueta **Custom** y elige **Connect** para entrar con su propia cuenta de Códice.
+
+## Usarlo en un chat
+
+En el chat, abre el menú **+** y activa Códice en la lista de conectores. Luego pregunta como siempre:
+
+- "El SAT me rechazó una factura con CFDI40149, ¿qué hago?"
+- "¿Qué uso de CFDI le pongo a una factura de honorarios médicos?"
+- "¿Cuál era el plazo para cancelar un CFDI en junio de 2025?"
+
+Claude busca la regla en Códice, lee el pasaje y responde citándolo con su fuente y su vigencia.
+
+## Con una clave
+
+Si tu organización no permite iniciar sesión por OAuth, conecta Códice con una clave de tu equipo. Crea una en [Claves](/keys) y, al agregar el conector, elige **No sign-in** y pon la clave en **Request headers**: `Authorization` con el valor `Bearer cdc_…`.
+
+## Desconectar
+
+Para quitarle el acceso a Claude, desconéctalo desde tu panel en Códice: deja de tener acceso en menos de un minuto. Quitar el conector en Claude solo lo borra de tu lista.
+
+Las herramientas, las respuestas y los límites son los de cualquier asistente: ver [Asistentes (MCP)](/docs/mcp).

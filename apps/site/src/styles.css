@@ -237,7 +237,7 @@ kbd {
     }
   }
   @media (min-width: 1280px) {
-    & .doc-sheet > h1 {
+    & .doc-sheet:not(.doc-api) > h1 {
       padding-top: 56px;
     }
   }
