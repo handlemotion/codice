@@ -103,7 +103,7 @@ marks turning while Códice answers), and the favicon.
 ### First screen: the chat, alone
 
 - A fixed height (`85svh`, at least 560px), so a conversation scrolls inside it.
-- The hero title (the page's `h1`, 20px, a plain-language sentence for accountants) starts on the
+- The hero title (the page's `h1`, 20px, one sentence) starts on the
   bar's left edge, under the mark; the composer sits under it (max 36rem wide), over the wave
   field. No section label, no dividers.
 - A top bar fixed to the top of the window, 52px (44px on phones), with no ground of its own: the
@@ -121,8 +121,7 @@ exactly on the bar's bottom edge. As it slides up under the bar, its content fad
 whole travel (fully gone once stuck), so what remains is its fill and bottom border: from then
 on they are the bar's ground (`Strip` in `index.tsx`).
 
-Content: "Funciona con" in `muted` on the left, and on the right the icons of assistants an
-accountant already knows that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
+Content: "Funciona con" in `muted` on the left, and on the right the icons of assistants that can connect to Códice over MCP (ChatGPT, Claude, Microsoft
 Copilot), 20px, 32px apart. Only list an assistant that really connects. The SVGs come from
 svgl.app (`public/_site/logos/`), cropped to their drawn area so they render at one size, and are
 drawn as CSS masks filled with `fg`, one color in either theme. Each shows its name in a tooltip
@@ -175,8 +174,7 @@ not Fumadocs' defaults:
   with Shiki's dark theme unless the page is light; the sidebar's current page bold in `fg`, never a tinted fill.
 - **Spanish interface:** `src/lib/docs-i18n.ts` translates Fumadocs' labels. Add a key there when
   an English label shows up.
-- **Content:** guides are plain Spanish for accountants first; code only where it is the point.
-  The API reference is generated: change `apps/api/src/openapi.ts`, then run
+- **Content:** the API reference is generated: change `apps/api/src/openapi.ts`, then run
   `pnpm --filter @codice/api openapi`.
 
 ## Components
@@ -256,13 +254,7 @@ turning `fg` on hover.
 ## Copy
 
 - Spanish (es-MX), `lang="es-MX"`, `og:locale` `es_MX`.
-- Written for accountants and people who invoice, not developers: plain words ("el Código
-  Fiscal", not "CFF"), the client's real questions as examples, short paragraphs. Only "Para
-  desarrolladores" may be technical.
-- No hype, no disclaimers in the chrome. The stance: "No sustituye tu criterio. Te da la fuente
-  para sostenerlo."
-- The headline (from the Figma reference): "Códice es el primer índice de documentación legal
-  mexicana."
+- No hype, no disclaimers in the chrome.
 
 ## What we tried and dropped
 
