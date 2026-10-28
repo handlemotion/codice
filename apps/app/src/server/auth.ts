@@ -1,13 +1,16 @@
 import { apiKey } from "@better-auth/api-key";
+import { cimd } from "@better-auth/cimd";
+import { mcp } from "@better-auth/mcp";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { emailOTP, organization } from "better-auth/plugins";
+import { emailOTP, jwt, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 import * as schema from "../db/schema";
 import { API_KEY_PREFIX, kvStorage } from "./api-key-store";
+import { fetchClientMetadataResource } from "./client-metadata-fetch";
 
 /** The bindings Better Auth reads. `CloudflareBindings` satisfies it; tests pass their own. */
 export interface AuthBindings {
@@ -17,6 +20,8 @@ export interface AuthBindings {
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   AUTH_EMAIL_FROM: string;
+  /** The `/mcp` resource the OAuth tokens are bound to, `<public origin>/mcp`. */
+  MCP_RESOURCE: string;
   // Optional: a provider signs in only once both of its secrets are set (AGENTS.md, "Secrets").
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -39,6 +44,17 @@ export function socialProviders(env: AuthBindings) {
   return configured;
 }
 
+/** The scope an MCP client needs for `/mcp`, and the one `/mcp`'s challenges name. */
+export const MCP_SCOPE = "codice:read";
+
+/** How long an MCP access token lives; a refresh token (`offline_access`) renews it. */
+export const ACCESS_TOKEN_TTL_SECONDS = 3600;
+
+/** The authorization server's issuer: Better Auth's base URL, `<origin>/api/auth`. */
+export function oauthIssuer(env: Pick<AuthBindings, "BETTER_AUTH_URL">) {
+  return `${env.BETTER_AUTH_URL.replace(/\/$/u, "")}/api/auth`;
+}
+
 /** The edge treats this cookie as a session (`apps/edge/src/route.ts`, `SESSION_COOKIE`). */
 export const SESSION_COOKIE = "__Secure-codice-session";
 
@@ -55,6 +71,9 @@ export function createAuth(env: AuthBindings) {
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: "sqlite", schema }),
     socialProviders: socialProviders(env),
+    // The JWT plugin's own `/token` hands a session JWT to the browser; OAuth clients use
+    // `/oauth2/token` instead, so it stays off (Better Auth's JWT docs, "OAuth").
+    disabledPaths: ["/token"],
     account: { accountLinking: { enabled: true, trustedProviders: ["google", "github"] } },
     advanced: {
       // `__Secure-` + this name is `SESSION_COOKIE`.
@@ -104,6 +123,29 @@ export function createAuth(env: AuthBindings) {
         },
       }),
       organization(),
+      // Signs the MCP access tokens (EdDSA); the public keys are at `/api/auth/jwks`.
+      jwt({ disableSettingJwtHeader: true }),
+      // The OAuth 2.1 authorization server for MCP clients (MCP 2026-07-28, apps/api/SPEC.md,
+      // "MCP authorization"): PKCE, tokens bound to the `/mcp` resource, consent on `/consent`.
+      mcp({
+        loginPage: "/login",
+        consentPage: "/consent",
+        resource: env.MCP_RESOURCE,
+        // `offline_access` is the authorization server's: MCP clients add it to get a refresh
+        // token when it is listed here.
+        scopes: [MCP_SCOPE, "offline_access"],
+        // A user's grant to a client and its renewal; no machine-to-machine clients.
+        grantTypes: ["authorization_code", "refresh_token"],
+        accessTokenExpiresIn: ACCESS_TOKEN_TTL_SECONDS,
+        // Dynamic Client Registration is deprecated by MCP 2026-07-28 in favour of Client ID
+        // Metadata Documents; it stays on, open to anyone as MCP clients need, for the clients
+        // that have not moved yet. Every client still needs the user's consent.
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        clientRegistrationDefaultScopes: [MCP_SCOPE, "offline_access"],
+      }),
+      // Client ID Metadata Documents: a client's `client_id` is the HTTPS URL of its metadata.
+      cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
       apiKey({
         references: "organization",
         defaultPrefix: API_KEY_PREFIX,

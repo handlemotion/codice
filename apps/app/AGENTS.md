@@ -18,6 +18,16 @@ target of `apps/edge`: every path that is not the API's, the site's `/` or `/_si
   only KV: keep D1 off that path. Its contract is `CodiceAccountsService` in `@codice/contracts`
   (`apps/api/SPEC.md`, "Auth"). The KV record layout is the plugin's; `test/auth.test.ts` proves
   a plugin-made key verifies, so run it after a Better Auth upgrade.
+- MCP OAuth (`apps/api/SPEC.md`, "MCP authorization"): this Worker is the authorization server
+  for `/mcp`, with `mcp()`, `cimd()` and `jwt()` in `src/server/auth.ts`. `/login` resumes an
+  authorization after sign-in and `/consent` approves a client; both are entered by a full-page
+  redirect from `/api/auth/oauth2/authorize`. `src/server.ts` hands
+  `/.well-known/oauth-authorization-server/*` to Better Auth. `CodiceAccounts.verifyAccessToken`
+  (`src/server/access-tokens.ts`) verifies an MCP access token for `codice-api`: it reads the
+  signing keys from D1 once per isolate, then only KV, so keep further D1 reads off it.
+  Connected clients and disconnecting them: `src/server/connected-clients.ts`, with server
+  functions in `src/server/oauth-functions.ts`. `test/auth.test.ts` runs the whole flow; run it
+  after a Better Auth upgrade.
 - Pages read and change data through server functions (`src/server/functions.ts`) that call
   Better Auth's server API with the request's cookies; the sign-in page uses the browser client.
 - D1 schema: `src/db/schema.ts`, Better Auth's tables as `npx auth@<version> generate` writes them.

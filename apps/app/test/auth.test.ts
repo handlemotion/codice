@@ -1,9 +1,15 @@
 import { env } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { verifyAccessToken } from "../src/server/access-tokens";
 import { verifyApiKey } from "../src/server/api-key-store";
 import { createAuth, SESSION_COOKIE, socialProviders, type AuthBindings } from "../src/server/auth";
+import {
+  describeConsent,
+  disconnectClient,
+  listConnectedClients,
+} from "../src/server/connected-clients";
 
 /**
  * Better Auth's wiring against a local D1 and KV: sign-in by email code, the personal team, and a
@@ -25,6 +31,7 @@ const bindings: AuthBindings = {
   BETTER_AUTH_URL: ORIGIN,
   BETTER_AUTH_SECRET: "test-secret-0123456789abcdef0123456789abcdef",
   AUTH_EMAIL_FROM: "acceso@codice.io",
+  MCP_RESOURCE: `${ORIGIN}/mcp`,
   GOOGLE_CLIENT_ID: "google-test",
   GOOGLE_CLIENT_SECRET: "google-test",
   GITHUB_CLIENT_ID: "github-test",
@@ -215,5 +222,260 @@ describe("team API keys", () => {
     ["no key", undefined],
   ])("refuses %s", async (_, key) => {
     expect(await verifyApiKey(env.API_KEYS, key, noWaitUntil)).toEqual({ valid: false });
+  });
+});
+
+describe("MCP authorization", () => {
+  const RESOURCE = `${ORIGIN}/mcp`;
+  const CLIENT_ID = "https://client.example/oauth/metadata.json";
+  const REDIRECT_URI = "https://client.example/callback";
+  const metadataDocument = {
+    client_id: CLIENT_ID,
+    client_name: "Example MCP client",
+    client_uri: "https://client.example",
+    redirect_uris: [REDIRECT_URI],
+    grant_types: ["authorization_code", "refresh_token"],
+    response_types: ["code"],
+    token_endpoint_auth_method: "none",
+  };
+
+  beforeEach(() => {
+    // The client's metadata document, as `cimd()` fetches it through the Worker's `fetch`.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url !== CLIENT_ID) throw new Error(`unexpected fetch ${url}`);
+      return Response.json(metadataDocument, { headers: { "cache-control": "max-age=60" } });
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  async function pkce() {
+    const verifier = crypto.randomUUID() + crypto.randomUUID();
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/gu, "-")
+      .replace(/\//gu, "_")
+      .replace(/=+$/u, "");
+    return { verifier, challenge };
+  }
+
+  function authorizeUrl(challenge: string, clientId = CLIENT_ID, redirectUri = REDIRECT_URI) {
+    const url = new URL(`${ORIGIN}/api/auth/oauth2/authorize`);
+    url.search = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "codice:read offline_access",
+      state: "state-1",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      resource: RESOURCE,
+    }).toString();
+    return url;
+  }
+
+  function token(body: Record<string, string>) {
+    return auth.handler(
+      new Request(`${ORIGIN}/api/auth/oauth2/token`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(body),
+      }),
+    );
+  }
+
+  /** Authorizes the client as a signed-in user and redeems the code: the token response. */
+  async function connect(cookie: string, clientId = CLIENT_ID, redirectUri = REDIRECT_URI) {
+    const { verifier, challenge } = await pkce();
+    const authorize = await auth.handler(
+      new Request(authorizeUrl(challenge, clientId, redirectUri), { headers: { cookie } }),
+    );
+    expect(authorize.status).toBe(302);
+    const consentPage = new URL(authorize.headers.get("location")!, ORIGIN);
+    expect(consentPage.pathname).toBe("/consent");
+
+    const consent = await post(
+      "/oauth2/consent",
+      { accept: true, oauth_query: consentPage.search.slice(1) },
+      { cookie },
+    );
+    expect(consent.status).toBe(200);
+    const { url } = (await consent.json()) as { url: string };
+    const callback = new URL(url);
+    expect(`${callback.origin}${callback.pathname}`).toBe(redirectUri);
+    expect(callback.searchParams.get("state")).toBe("state-1");
+    expect(callback.searchParams.get("iss")).toBe(`${ORIGIN}/api/auth`);
+
+    const response = await token({
+      grant_type: "authorization_code",
+      code: callback.searchParams.get("code")!,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+      code_verifier: verifier,
+      resource: RESOURCE,
+    });
+    expect(response.status).toBe(200);
+    return (await response.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      scope: string;
+      token_type: string;
+    };
+  }
+
+  it("publishes authorization server metadata for MCP clients at the root", async () => {
+    const response = await auth.handler(
+      new Request(`${ORIGIN}/.well-known/oauth-authorization-server/api/auth`),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      issuer: `${ORIGIN}/api/auth`,
+      authorization_endpoint: `${ORIGIN}/api/auth/oauth2/authorize`,
+      token_endpoint: `${ORIGIN}/api/auth/oauth2/token`,
+      registration_endpoint: `${ORIGIN}/api/auth/oauth2/register`,
+      code_challenge_methods_supported: ["S256"],
+      client_id_metadata_document_supported: true,
+      authorization_response_iss_parameter_supported: true,
+      scopes_supported: ["codice:read", "offline_access"],
+    });
+  });
+
+  it("sends a signed-out user to /login, and signing in resumes at /consent", async () => {
+    const { challenge } = await pkce();
+    const authorize = await auth.handler(new Request(authorizeUrl(challenge)));
+    expect(authorize.status).toBe(302);
+    const login = new URL(authorize.headers.get("location")!, ORIGIN);
+    expect(login.pathname).toBe("/login");
+
+    const email = "resume@example.com";
+    await post("/email-otp/send-verification-otp", { email, type: "sign-in" });
+    const otp = /\b(\d{6})\b/u.exec(sent.at(-1)?.text ?? "")?.[1];
+    const signIn = await post("/sign-in/email-otp", {
+      email,
+      otp,
+      oauth_query: login.search.slice(1),
+    });
+
+    expect(signIn.status).toBe(200);
+    const next = (await signIn.json()) as { redirect: boolean; url: string };
+    expect(next.redirect).toBe(true);
+    expect(new URL(next.url, ORIGIN).pathname).toBe("/consent");
+  });
+
+  it("shows the consent page the client, its scopes and where it returns", async () => {
+    const { cookie } = await signIn("consent@example.com");
+    const { challenge } = await pkce();
+    const authorize = await auth.handler(
+      new Request(authorizeUrl(challenge), { headers: { cookie } }),
+    );
+    const search = new URL(authorize.headers.get("location")!, ORIGIN).search;
+    const headers = new Headers({ cookie });
+
+    expect(await describeConsent(bindings, headers, search)).toEqual({
+      client: {
+        clientId: CLIENT_ID,
+        name: "Example MCP client",
+        uri: "https://client.example",
+        icon: null,
+      },
+      scopes: ["codice:read", "offline_access"],
+      redirectHost: "client.example",
+      loopback: false,
+    });
+    const forged = search.replace("state-1", "state-2");
+    expect(await describeConsent(bindings, headers, forged)).toBeNull();
+  });
+
+  it("issues a JWT for the /mcp resource that CodiceAccounts verifies, and a refresh token", async () => {
+    const { cookie } = await signIn("connect@example.com");
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+
+    const tokens = await connect(cookie);
+
+    expect(tokens.token_type).toBe("Bearer");
+    expect(tokens.scope).toBe("codice:read offline_access");
+    expect(tokens.refresh_token).toBeTruthy();
+    expect(await verifyAccessToken(bindings, tokens.access_token)).toEqual({
+      valid: true,
+      userId: session!.user.id,
+      clientId: CLIENT_ID,
+      scopes: ["codice:read", "offline_access"],
+    });
+
+    const refreshed = await token({
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token!,
+      client_id: CLIENT_ID,
+      resource: RESOURCE,
+    });
+    expect(refreshed.status).toBe(200);
+    const next = (await refreshed.json()) as { access_token: string; refresh_token: string };
+    expect(next.refresh_token).not.toBe(tokens.refresh_token);
+    expect(await verifyAccessToken(bindings, next.access_token)).toMatchObject({ valid: true });
+  });
+
+  it("refuses a token for another resource, a tampered one, and an API key", async () => {
+    const { cookie } = await signIn("audience@example.com");
+    const { access_token } = await connect(cookie);
+    const [header, payload, signature] = access_token.split(".");
+    const tampered = `${header}.${payload}.${signature!.slice(0, -4)}AAAA`;
+
+    expect(
+      await verifyAccessToken(
+        { ...bindings, MCP_RESOURCE: "https://other.example/mcp" },
+        access_token,
+      ),
+    ).toEqual({ valid: false });
+    expect(await verifyAccessToken(bindings, tampered)).toEqual({ valid: false });
+    expect(await verifyAccessToken(bindings, "cdc_not_a_jwt")).toEqual({ valid: false });
+  });
+
+  it("lists the connected client, and disconnecting it ends its access", async () => {
+    const { cookie } = await signIn("disconnect@example.com");
+    const headers = new Headers({ cookie });
+    const tokens = await connect(cookie);
+
+    const [connected] = await listConnectedClients(bindings, headers);
+    expect(connected).toMatchObject({
+      clientId: CLIENT_ID,
+      name: "Example MCP client",
+      uri: "https://client.example",
+      scopes: ["codice:read", "offline_access"],
+    });
+    expect(connected!.lastActiveAt).toMatch(/^\d{4}-/u);
+
+    await disconnectClient(bindings, headers, CLIENT_ID);
+
+    expect(await listConnectedClients(bindings, headers)).toEqual([]);
+    expect(await verifyAccessToken(bindings, tokens.access_token)).toEqual({ valid: false });
+    const refreshed = await token({
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token!,
+      client_id: CLIENT_ID,
+    });
+    expect(refreshed.status).toBe(400);
+  });
+
+  it("still registers a public client by Dynamic Client Registration", async () => {
+    const registered = await post("/oauth2/register", {
+      client_name: "Legacy MCP client",
+      // A loopback redirect is a native app's (MCP 2026-07-28, "Dynamic Client Registration").
+      application_type: "native",
+      redirect_uris: ["http://127.0.0.1:33418/callback"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registered.status).toBe(201);
+    const { client_id } = (await registered.json()) as { client_id: string };
+
+    const { cookie } = await signIn("dcr@example.com");
+    const tokens = await connect(cookie, client_id, "http://127.0.0.1:33418/callback");
+
+    expect(await verifyAccessToken(bindings, tokens.access_token)).toMatchObject({
+      valid: true,
+      clientId: client_id,
+    });
   });
 });

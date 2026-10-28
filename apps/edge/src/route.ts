@@ -2,8 +2,16 @@ export type RouteTarget = "api" | "app" | "site";
 
 export const SESSION_COOKIE = "__Secure-codice-session";
 export const SITE_ASSET_PREFIX = "/_site/";
-/** The public API (`apps/api`): `/v1`, `/mcp` and their subpaths, any method. */
-export const API_PREFIXES: readonly string[] = ["/v1", "/mcp"];
+/**
+ * The public API (`apps/api`): `/v1`, `/mcp` and their subpaths, any method, and `/mcp`'s OAuth
+ * protected resource metadata (RFC 9728), at the root and at `/mcp`. The authorization server's
+ * own metadata, `/.well-known/oauth-authorization-server/api/auth`, is the app's.
+ */
+export const API_PREFIXES: readonly string[] = [
+  "/v1",
+  "/mcp",
+  "/.well-known/oauth-protected-resource",
+];
 /** The API's probes, answered on the public host too. */
 export const API_PATHS: ReadonlySet<string> = new Set(["/health", "/ready"]);
 

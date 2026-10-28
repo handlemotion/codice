@@ -24,6 +24,8 @@ describe("edge routing", () => {
       "/v1/passages/a/b",
       "/mcp",
       "/mcp/x",
+      "/.well-known/oauth-protected-resource",
+      "/.well-known/oauth-protected-resource/mcp",
       "/health",
       "/ready",
     ]) {
@@ -34,7 +36,17 @@ describe("edge routing", () => {
   });
 
   it("does not widen the API prefixes", () => {
-    for (const path of ["/v1x", "/v2/search", "/mcpx", "/x/v1", "/V1", "/ready/x", "/healthz"]) {
+    for (const path of [
+      "/v1x",
+      "/v2/search",
+      "/mcpx",
+      "/x/v1",
+      "/V1",
+      "/ready/x",
+      "/healthz",
+      "/.well-known/oauth-authorization-server/api/auth",
+      "/.well-known/oauth-protected-resourcex",
+    ]) {
       expect(target(path)).not.toBe("api");
     }
   });

@@ -321,8 +321,9 @@ Each is a thin call to the same handler as `/v1` and returns its `data` as `stru
 as JSON text). A refusal is a tool result with `isError: true` and `{ error: { code, message,
 status } }`, the problem's code and status. `lookup_catalog`'s optional `where` object
 (`{ c_CodigoPostal: "01000" }`) is the route's column filters. All are annotated read-only and idempotent. Built with `createMcpHandler` from the `agents` package, as in
-`apps/mcp`. Read-only; it takes the same API key as `/v1` (`Authorization: Bearer cdc_…`, which
-MCP clients send) and shares the key's rate limit.
+`apps/mcp`. Read-only. MCP clients connect with OAuth ([MCP authorization](#mcp-authorization));
+a team's API key (`Authorization: Bearer cdc_…` or `x-api-key`) still works, and shares the key's
+rate limit with `/v1`.
 
 ### Chat
 
@@ -369,7 +370,8 @@ that one named a law article that no tool had returned ("artículo 29-A del CFF"
 
 `/v1/*` and `/mcp/*` pass the Workers rate-limit binding `CODICE_PUBLIC_RATE_LIMITER` (namespace
 `1601`, 60 requests per 60 seconds), keyed per API key by its id (`key:<keyId>`), after the key is
-verified. Over the limit: `429` problem+json, code `rate_limited`, `retry-after: 60`. `/`,
+verified, and on `/mcp` per user signed in through OAuth (`user:<userId>`), shared by all of that
+user's MCP clients. Over the limit: `429` problem+json, code `rate_limited`, `retry-after: 60`. `/`,
 `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) are not limited. A refused
 key never reaches the limiter, so a request without a valid key costs no limit and no query.
 
@@ -385,12 +387,66 @@ the dashboard (`apps/app`, `/keys`):
   where Better Auth's api-key plugin keeps the hashed keys, never D1, and records the key's last use
   at most once a minute per isolate.
 - Missing, unknown, revoked or expired → `401` problem+json, code `unauthorized`, with
-  `www-authenticate: Bearer realm="codice"`. A binding failure is a `500`.
+  `www-authenticate: Bearer realm="codice"`. A binding failure is a `500`. `/mcp` without a
+  credential answers with its OAuth challenge instead ([MCP authorization](#mcp-authorization)).
 - `/`, `/health`, `/ready` and the [internal entrypoint](#internal-entrypoint) stay open.
 - A revoked key can still pass for up to a minute: KV caches a read at each location for 60 seconds.
 - Keys belong to a team (a Better Auth organization); each new user gets a personal team. Only a
   team's owner can create and revoke its keys. Accounts, sessions and teams are in D1
   `codice-accounts`, bound to `codice-app` only.
+
+### MCP authorization
+
+`/mcp` is an OAuth 2.1 protected resource under the MCP authorization spec, revision 2026-07-28
+(<https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization>): an MCP client
+gets only the URL `https://codice.io/mcp`, and the user signs in and approves it in the browser.
+`codice-app` is the authorization server (Better Auth 1.7.14: `mcp()` from `@better-auth/mcp`,
+`cimd()` from `@better-auth/cimd`, `jwt()`; `apps/app/src/server/auth.ts`); `codice-api` is the
+resource server.
+
+- **Discovery.** `/mcp` without a credential → `401` with
+  `www-authenticate: Bearer realm="codice", resource_metadata="https://codice.io/.well-known/oauth-protected-resource/mcp", scope="codice:read"`.
+  That URL (and the root `/.well-known/oauth-protected-resource`, which clients try next) is the
+  protected resource metadata (RFC 9728), served by `codice-api` (the edge routes the prefix to
+  it): `resource` `https://codice.io/mcp`, `authorization_servers` `["https://codice.io/api/auth"]`,
+  `scopes_supported` `["codice:read"]`, `bearer_methods_supported` `["header"]`. Both values come
+  from `codice-app` (`CodiceAccounts.mcpAuthorization()`), so the Workers cannot disagree. The
+  authorization server's metadata (RFC 8414) is at
+  `/.well-known/oauth-authorization-server/api/auth` (`codice-app` hands it to Better Auth): PKCE
+  `S256` only, `client_id_metadata_document_supported: true`, `iss` in the authorization response
+  (RFC 9207), scopes `codice:read` and `offline_access`, grants `authorization_code` and
+  `refresh_token` only.
+- **Client registration.** Client ID Metadata Documents (the spec's preferred way): the
+  `client_id` is the HTTPS URL of the client's metadata, fetched by `codice-app` under the
+  `mcp-2026-07-28` profile (`src/server/client-metadata-fetch.ts`: HTTPS GET only, no redirects;
+  `cimd()` refuses non-public hosts; `global_fetch_strictly_public` keeps it off the account's own
+  zones and Workers). Dynamic Client Registration (RFC 7591), deprecated by the spec, stays on,
+  without authentication as MCP clients need, for the clients that have not moved yet; a loopback
+  redirect needs `application_type: "native"`. A registered client gets nothing without the
+  user's consent.
+- **Sign-in and consent.** `/api/auth/oauth2/authorize` sends a signed-out user to `/login`
+  (signing in resumes the authorization: the browser client sends the signed query as
+  `oauth_query`) and a signed-in one to `/consent`, which shows the client's name, its scopes,
+  the host it returns to, and a warning for a loopback-only client. Approval is stored per user
+  and client (`oauth_consent`).
+- **Tokens.** The access token is an EdDSA JWT (`typ` `at+jwt`) for 1 hour, `aud` the `/mcp`
+  resource (the client must send RFC 8707 `resource`), `sub` the user, `azp` the client. With
+  `offline_access`, which MCP clients add because the authorization server lists it, a refresh
+  token comes too, rotated on each use (a 30-second reuse window for retries). Tables: `jwks`,
+  `oauth_*` in D1 `codice-accounts`.
+- **Verification.** `/mcp` sends a bearer that does not start with `cdc_` to
+  `CodiceAccounts.verifyAccessToken`: signature against the `jwt()` keys (read from D1 once per
+  isolate, again for an unknown key id at most every 30 seconds), issuer, audience, expiry,
+  `typ`, no DPoP binding (`cnf`; `/mcp` does not check DPoP proofs), and no disconnect since it was
+  issued. Invalid → `401` with the challenge and `error="invalid_token"`. Valid without
+  `codice:read` → `403` problem+json `insufficient_scope` with `error="insufficient_scope"`. `/v1`
+  never takes these tokens: they are for `/mcp` only.
+- **Connected clients.** A user's consents are their connected MCP clients
+  (`listConnectedClients` in `apps/app/src/server/connected-clients.ts`, as the server function
+  `getConnectedClients`): name, URL, scopes, when connected, when it last got a token.
+  Disconnecting (`disconnectConnectedClient`) deletes the consent and the client's refresh and
+  access tokens, and writes a KV mark that refuses the JWTs it already holds, so access ends
+  within a minute (KV's cache).
 
 Why not AI Search's own public endpoint, which also serves `/mcp`: it exposes one `search` tool and
 cannot apply the validity filter by default, so a client could get a repealed rule, and it cannot
@@ -901,6 +957,11 @@ to match.
     `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
     Email Sending for `codice.io`, the OAuth apps. Next: usage per key on the overview, and member
     roles beyond the owner.
+11. **MCP over OAuth** (done in code, see [MCP authorization](#mcp-authorization)). MCP clients
+    connect with the URL alone, by Client ID Metadata Document or Dynamic Client Registration,
+    and the user's connected clients are listed and disconnected through `codice-app`'s server
+    functions. Proved locally end to end with the MCP TypeScript SDK 2.0 and Chromium, by DCR and
+    with Claude's published metadata document. Next: the dashboard page that lists them.
 
 ## Open questions
 

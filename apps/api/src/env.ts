@@ -5,7 +5,7 @@ import type { CodiceAccountsService } from "@codice/contracts";
 // bindings the app checks are re-declared here as optional; Omit drops the generated entry so the
 // redeclaration is not narrowed back.
 interface CodiceBindingOverrides {
-  ACCOUNTS?: Pick<CodiceAccountsService, "verifyApiKey">;
+  ACCOUNTS?: Pick<CodiceAccountsService, "verifyApiKey" | "verifyAccessToken" | "mcpAuthorization">;
   CODICE_DATABASE?: D1Database;
   CODICE_SEARCH?: AiSearchInstance;
   CODICE_PUBLIC_RATE_LIMITER?: RateLimit;
@@ -21,8 +21,13 @@ export type CodiceBindings = Omit<CloudflareBindings, keyof CodiceBindingOverrid
 
 export type CodiceVariables = {
   requestId: string;
-  /** The verified caller of a `/v1` or `/mcp` route. */
-  apiKey: { keyId: string; organizationId: string };
+  /**
+   * The verified caller of a `/v1` or `/mcp` route: a team's API key, or (on `/mcp` only) a user
+   * through an MCP client they authorized by OAuth.
+   */
+  caller:
+    | { kind: "api_key"; keyId: string; organizationId: string }
+    | { kind: "oauth"; userId: string; clientId: string };
 };
 
 export type CodiceEnv = { Bindings: CodiceBindings; Variables: CodiceVariables };

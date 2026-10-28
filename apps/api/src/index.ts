@@ -63,33 +63,116 @@ app.onError((error, context) => {
   return problem(requestId, 500, "internal_error", "Internal error");
 });
 
-/** A `cdc_` key from `Authorization: Bearer` or, failing that, `x-api-key`. */
-function presentedKey(request: Request): string | undefined {
-  const authorization = request.headers.get("authorization");
-  const bearer = authorization?.match(/^Bearer\s+(\S+)\s*$/iu)?.[1];
-  return bearer ?? request.headers.get("x-api-key")?.trim() ?? undefined;
+/** The bearer token of `Authorization: Bearer`, if any. */
+function bearerToken(request: Request): string | undefined {
+  return request.headers.get("authorization")?.match(/^Bearer\s+(\S+)\s*$/iu)?.[1];
 }
 
-// `/v1` and `/mcp` take a team's API key, verified by `codice-app` (`ACCOUNTS`). SPEC.md, "Auth".
-const requireApiKey: MiddlewareHandler<CodiceEnv> = async (context, next) => {
+/** A `cdc_` key from `Authorization: Bearer` or, failing that, `x-api-key`. */
+function presentedKey(request: Request): string | undefined {
+  return bearerToken(request) ?? request.headers.get("x-api-key")?.trim() ?? undefined;
+}
+
+function accountsOf(context: Context<CodiceEnv>) {
   const accounts = context.env.ACCOUNTS;
   if (!accounts) throw new Error("ACCOUNTS is not bound");
+  return accounts;
+}
+
+/** Answers with the problem for a missing or refused credential, with its challenge. */
+function unauthorized(context: Context<CodiceEnv>, detail: string, challenge: string) {
+  const response = problem(context.get("requestId"), 401, "unauthorized", "Unauthorized", detail);
+  response.headers.set("www-authenticate", challenge);
+  return response;
+}
+
+async function verifiedKey(context: Context<CodiceEnv>, key: string | undefined) {
+  const verification = key
+    ? await accountsOf(context).verifyApiKey(key)
+    : { valid: false as const };
+  if (!verification.valid) return undefined;
+  const { keyId, organizationId } = verification;
+  return { kind: "api_key" as const, keyId, organizationId };
+}
+
+// `/v1` takes a team's API key, verified by `codice-app` (`ACCOUNTS`). SPEC.md, "Auth".
+const requireApiKey: MiddlewareHandler<CodiceEnv> = async (context, next) => {
   const key = presentedKey(context.req.raw);
-  const verification = key ? await accounts.verifyApiKey(key) : { valid: false as const };
-  if (!verification.valid) {
-    const response = problem(
-      context.get("requestId"),
-      401,
-      "unauthorized",
-      "Unauthorized",
+  const caller = await verifiedKey(context, key);
+  if (!caller) {
+    return unauthorized(
+      context,
       key
         ? "The API key is not valid."
         : "Send an API key as `Authorization: Bearer cdc_…` or `x-api-key`.",
+      'Bearer realm="codice"',
     );
-    response.headers.set("www-authenticate", 'Bearer realm="codice"');
+  }
+  context.set("caller", caller);
+  await next();
+};
+
+/** `/mcp`'s protected resource metadata (RFC 9728): the well-known prefix, then `/mcp`. */
+const MCP_RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource/mcp";
+
+/** The metadata URL for a resource: on its origin, the well-known prefix before its path. */
+function resourceMetadataUrl(resource: string) {
+  const { origin, pathname } = new URL(resource);
+  return `${origin}/.well-known/oauth-protected-resource${pathname === "/" ? "" : pathname}`;
+}
+
+// `/mcp` takes an OAuth access token `codice-app` issued for it, or a team's API key (a `cdc_`
+// bearer or `x-api-key`). Without either, the challenge points an MCP client at the metadata
+// that starts its OAuth flow. SPEC.md, "MCP authorization".
+const requireMcpCredential: MiddlewareHandler<CodiceEnv> = async (context, next) => {
+  const request = context.req.raw;
+  const bearer = bearerToken(request);
+  const usesApiKey = bearer ? bearer.startsWith("cdc_") : request.headers.has("x-api-key");
+  if (usesApiKey) {
+    const caller = await verifiedKey(context, presentedKey(request));
+    if (!caller) return unauthorized(context, "The API key is not valid.", 'Bearer realm="codice"');
+    context.set("caller", caller);
+    return next();
+  }
+
+  const accounts = accountsOf(context);
+  const [{ resource, scope }, verification] = await Promise.all([
+    accounts.mcpAuthorization(),
+    bearer ? accounts.verifyAccessToken(bearer) : { valid: false as const },
+  ]);
+  const metadata = resourceMetadataUrl(resource);
+  const challenge = (error?: string) =>
+    [
+      'Bearer realm="codice"',
+      `resource_metadata="${metadata}"`,
+      `scope="${scope}"`,
+      ...(error ? [`error="${error}"`] : []),
+    ].join(", ");
+  if (!verification.valid) {
+    return unauthorized(
+      context,
+      bearer
+        ? "The access token is not valid."
+        : "Authorize with OAuth (see `www-authenticate`), or send an API key.",
+      challenge(bearer ? "invalid_token" : undefined),
+    );
+  }
+  if (!verification.scopes.includes(scope)) {
+    const response = problem(
+      context.get("requestId"),
+      403,
+      "insufficient_scope",
+      "Insufficient scope",
+      `The access token needs the \`${scope}\` scope.`,
+    );
+    response.headers.set("www-authenticate", challenge("insufficient_scope"));
     return response;
   }
-  context.set("apiKey", { keyId: verification.keyId, organizationId: verification.organizationId });
+  context.set("caller", {
+    kind: "oauth",
+    userId: verification.userId,
+    clientId: verification.clientId,
+  });
   await next();
 };
 
@@ -99,11 +182,14 @@ function limited(context: Context<CodiceEnv>) {
   return response;
 }
 
-// Each key has its own allowance. SPEC.md, "Rate limiting".
+// Each key has its own allowance, and so does each user signed in through OAuth, across their
+// clients. SPEC.md, "Rate limiting".
 const keyRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
   const limiter = context.env.CODICE_PUBLIC_RATE_LIMITER;
   if (!limiter) throw new Error("CODICE_PUBLIC_RATE_LIMITER is not bound");
-  const { success } = await limiter.limit({ key: `key:${context.get("apiKey").keyId}` });
+  const caller = context.get("caller");
+  const key = caller.kind === "api_key" ? `key:${caller.keyId}` : `user:${caller.userId}`;
+  const { success } = await limiter.limit({ key });
   if (!success) return limited(context);
   await next();
 };
@@ -120,7 +206,8 @@ const chatRateLimit: MiddlewareHandler<CodiceEnv> = async (context, next) => {
 };
 
 // Hono's `/x/*` also matches `/x` itself.
-for (const path of ["/v1/*", "/mcp/*"]) app.use(path, requireApiKey, keyRateLimit);
+app.use("/v1/*", requireApiKey, keyRateLimit);
+app.use("/mcp/*", requireMcpCredential, keyRateLimit);
 app.use("/v1/chat", chatRateLimit);
 
 app.get("/", (context) => context.json({ service: SERVICE, status: "ok" }));
@@ -142,6 +229,26 @@ app.get("/ready", (context) => {
   }
   return context.json({ service: SERVICE, status: "ready" as const });
 });
+
+// `/mcp`'s OAuth protected resource metadata (RFC 9728), at the path-inserted URL and at the
+// root, which MCP clients try next; both describe `/mcp`. The issuer and resource are
+// `codice-app`'s (`mcpAuthorization`), so the two Workers cannot disagree.
+for (const path of [MCP_RESOURCE_METADATA_PATH, "/.well-known/oauth-protected-resource"]) {
+  app.get(path, async (context) => {
+    const { issuer, resource, scope } = await accountsOf(context).mcpAuthorization();
+    context.header("cache-control", "public, max-age=300");
+    // Browser-based MCP clients read it cross-origin; it holds nothing private.
+    context.header("access-control-allow-origin", "*");
+    return context.json({
+      resource,
+      authorization_servers: [issuer],
+      scopes_supported: [scope],
+      bearer_methods_supported: ["header"],
+      resource_name: "Códice",
+      resource_documentation: new URL("/docs", resource).href,
+    });
+  });
+}
 
 app.get("/v1/search", async (context) =>
   apiJson(
