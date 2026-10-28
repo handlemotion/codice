@@ -195,19 +195,20 @@ Entrar → Obtener clave so the blue one sits in the corner.
 ### Chat (`src/ask.tsx`)
 
 - **A chat, not a section:** only the hero title above it, no explanation around it.
-- **The thread** scrolls inside the first screen, faded at whichever edge has more to read
-  (`.scroll-fade`); each message rises in (`.message-in`). The grey bubble eases its width
-  between the offered questions and holds still while focused.
-- **Ported from Transitive, not hand-rolled:** the thread is shadcn's message scroller
-  (`@shadcn/react`, as `@transitive/ui` wraps it: follows new messages unless the reader scrolls
-  up), the bubble is its `Bubble`, and answers reveal at a steady pace with its
-  `useStreamedReveal` (`src/components/chat/`).
+- **The thread** sits in the page's own flow, with no scroll or fade of its own: the first screen
+  is at least 85% of the window and grows with a long answer. On wide screens the chat keeps at
+  least 360px, so the title sits a little above the middle whatever the thread holds. Each
+  message rises in (`.message-in`). The grey bubble eases its width between the offered
+  questions and holds still while focused.
+- **Ported from Transitive, not hand-rolled:** the bubble is its `Bubble`, and answers reveal at a
+  steady pace with its `useStreamedReveal` (`src/components/chat/`).
 - **The visitor's question** is a right-aligned bubble: `bg-line` while typed, `bg-electric` with
   white text once sent, 4px radius, at most 85% of the thread.
 - **Códice's turn:** three small marks (one step apart) turn while it works, beside a short
   `muted` status taken from the tool it is running ("Buscando en las reglas del SAT", "Leyendo la
-  regla"…, or "Pensando"), then rest. The answer streams in as markdown in plain `fg` text; the API
-  ends it with a `Fuente:` line whose links use the prose link style.
+  regla"…), then rest. While it only thinks, the marks turn alone, at twice the pace. The answer streams in as markdown in plain `fg` text. The API
+  ends it with a `Fuente:` block; the chat takes it out of the text and shows each linked
+  document as a pill (see below).
 - **Composer:** one box at the bottom of the chat, inverted: `bg-fg` with `ink` text (black on
   the light theme, white on the dark), its ghost text and key caps in `ink` at reduced opacity. When empty it shows a suggested
   question as ghost text that rotates every 4s; Enter on an empty composer sends it. While typing,
@@ -215,8 +216,11 @@ Entrar → Obtener clave so the blue one sits in the corner.
   keeps what was typed. Key caps `Tab` and `↵` sit at the right (hidden on phones).
 - **One question, one answer.** The composer is a grey bubble on the right under the title, as
   wide as its text; Enter sends it in place as the blue bubble and the answer streams under it.
-  After the answer, two small raw-text actions: "Continuar la conversación con una cuenta"
-  (`/login`) and "Empezar de nuevo" (also Esc). `/` focuses the composer from anywhere.
+  Under the answer, one row: three `muted` icon actions with their names in tooltips (copy the
+  answer, a branch for "Continuar la conversación con una cuenta" to `/login`, a counter-clockwise
+  arrow for "Empezar de nuevo", also Esc), then each source as a pill: `line` border, full
+  radius, 12px `muted` text, a file icon and the section it cites ("CFDI40149"), the document
+  and its date in the tooltip, opening the document. `/` focuses the composer from anywhere.
 - Errors are one short Spanish sentence in `muted`; never show the API's English problem titles.
 - It uses TanStack AI's `useChat` with `fetchServerSentEvents("/_site/chat")`: the site's server
   route forwards the turn to the API's `POST /v1/chat` with the site's key (`AGENTS.md`).
@@ -261,6 +265,8 @@ turning `fg` on hover.
 So it isn't proposed again:
 
 - Large display headlines, mixed type sizes, two typefaces (Geist, Neue Machina): too varied.
+- A thread scrolling inside the first screen, faded at its edges: it caught the page's scroll and
+  its scroll-driven fade stuck on the composer after starting over.
 - Elevated grey panels, `rounded-xl`, a black strip behind a fixed bar: not black enough, too
   soft.
 - A fixed bottom ask bar, a full-screen "void" prompt with typed-out verbatim rules, and the first

@@ -1,7 +1,11 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import {
   IconArrowCornerDownLeft,
-  IconArrowRight,
+  IconArrowRotateCounterClockwise,
+  IconCheckmark1Small,
+  IconFileText,
+  IconBranch,
+  IconSquareBehindSquare1,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import {
   memo,
@@ -10,20 +14,15 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { Streamdown } from "streamdown";
 
 import { Mark } from "./brand/mark";
 import { Bubble } from "./components/chat/bubble";
-import {
-  MessageScroller,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport,
-} from "./components/chat/message-scroller";
 import { useStreamedReveal } from "./components/chat/streamed-reveal";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 
 // The site's own `POST /_site/chat`, which calls the API's `POST /v1/chat` with the site's key
 // (src/routes/[_site]/chat.ts). The answer streams back as AG-UI server-sent events.
@@ -54,8 +53,11 @@ const TOOL_LABELS: Record<string, string> = {
 const ANSWER =
   "[&_a]:underline [&_a]:decoration-line [&_a]:underline-offset-4 [&_a:hover]:decoration-fg [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-5";
 
-// The small raw-text actions around the bubble: how to send, how to go on, how to start over.
+// The small raw-text hint under the composer: how to send it.
 const HINT = "flex items-center gap-1.5 text-[13px] text-muted";
+
+// The icon actions under an answer: copy it, go on with an account, start over.
+const ACTION = "flex size-7 items-center justify-center text-muted hover:text-fg";
 
 type ChatMessage = ReturnType<typeof useChat>["messages"][number];
 type Part = ChatMessage["parts"][number];
@@ -83,13 +85,52 @@ function textOf(parts: readonly Part[]) {
   return parts.map((part) => (part.type === "text" ? part.content : "")).join("");
 }
 
-/** Códice's three shapes, turning while it works. */
+type Source = { title: string; url: string; section: string; since: string };
+
+// The line that opens the answer's sources: "Fuente:", bold or not, with the colon in or out.
+const SOURCES_LINE = /^\s*[*_]{0,2}fuentes?(?::[*_]{0,2}|[*_]{0,2}:)\s*/i;
+const LINK = /\[([^\]]+)\]\(([^)\s]+)\)([^[]*)/g;
+
+/**
+ * Splits the `Fuente:` block the API ends each answer with (apps/api/src/chat.ts) off the body:
+ * each linked document becomes a source, with the section and the date after its link. Without
+ * links the block stays in the body. While the answer streams, a last line that is still
+ * becoming "Fuente:" is held back, so it never shows as text.
+ */
+function splitSources(text: string, live: boolean): { body: string; sources: Source[] } {
+  const lines = text.split("\n");
+  let start = lines.length - 1;
+  while (start >= 0 && !SOURCES_LINE.test(lines[start]!)) start--;
+  if (start === -1) {
+    const tail = fold(lines.at(-1)?.replace(/[*_\s]/g, "") ?? "");
+    const held = live && tail.length > 0 && "fuente:".startsWith(tail);
+    return { body: held ? lines.slice(0, -1).join("\n") : text, sources: [] };
+  }
+  const block = [lines[start]!.replace(SOURCES_LINE, ""), ...lines.slice(start + 1)].join("\n");
+  const sources = [...block.matchAll(LINK)].map(([, title = "", url = "", after = ""]) => {
+    const [section = "", ...rest] = after
+      .replace(/^[\s,;:–—-]+|[\s.;]+$/g, "")
+      .split(/,\s*(?=vigente)/i);
+    return { title, url, section: section.trim(), since: rest.join(", ").trim() };
+  });
+  if (!sources.length && !live) return { body: text, sources: [] };
+  return { body: lines.slice(0, start).join("\n").trimEnd(), sources };
+}
+
+/** Códice's three shapes, turning while it works: twice the page's pace while it only thinks. */
 function Working({ animate, status }: { animate: boolean; status: string | null }) {
   return (
     <span className="flex items-center gap-3">
       <span aria-hidden className="flex gap-1.5">
         {[0, 1, 2].map((step) => (
-          <Mark animate={animate} className="size-3.5" key={step} step={step} strokeWidth={1.5} />
+          <Mark
+            animate={animate}
+            className="size-3.5"
+            key={step}
+            speed={status ? 1 : 2}
+            step={step}
+            strokeWidth={1.5}
+          />
         ))}
       </span>
       {status && (
@@ -115,23 +156,20 @@ const Answer = memo(function Answer({
   failed: boolean;
 }) {
   const reveal = useStreamedReveal(textOf(parts), live);
+  const { body } = splitSources(reveal.text, live);
   // The tool Códice is running now, if any: a call with no part after it yet.
   const tail = parts.at(-1);
   const running =
     live && tail?.type === "tool-call" && tail.state !== "complete" && tail.state !== "error"
       ? tail
       : undefined;
-  const status = running
-    ? (TOOL_LABELS[running.name] ?? "Consultando")
-    : live && !reveal.text
-      ? "Pensando"
-      : null;
+  const status = running ? (TOOL_LABELS[running.name] ?? "Consultando") : null;
   return (
     <div className="flex flex-col gap-3">
       {live && <Working animate status={status} />}
-      {reveal.text && (
+      {body && (
         <Streamdown className={ANSWER} isAnimating={reveal.revealing}>
-          {reveal.text}
+          {body}
         </Streamdown>
       )}
       {failed && <p className="text-muted">No pude responder. Intenta de nuevo en un minuto.</p>}
@@ -142,8 +180,8 @@ const Answer = memo(function Answer({
 /**
  * The chat of the first screen: one question, one answer. The composer is the visitor's bubble,
  * grey, on the right under the title; Enter sends it where it stands and Códice answers under it,
- * scrolling inside the first screen, faded at whichever edge has more to read. After the answer,
- * going on takes an account; Esc starts over.
+ * in the page's own flow: the first screen grows with a long answer. Under the answer,
+ * icon actions (copy, go on with an account, start over; Esc too) and the sources as pills.
  */
 export function Ask() {
   const { messages, sendMessage, isLoading, error, stop, clear } = useChat({ connection });
@@ -155,6 +193,7 @@ export function Ask() {
   const rest = ghost?.slice(query.length) ?? "";
   const last = messages.at(-1);
   const pending = isLoading && last?.role === "user";
+  const answer = last?.role === "assistant" ? textOf(last.parts) : "";
 
   // While nothing is typed, the offered question changes every few seconds; it holds still while
   // the bubble has the keyboard, so the question there is the one Enter sends.
@@ -200,7 +239,7 @@ export function Ask() {
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-10">
+    <div className="flex flex-col gap-10">
       {/* Balanced, so its two lines run about the same length; the ground sits behind the lines only,
           so the field shows past where each line ends. */}
       <h1 className="text-[20px] leading-snug text-balance">
@@ -210,79 +249,125 @@ export function Ask() {
         </span>
       </h1>
 
-      <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
-        <MessageScroller>
-          <MessageScrollerViewport aria-label="Conversación con Códice" role="log">
-            <MessageScrollerContent className="pb-6">
-              {messages.map((message, index) => (
-                <MessageScrollerItem
-                  className="message-in"
-                  key={message.id}
-                  messageId={message.id}
-                  scrollAnchor={message.role === "user"}
-                >
-                  {message.role === "user" ? (
-                    <Bubble>{textOf(message.parts)}</Bubble>
-                  ) : (
-                    <div className="bg-ink">
-                      <Answer
-                        failed={Boolean(error) && !isLoading && index === messages.length - 1}
-                        live={isLoading && index === messages.length - 1}
-                        parts={message.parts}
-                      />
-                    </div>
-                  )}
-                </MessageScrollerItem>
-              ))}
-              {pending && (
-                <MessageScrollerItem className="message-in" messageId="pending">
-                  <Working animate status="Pensando" />
-                </MessageScrollerItem>
-              )}
-              {error && !isLoading && last?.role === "user" && (
-                <MessageScrollerItem messageId="error">
-                  <p className="bg-ink text-muted">
-                    No pude responder. Intenta de nuevo en un minuto.
-                  </p>
-                </MessageScrollerItem>
-              )}
-              {!open && (
-                <MessageScrollerItem messageId="composer">
-                  <div className="flex flex-col items-end gap-2">
-                    <Composer
-                      input={input}
-                      label="Pregúntale a Códice"
-                      onSubmit={onSubmit}
-                      query={query}
-                      rest={rest}
-                      setQuery={setQuery}
-                    />
-                    {/* Under the bubble, in small raw text: how to send it. */}
-                    <span className={`${HINT} bg-ink`}>
-                      <IconArrowCornerDownLeft size={14} />
-                      Enviar
-                    </span>
-                  </div>
-                </MessageScrollerItem>
-              )}
-              {/* One question, one answer: to keep talking, the visitor makes an account. */}
-              {open && !isLoading && (
-                <MessageScrollerItem className="message-in" messageId="after">
-                  <div className="flex items-center gap-4 bg-ink">
-                    <a className={`${HINT} hover:text-fg`} href="/login">
-                      <IconArrowRight size={14} />
-                      Continuar la conversación con una cuenta
-                    </a>
-                    <button className={`${HINT} hover:text-fg`} onClick={reset} type="button">
-                      Empezar de nuevo
-                    </button>
-                  </div>
-                </MessageScrollerItem>
-              )}
-            </MessageScrollerContent>
-          </MessageScrollerViewport>
-        </MessageScroller>
-      </MessageScrollerProvider>
+      <div aria-label="Conversación con Códice" className="flex flex-col gap-6" role="log">
+        {messages.map((message, index) => (
+          <div className="message-in" key={message.id}>
+            {message.role === "user" ? (
+              <Bubble>{textOf(message.parts)}</Bubble>
+            ) : (
+              <div className="bg-ink">
+                <Answer
+                  failed={Boolean(error) && !isLoading && index === messages.length - 1}
+                  live={isLoading && index === messages.length - 1}
+                  parts={message.parts}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+        {pending && (
+          <div className="message-in">
+            <Working animate status={null} />
+          </div>
+        )}
+        {error && !isLoading && last?.role === "user" && (
+          <div>
+            <p className="bg-ink text-muted">No pude responder. Intenta de nuevo en un minuto.</p>
+          </div>
+        )}
+        {!open && (
+          <div>
+            <div className="flex flex-col items-end gap-2">
+              <Composer
+                input={input}
+                label="Pregúntale a Códice"
+                onSubmit={onSubmit}
+                query={query}
+                rest={rest}
+                setQuery={setQuery}
+              />
+              {/* Under the bubble, in small raw text: how to send it. */}
+              <span className={`${HINT} bg-ink`}>
+                <IconArrowCornerDownLeft size={14} />
+                Enviar
+              </span>
+            </div>
+          </div>
+        )}
+        {/* One question, one answer: to keep talking, the visitor makes an account. */}
+        {open && !isLoading && (
+          <div className="message-in">
+            <Actions answer={answer} reset={reset} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** An icon action with its name in a tooltip. */
+function Action({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * Under the answer: copy it, go on with an account (the fork), start over, then each source it
+ * cites as a pill that opens the document.
+ */
+function Actions({ answer, reset }: { answer: string; reset: () => void }) {
+  const { sources } = splitSources(answer, false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  return (
+    <div className="-ml-1.5 flex flex-wrap items-center gap-1">
+      {answer && (
+        <Action label={copied ? "Copiada" : "Copiar respuesta"}>
+          <button
+            aria-label="Copiar respuesta"
+            className={ACTION}
+            onClick={() => void navigator.clipboard.writeText(answer).then(() => setCopied(true))}
+            type="button"
+          >
+            {copied ? <IconCheckmark1Small size={16} /> : <IconSquareBehindSquare1 size={16} />}
+          </button>
+        </Action>
+      )}
+      <Action label="Continuar la conversación con una cuenta">
+        <a aria-label="Continuar la conversación con una cuenta" className={ACTION} href="/login">
+          <IconBranch size={16} />
+        </a>
+      </Action>
+      <Action label="Empezar de nuevo · Esc">
+        <button aria-label="Empezar de nuevo" className={ACTION} onClick={reset} type="button">
+          <IconArrowRotateCounterClockwise size={16} />
+        </button>
+      </Action>
+      {sources.map((source) => (
+        <Action
+          key={source.url + source.section}
+          label={source.since ? `${source.title}, ${source.since}` : source.title}
+        >
+          <a
+            className="ml-1 flex h-7 max-w-64 min-w-0 items-center gap-1.5 rounded-full border border-line bg-ink px-2.5 text-[12px] text-muted hover:border-fg hover:text-fg"
+            href={source.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <IconFileText className="shrink-0" size={14} />
+            <span className="truncate">{source.section || source.title}</span>
+          </a>
+        </Action>
+      ))}
     </div>
   );
 }
@@ -308,12 +393,19 @@ function Composer({
 }) {
   // The text's width, measured from a hidden copy, sets the bubble's: an explicit width can
   // transition, so the bubble eases between the offered questions as they rotate. While the
-  // visitor types it follows at once.
+  // visitor types it follows at once. Observed, not measured once, so it is measured again when
+  // the web font replaces the fallback.
   const sizer = useRef<HTMLSpanElement>(null);
   const [width, setWidth] = useState<number>();
   useLayoutEffect(() => {
-    if (sizer.current) setWidth(Math.ceil(sizer.current.getBoundingClientRect().width));
-  }, [query, rest]);
+    const node = sizer.current;
+    if (!node) return;
+    const measure = () => setWidth(Math.ceil(node.getBoundingClientRect().width));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <form
