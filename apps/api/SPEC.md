@@ -957,7 +957,7 @@ to match.
     (Google and GitHub turn on once their OAuth apps and secrets exist), gives each a personal team
     and issues the team's `cdc_` keys; `/v1` and `/mcp` require one. D1 `codice-accounts` and KV
     `codice-api-keys` exist on Handle; the site's key belongs to the team `Códice site`. Left:
-    Email Sending for `codice.io`, the OAuth apps. Next: usage per key on the overview, and member
+    Email Sending for `codice.io`. Next: usage per key on the overview, and member
     roles beyond the owner.
 
 ## Open questions
