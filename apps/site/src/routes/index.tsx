@@ -6,7 +6,13 @@ import { SiteBar } from "../components/site-bar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { Mark, MarkField } from "../brand/mark";
 
-export const Route = createFileRoute("/")({ component: Home });
+// `?hero=columna` is a layout under comparison: the hero on the sections' text column instead of
+// under the bar's brand.
+export const Route = createFileRoute("/")({
+  component: Home,
+  validateSearch: (search: Record<string, unknown>): { hero?: "columna" } =>
+    search.hero === "columna" ? { hero: "columna" } : {},
+});
 
 // The page is a ruled sheet: a margin column for the section's name and a text column that
 // starts just right of center, like a note written in a codex's outer margin. Every cell keeps
@@ -122,19 +128,25 @@ function Home() {
   // On desktop the hero's title sits where the bar's brand is; the brand comes back once the
   // logo strip is under the bar and gives it its ground.
   const [grounded, setGrounded] = useState(false);
+  const column = Route.useSearch().hero === "columna";
   return (
     <div className="min-h-dvh text-[14px] leading-[1.7]">
       {/* The bar stays at the top. It has no ground of its own: over the hero it floats on the
           marks, and once the logo strip below scrolls up under it, the strip's fill and bottom
           border become its ground (see `Strip`). */}
-      <SiteBar brand={grounded} />
+      <SiteBar brand={column || grounded} />
 
       {/* The first screen, over a field of marks rolling corner to corner like a wave: the title
           on the bar's left edge, under the mark, and the chat below it. A fixed height, so a
           conversation scrolls inside it and docks its composer at the bottom. */}
-      <header className="relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 lg:pt-3">
+      <header
+        className={`relative flex h-[85svh] min-h-[560px] flex-col overflow-hidden border-b border-line px-4 pt-[68px] pb-4 sm:px-6 sm:pt-[76px] sm:pb-6 ${column ? "lg:justify-center lg:pb-[12vh] lg:pl-[calc(48%+24px)]" : "lg:pt-3"}`}
+      >
         <MarkField className="pointer-events-none absolute inset-0 size-full text-line" />
-        <div className="relative flex min-h-0 w-full max-w-[30rem] flex-1 flex-col" id="preguntar">
+        <div
+          className={`relative flex min-h-0 w-full max-w-[30rem] flex-1 flex-col ${column ? "lg:max-h-[440px]" : ""}`}
+          id="preguntar"
+        >
           <Ask />
         </div>
       </header>

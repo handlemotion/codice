@@ -150,10 +150,13 @@ export function Ask() {
   const last = messages.at(-1);
   const pending = isLoading && last?.role === "user";
 
-  // While nothing is typed, the offered question changes every few seconds.
+  // While nothing is typed, the offered question changes every few seconds; it holds still while
+  // the bubble has the keyboard, so the question there is the one Enter sends.
   useEffect(() => {
     if (query || isLoading) return;
-    const timer = setInterval(() => setRotation((count) => count + 1), ROTATE_MS);
+    const timer = setInterval(() => {
+      if (document.activeElement !== input.current) setRotation((count) => count + 1);
+    }, ROTATE_MS);
     return () => clearInterval(timer);
   }, [query, isLoading]);
 
@@ -197,9 +200,12 @@ export function Ask() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <h1 className="self-start bg-ink text-[20px] leading-snug">
-        Códice reúne la documentación fiscal de México para tus agentes: conéctala a los que ya usas
-        o construye algo a la medida.
+      {/* The ground sits behind the lines only, so the field shows past where each line ends. */}
+      <h1 className="text-[20px] leading-snug">
+        <span className="box-decoration-clone bg-ink">
+          Códice reúne la documentación fiscal de México para tus agentes. Conéctala a tu asistente
+          o intégrala en tu producto.
+        </span>
       </h1>
 
       <MessageScrollerProvider autoScroll scrollPreviousItemPeek={64}>
