@@ -1,4 +1,4 @@
-import { and, between, eq, min, or, sql } from "drizzle-orm";
+import { and, between, eq, inArray, min, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 
 import type { UsageEvent } from "@codice/contracts";
@@ -72,166 +72,215 @@ export async function recordUsage(database: D1Database, events: UsageEvent[]) {
   await db.batch([first!, ...rest]);
 }
 
-/** One key or MCP client in a week's usage. */
+/** The periods the Uso page offers, in days. */
+export const USAGE_PERIODS = [7, 30] as const;
+export type UsagePeriod = (typeof USAGE_PERIODS)[number];
+
+/** One key, or one member's MCP clients, in a period's usage. */
 export interface UsageSeries {
-  /** `api_key:<id>` or `oauth:<client id>`. */
+  /** `api_key:<id>` or `member:<user id>`. */
   id: string;
-  kind: "api_key" | "oauth";
   label: string;
-  /** The key's first characters, or the client's host. */
+  /** The key's first characters, or the member's email. */
   hint: string | null;
+  image: string | null;
   requests: number;
+  /** The same series in the period before. */
+  previous: number;
 }
 
-export interface UsageWeek {
-  /** The week's first and last day, `YYYY-MM-DD` in Mexico City. */
-  start: string;
-  end: string;
-  today: string;
-  /** The first day with any usage, to stop stepping back; `null` before the first call. */
-  earliest: string | null;
+export interface UsageOperation {
+  operation: string;
+  requests: number;
+  errors: number;
+  previous: number;
+}
+
+export interface UsageTotals {
+  requests: number;
+  errors: number;
+  meanMs: number | null;
+}
+
+/** One scope of the page: the team's keys, or its members through their MCP clients. */
+export interface UsageView {
   /** Each day's calls per series id. */
   days: { date: string; requests: Record<string, number> }[];
   /** Most calls first. */
   series: UsageSeries[];
   /** Most calls first. */
-  operations: { operation: string; requests: number; errors: number }[];
-  totals: { requests: number; errors: number; meanMs: number | null };
+  operations: UsageOperation[];
+  totals: UsageTotals;
+  /** The period before, for the change. */
+  previous: UsageTotals;
 }
 
-function hostOf(uri: string | null) {
-  if (!uri) return null;
-  try {
-    return new URL(uri).host;
-  } catch {
-    return null;
+export interface UsagePeriodData {
+  days: UsagePeriod;
+  /** The period's first and last day, `YYYY-MM-DD` in Mexico City. */
+  start: string;
+  end: string;
+  today: string;
+  /** The first day with any usage, to stop stepping back; `null` before the first call. */
+  earliest: string | null;
+  keys: UsageView;
+  members: UsageView;
+}
+
+type UsageRow = typeof apiUsage.$inferSelect;
+
+/** Adds rows up into a view; `seriesOf` names a row's series, `null` to leave it out. */
+function viewOf(
+  rows: UsageRow[],
+  range: { start: string; previousStart: string; length: number },
+  seriesOf: (row: UsageRow) => Omit<UsageSeries, "requests" | "previous"> | null,
+): UsageView {
+  const days = Array.from({ length: range.length }, (_, index) => ({
+    date: addDays(range.start, index),
+    requests: {} as Record<string, number>,
+  }));
+  const dayIndex = new Map(days.map((day, index) => [day.date, index]));
+  const series = new Map<string, UsageSeries>();
+  const operations = new Map<string, UsageOperation>();
+  const current = { requests: 0, errors: 0, durationMs: 0 };
+  const before = { requests: 0, errors: 0, durationMs: 0 };
+
+  for (const row of rows) {
+    const named = seriesOf(row);
+    if (!named) continue;
+    const inPeriod = row.day >= range.start;
+    const entry = series.get(named.id) ?? { ...named, requests: 0, previous: 0 };
+    series.set(named.id, entry);
+    const operation = operations.get(row.operation) ?? {
+      operation: row.operation,
+      requests: 0,
+      errors: 0,
+      previous: 0,
+    };
+    operations.set(row.operation, operation);
+    const sums = inPeriod ? current : before;
+    sums.requests += row.requests;
+    sums.errors += row.errors;
+    sums.durationMs += row.durationMs;
+    if (inPeriod) {
+      const day = days[dayIndex.get(row.day)!]!;
+      day.requests[named.id] = (day.requests[named.id] ?? 0) + row.requests;
+      entry.requests += row.requests;
+      operation.requests += row.requests;
+      operation.errors += row.errors;
+    } else {
+      entry.previous += row.requests;
+      operation.previous += row.requests;
+    }
   }
+
+  const totals = (sums: typeof current): UsageTotals => ({
+    requests: sums.requests,
+    errors: sums.errors,
+    meanMs: sums.requests > 0 ? Math.round(sums.durationMs / sums.requests) : null,
+  });
+  const byCalls = <T extends { requests: number; previous: number }>(list: T[]) =>
+    list.filter((item) => item.requests > 0).sort((left, right) => right.requests - left.requests);
+  return {
+    days,
+    series: byCalls([...series.values()]),
+    operations: byCalls([...operations.values()]),
+    totals: totals(current),
+    previous: totals(before),
+  };
 }
 
 /**
- * A week of usage for the signed-in user: the calls of the team's keys and of the MCP clients
- * the user connected. `end` is the week's last day; by default, today.
+ * A period of the team's usage for the signed-in member, in two views: by the team's keys, and
+ * by its members through the MCP clients each connected (an MCP client is the user's, so a member
+ * of two teams shows the same calls in both). `end` is the period's last day; by default, today.
  */
 export async function readUsage(
   env: AuthBindings,
   headers: Headers,
-  input: { organizationId: string; end?: string },
-): Promise<UsageWeek> {
+  input: { organizationId: string; end?: string; days?: number },
+): Promise<UsagePeriodData> {
   const auth = createAuth(env);
   const session = await auth.api.getSession({ headers });
   if (!session) throw new Error("Not signed in");
-  const userId = session.user.id;
   const db = drizzle(env.ACCOUNTS_DATABASE, { schema });
 
-  const membership = await db
-    .select({ id: schema.member.id })
+  const members = await db
+    .select({
+      userId: schema.member.userId,
+      name: schema.user.name,
+      email: schema.user.email,
+      image: schema.user.image,
+    })
     .from(schema.member)
-    .where(
-      and(eq(schema.member.organizationId, input.organizationId), eq(schema.member.userId, userId)),
-    )
-    .get();
-  if (!membership) throw new Error("Not a member of the team");
+    .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
+    .where(eq(schema.member.organizationId, input.organizationId));
+  if (!members.some((member) => member.userId === session.user.id)) {
+    throw new Error("Not a member of the team");
+  }
 
+  const length: UsagePeriod = input.days === 30 ? 30 : 7;
   const today = mexicoDay(Date.now());
   const end = input.end && input.end < today ? input.end : today;
-  const start = addDays(end, -6);
-  const mine = or(
+  const start = addDays(end, -(length - 1));
+  const previousStart = addDays(start, -length);
+  const teams = or(
     and(eq(apiUsage.credentialKind, "api_key"), eq(apiUsage.ownerId, input.organizationId)),
-    and(eq(apiUsage.credentialKind, "oauth"), eq(apiUsage.ownerId, userId)),
+    and(
+      eq(apiUsage.credentialKind, "oauth"),
+      inArray(
+        apiUsage.ownerId,
+        members.map((member) => member.userId),
+      ),
+    ),
   );
 
-  const [rows, first, keys, clients] = await Promise.all([
+  const [rows, first, keys] = await Promise.all([
     db
       .select()
       .from(apiUsage)
-      .where(and(mine, between(apiUsage.day, start, end))),
+      .where(and(teams, between(apiUsage.day, previousStart, end))),
     db
       .select({ day: min(apiUsage.day) })
       .from(apiUsage)
-      .where(mine)
+      .where(teams)
       .get(),
     // Only the team's owner may list its keys; for anyone else, keys go by their id.
     auth.api
       .listApiKeys({ headers, query: { organizationId: input.organizationId } })
       .then(({ apiKeys }) => apiKeys)
       .catch(() => []),
-    db
-      .select({
-        clientId: schema.oauthClient.clientId,
-        name: schema.oauthClient.name,
-        uri: schema.oauthClient.uri,
-      })
-      .from(schema.oauthClient)
-      .innerJoin(schema.oauthConsent, eq(schema.oauthConsent.clientId, schema.oauthClient.clientId))
-      .where(eq(schema.oauthConsent.userId, userId)),
   ]);
 
   const keyNames = new Map(keys.map((key) => [key.id, key]));
-  const clientNames = new Map(clients.map((client) => [client.clientId, client]));
-  const days = Array.from({ length: 7 }, (_, index) => ({
-    date: addDays(start, index),
-    requests: {} as Record<string, number>,
-  }));
-  const series = new Map<string, UsageSeries>();
-  const operations = new Map<string, { operation: string; requests: number; errors: number }>();
-  const totals = { requests: 0, errors: 0, durationMs: 0 };
-
-  for (const row of rows) {
-    const id = `${row.credentialKind}:${row.credentialId}`;
-    const day = days.find((candidate) => candidate.date === row.day);
-    if (day) day.requests[id] = (day.requests[id] ?? 0) + row.requests;
-
-    let entry = series.get(id);
-    if (!entry) {
-      if (row.credentialKind === "api_key") {
-        const key = keyNames.get(row.credentialId);
-        entry = {
-          id,
-          kind: "api_key",
-          label: key ? key.name || "Clave sin nombre" : "Clave revocada",
-          hint: key?.start ?? null,
-          requests: 0,
-        };
-      } else {
-        const client = clientNames.get(row.credentialId);
-        entry = {
-          id,
-          kind: "oauth",
-          label: client?.name || "Asistente desconectado",
-          hint: hostOf(client?.uri ?? null) ?? hostOf(row.credentialId),
-          requests: 0,
-        };
-      }
-      series.set(id, entry);
-    }
-    entry.requests += row.requests;
-
-    const operation = operations.get(row.operation) ?? {
-      operation: row.operation,
-      requests: 0,
-      errors: 0,
-    };
-    operation.requests += row.requests;
-    operation.errors += row.errors;
-    operations.set(row.operation, operation);
-
-    totals.requests += row.requests;
-    totals.errors += row.errors;
-    totals.durationMs += row.durationMs;
-  }
+  const people = new Map(members.map((member) => [member.userId, member]));
+  const range = { start, previousStart, length };
 
   return {
+    days: length,
     start,
     end,
     today,
     earliest: first?.day ?? null,
-    days,
-    series: [...series.values()].sort((left, right) => right.requests - left.requests),
-    operations: [...operations.values()].sort((left, right) => right.requests - left.requests),
-    totals: {
-      requests: totals.requests,
-      errors: totals.errors,
-      meanMs: totals.requests > 0 ? Math.round(totals.durationMs / totals.requests) : null,
-    },
+    keys: viewOf(rows, range, (row) => {
+      if (row.credentialKind !== "api_key") return null;
+      const key = keyNames.get(row.credentialId);
+      return {
+        id: `api_key:${row.credentialId}`,
+        label: key ? key.name || "Clave sin nombre" : "Clave revocada",
+        hint: key?.start ?? null,
+        image: null,
+      };
+    }),
+    members: viewOf(rows, range, (row) => {
+      if (row.credentialKind !== "oauth") return null;
+      const member = people.get(row.ownerId)!;
+      return {
+        id: `member:${row.ownerId}`,
+        label: member.name.trim() || member.email,
+        hint: member.name.trim() ? member.email : null,
+        image: member.image,
+      };
+    }),
   };
 }

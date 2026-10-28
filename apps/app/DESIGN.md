@@ -29,27 +29,31 @@ This file records only where the dashboard adds to it or departs from it. Values
   tooltip to its right with its number key; `1`–`5` go there when no field has focus.
 - **Pages.** A 20px title, then islands, each with its name and an optional `muted`
   note on the right.
-- **Groups (Uso)**: `Group` in `ui.tsx`, an island whose first row is its name (and an optional
-  `muted` note at the right), its blocks divided edge to edge by `line`/60 in both themes.
-  Padding is measured to the letters: Radio Grotesk at 14px on a 20px line leaves 4.5px over the
-  capitals and 5.5px under the baseline, so a one-line row (`ROW`) pads 12px top and 10px bottom
-  for 16px each way. Islands are 24px apart, as on every page.
+- **Padding is measured to the letters, 20px on every side.** Radio Grotesk at 14px on a 20px
+  line leaves 4.5px over the capitals and 5.5px under the baseline, so a one-line row (`ROW` in
+  `ui.tsx`) pads 16px over and 14px under; the headline, the chart and the tabs are measured the
+  same way (the reasoning sits in comments beside each). The chart's y axis numbers start at the
+  side padding, like the text.
+- **Groups (Uso)**: `Group` in `ui.tsx`, an island whose first row is its name, then its rows,
+  divided edge to edge by `line`/60 in both themes. Islands are 24px apart, as on every page.
 - **The usage chart** (`src/components/usage-chart.tsx`, after Transitive's
-  `workspace-settings-usage.tsx`, drawn without a chart library): a week of stacked daily columns
-  (220px, a 32px y axis with 12px to the plot, dashed `line` grid, square bars). Each day is an
-  equal cell with half the bar gap on either side (12px, 6px on a phone), so the gaps between
-  bars and at both ends match; the x labels use the same cells. A hovered day lights its cell in
-  `fg`/5 with its tooltip beside it. Under it, one row per series (a 2px-rounded color square,
-  its name, a `muted` hint, its calls on the right). Series colors are Transitive's
-  (`--series-1`…`4` in `styles.css`): the saturated pair by day, the softer one at night, taken
-  by rank. No meters: a bar reads as something being used up, and usage has no cap.
+  `workspace-settings-usage.tsx`, drawn without a chart library): stacked daily columns (200px,
+  dashed `line` grid, square bars). Each day is an equal cell with half the bar gap on either
+  side, so the gaps between bars and at both ends match; a month labels every fifth day.
+  Hovering a day dims the others to 40% and shows its counts beside it. Series colors are
+  Transitive's (`--series-1`…`4` in `styles.css`), taken by rank. No meters: a bar reads as
+  something being used up, and usage has no cap.
+- **Tables**: a `muted` 13px heading row, then rows of a name and right-aligned figures in fixed
+  columns (calls in `fg`, the rest `muted`). On a phone the middle column goes.
 
 ## Pages
 
-- **Uso** (`/`): a week (Mexico City days) ending today, stepped with the chevrons by the title
-  (`?hasta=YYYY-MM-DD`): "Resumen" (calls, error rate, mean time), the "Solicitudes" chart of the
-  team's keys and the user's MCP clients with their rows, and "Operaciones" (the week's total in
-  its header): a row per operation with its errors, its calls and its share of the total.
+- **Uso** (`/`): 7 or 30 Mexico City days (`?dias=30`), stepped with the bordered date control
+  (`?hasta=YYYY-MM-DD`). One card with tabs along its top, Claves (the team's keys) and Miembros
+  (each member through their MCP clients, `?vista=miembros`): the period's total, large, with its
+  change against the period before, the error rate and mean time beside it, the chart, then a
+  table of the series (calls, share, change). Then "Operaciones" for the same scope (calls,
+  errors, change).
 - **Claves** (`/keys`): a new key (shown once, with copy), the team's keys (revoke asks in place,
   no dialog), and "Conectar": the API and MCP URLs and the header to copy.
 - **Clientes** (`/clients`): the MCP clients the user connected through OAuth, each disconnected

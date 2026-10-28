@@ -38,7 +38,7 @@ export function Page({
 }) {
   return (
     <div className="flex flex-col gap-6 py-10 sm:py-16">
-      <header className="flex min-h-8 items-center justify-between gap-4">
+      <header className="flex min-h-8 flex-wrap items-center justify-between gap-4">
         <h1 className="text-[20px] leading-snug">{title}</h1>
         {action}
       </header>
@@ -48,10 +48,11 @@ export function Page({
 }
 
 /**
- * A one-line row's padding: 16px from the edges to the letters. Radio Grotesk at 14px on a 20px
- * line leaves 4.5px over the capitals and 5.5px under the baseline, so the box pads 12px and 10px.
+ * A one-line row's padding: 20px from every edge to the letters. Radio Grotesk at 14px (or 13px)
+ * on a 20px line leaves 4.5px over the capitals and 5.5px under the baseline, so the box pads 16px
+ * over and 14px under.
  */
-export const ROW = "px-4 pt-3 pb-2.5 leading-5";
+export const ROW = "px-5 pt-4 pb-3.5 leading-5";
 
 /**
  * An island in Transitive's settings style: its name (and an optional `muted` note at the right)

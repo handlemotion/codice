@@ -1,34 +1,37 @@
 import {
+  IconCalendar1,
   IconChevronLeftSmall,
   IconChevronRightSmall,
 } from "@central-icons-react/square-outlined-radius-0-stroke-1.5";
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { Group, ISLAND, Page, ROW } from "../../components/ui";
-import {
-  SeriesRow,
-  numberFormat,
-  seriesColor,
-  usageDay,
-  UsageBars,
-} from "../../components/usage-chart";
+import { numberFormat, seriesColor, usageDay, UsageBars } from "../../components/usage-chart";
 import { getUsage } from "../../server/functions";
-import type { UsageWeek } from "../../server/usage";
+import type { UsagePeriod, UsagePeriodData, UsageSeries, UsageView } from "../../server/usage";
 
-type Search = { hasta?: string };
+type Scope = "claves" | "miembros";
+type Search = { hasta?: string; dias?: 30; vista?: "miembros" };
 
 export const Route = createFileRoute("/_dashboard/")({
   head: () => ({ meta: [{ title: "Uso · Códice" }] }),
-  validateSearch: (search: Record<string, unknown>): Search =>
-    typeof search.hasta === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(search.hasta)
+  validateSearch: (search: Record<string, unknown>): Search => ({
+    ...(typeof search.hasta === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(search.hasta)
       ? { hasta: search.hasta }
-      : {},
-  loaderDeps: ({ search }) => ({ end: search.hasta }),
+      : {}),
+    ...(Number(search.dias) === 30 ? { dias: 30 as const } : {}),
+    ...(search.vista === "miembros" ? { vista: "miembros" as const } : {}),
+  }),
+  // The scope is a tab over data already loaded; only the period loads anew.
+  loaderDeps: ({ search }) => ({ end: search.hasta, days: search.dias ?? 7 }),
   loader: async ({ context, deps }) => {
     const team = context.dashboard.team;
     return {
       team,
-      usage: team ? await getUsage({ data: { organizationId: team.id, end: deps.end } }) : null,
+      usage: team
+        ? await getUsage({ data: { organizationId: team.id, end: deps.end, days: deps.days } })
+        : null,
     };
   },
   component: Usage,
@@ -62,41 +65,82 @@ function addDays(day: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function requests(count: number) {
-  return `${numberFormat.format(count)} ${count === 1 ? "solicitud" : "solicitudes"}`;
+/** The change against the period before: "+12 %", "nuevo", or a dash. */
+function change(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? "nuevo" : "–";
+  const percent = Math.round(((current - previous) / previous) * 100);
+  return `${percent > 0 ? "+" : ""}${numberFormat.format(percent)} %`;
 }
 
-/** Steps the week back and forth; the latest week, ending today, is the page without `hasta`. */
-function WeekControl({ usage }: { usage: UsageWeek }) {
-  const previous = addDays(usage.end, -7);
-  const next = addDays(usage.end, 7);
+function percent(part: number, whole: number) {
+  return whole > 0 ? `${numberFormat.format(Math.round((part / whole) * 1000) / 10)} %` : "–";
+}
+
+// The page's controls take the island's look: white by day, a hairline at night.
+const CONTROL = "flex h-8 items-center rounded-[2px] border border-edge bg-island text-[13px]";
+const STEP = "grid h-full w-8 place-items-center text-muted hover:text-fg";
+const STEP_OFF = "grid h-full w-8 place-items-center text-muted opacity-40";
+
+/** 7 or 30 days. */
+function PeriodSwitch({ days }: { days: UsagePeriod }) {
+  return (
+    <div className={`${CONTROL} p-0.5`}>
+      {([7, 30] as const).map((length) => (
+        <Link
+          aria-current={length === days ? "true" : undefined}
+          className={`grid h-full place-items-center rounded-[2px] px-2.5 ${length === days ? "bg-ink text-fg" : "text-muted hover:text-fg"}`}
+          key={length}
+          search={(current) => ({
+            ...(current.vista ? { vista: current.vista } : {}),
+            ...(length === 30 ? { dias: 30 as const } : {}),
+          })}
+          to="/"
+        >
+          {length} días
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/** Steps the period back and forth; the latest one, ending today, is the page without `hasta`. */
+function PeriodStepper({ usage }: { usage: UsagePeriodData }) {
+  const previous = addDays(usage.end, -usage.days);
+  const next = addDays(usage.end, usage.days);
   const atStart = !usage.earliest || usage.start <= usage.earliest;
   const atEnd = usage.end >= usage.today;
-  const step = "grid size-8 place-items-center text-muted hover:text-fg";
-  const off = "grid size-8 place-items-center text-muted opacity-40";
   return (
-    <div className="-mr-2 flex items-center">
+    <div className={CONTROL}>
       {atStart ? (
-        <span aria-hidden className={off}>
+        <span aria-hidden className={STEP_OFF}>
           <IconChevronLeftSmall size={16} />
         </span>
       ) : (
-        <Link aria-label="Semana anterior" className={step} search={{ hasta: previous }} to="/">
+        <Link
+          aria-label="Periodo anterior"
+          className={STEP}
+          search={(current) => ({ ...current, hasta: previous })}
+          to="/"
+        >
           <IconChevronLeftSmall size={16} />
         </Link>
       )}
-      <span className="min-w-28 text-center text-[13px] text-muted tabular-nums">
+      <span className="flex items-center gap-2 px-1 tabular-nums">
+        <IconCalendar1 className="text-muted" size={16} />
         {shortDay(usage.start)} – {shortDay(usage.end)}
       </span>
       {atEnd ? (
-        <span aria-hidden className={off}>
+        <span aria-hidden className={STEP_OFF}>
           <IconChevronRightSmall size={16} />
         </span>
       ) : (
         <Link
-          aria-label="Semana siguiente"
-          className={step}
-          search={next >= usage.today ? {} : { hasta: next }}
+          aria-label="Periodo siguiente"
+          className={STEP}
+          search={(current) => {
+            const { hasta: _, ...rest } = current;
+            return next >= usage.today ? rest : { ...rest, hasta: next };
+          }}
           to="/"
         >
           <IconChevronRightSmall size={16} />
@@ -106,32 +150,209 @@ function WeekControl({ usage }: { usage: UsageWeek }) {
   );
 }
 
-function Totals({ usage }: { usage: UsageWeek }) {
-  const { requests: count, errors, meanMs } = usage.totals;
-  const figures = [
-    { label: "Solicitudes", value: numberFormat.format(count) },
-    {
-      label: "Errores",
-      value: count > 0 ? `${numberFormat.format(Math.round((errors / count) * 1000) / 10)} %` : "–",
-    },
-    { label: "Tiempo medio", value: meanMs === null ? "–" : `${numberFormat.format(meanMs)} ms` },
+/** The card's tabs, along its top: the team's keys, or its members. */
+function ScopeTabs({ scope }: { scope: Scope }) {
+  const tabs: [Scope, string][] = [
+    ["claves", "Claves"],
+    ["miembros", "Miembros"],
   ];
   return (
-    <div className={`${ISLAND} grid grid-cols-3 divide-x divide-line/60`}>
-      {figures.map((figure) => (
-        // 13px on 20px leaves 4px over the label's capitals; 20px on 28px, 7px under the figure.
-        <div className="flex flex-col px-4 pt-3 pb-2.5" key={figure.label}>
-          <span className="text-[13px] leading-5 text-muted">{figure.label}</span>
-          <span className="text-[20px] leading-7 tabular-nums">{figure.value}</span>
-        </div>
+    <nav aria-label="Ver por" className="flex gap-6 px-5">
+      {tabs.map(([value, label]) => (
+        <Link
+          aria-current={value === scope ? "page" : undefined}
+          className={`relative pt-4 pb-3.5 leading-5 ${value === scope ? "text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-fg" : "text-muted hover:text-fg"}`}
+          key={value}
+          search={(current) => {
+            const { vista: _, ...rest } = current;
+            return value === "miembros" ? { ...rest, vista: "miembros" as const } : rest;
+          }}
+          to="/"
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * The period's total, large, with its change, and the error rate and mean time beside it. 28px on
+ * a 32px line leaves 5px over the capitals: 15px over the box puts them 20px under the tabs.
+ */
+function Headline({ view, days }: { view: UsageView; days: UsagePeriod }) {
+  const { totals, previous } = view;
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-5 pt-[15px]">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[28px] leading-8 tabular-nums">
+          {numberFormat.format(totals.requests)}
+        </span>
+        <span className="text-muted">solicitudes</span>
+        <span className="text-[13px] text-muted tabular-nums">
+          {change(totals.requests, previous.requests)}{" "}
+          {days === 7 ? "vs. la semana anterior" : "vs. los 30 días anteriores"}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-4 text-[13px] text-muted tabular-nums">
+        <span>{percent(totals.errors, totals.requests)} errores</span>
+        <span>
+          {totals.meanMs === null ? "–" : `${numberFormat.format(totals.meanMs)} ms`} de media
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A table's rows: a name column, then right-aligned figures of fixed width. On a phone the
+ * middle figure (the share, or the errors) goes, so the names keep their room.
+ */
+const TABLE =
+  "grid grid-cols-[minmax(0,1fr)_4.5rem_4rem] items-baseline gap-x-4 sm:grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_4rem]";
+
+function TableHead({ name, columns }: { name: string; columns: string[] }) {
+  return (
+    <div className={`${TABLE} ${ROW} text-[13px] text-muted`}>
+      <span>{name}</span>
+      {columns.map((column, index) => (
+        <span className={`text-right ${index === 1 ? "max-sm:hidden" : ""}`} key={column}>
+          {column}
+        </span>
       ))}
     </div>
   );
 }
 
+function TableRow({
+  name,
+  figures,
+}: {
+  name: ReactNode;
+  figures: [ReactNode, ReactNode, ReactNode];
+}) {
+  return (
+    <div className={`${TABLE} ${ROW}`}>
+      <span className="flex min-w-0 items-center gap-3 self-center">{name}</span>
+      <span className="text-right tabular-nums">{figures[0]}</span>
+      <span className="text-right text-[13px] text-muted tabular-nums max-sm:hidden">
+        {figures[1]}
+      </span>
+      <span className="text-right text-[13px] text-muted tabular-nums">{figures[2]}</span>
+    </div>
+  );
+}
+
+/** A key's color square, or a member's photo or initial on their color. */
+function SeriesMark({ entry, color }: { entry: UsageSeries; color: string }) {
+  if (entry.id.startsWith("api_key:")) {
+    return (
+      <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: color }} />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full text-[11px] leading-none text-white"
+      style={{ background: color }}
+    >
+      {entry.image ? (
+        <img alt="" className="size-full object-cover" src={entry.image} />
+      ) : (
+        entry.label.charAt(0).toLocaleUpperCase("es")
+      )}
+    </span>
+  );
+}
+
+const EMPTY: Record<Scope, string> = {
+  claves: "Las llamadas con las claves del equipo aparecen aquí por día.",
+  miembros: "Las herramientas que usan los asistentes de cada miembro aparecen aquí por día.",
+};
+
+function UsageCard({ usage, scope }: { usage: UsagePeriodData; scope: Scope }) {
+  const view = scope === "claves" ? usage.keys : usage.members;
+  const series = view.series.map((entry, index) => ({ ...entry, color: seriesColor(index) }));
+  return (
+    <section className={`${ISLAND} flex flex-col divide-y divide-line/60 overflow-hidden`}>
+      <ScopeTabs scope={scope} />
+      <div>
+        <Headline days={usage.days} view={view} />
+        {/* The number's line ends 7px under its baseline and the top tick's capitals sit 4.5px
+            over its line, so 18px between puts them 20px under the baseline. The day labels end
+            2px over their box: 18px under them leaves 20px to the divider. */}
+        {series.length === 0 ? (
+          <p className="px-5 pt-[13px] pb-3.5 leading-5 text-muted">{EMPTY[scope]}</p>
+        ) : (
+          <figure aria-label="Solicitudes por día" className="min-w-0 px-5 pt-[18px] pb-[18px]">
+            <UsageBars days={view.days} series={series} />
+          </figure>
+        )}
+      </div>
+      {series.length > 0 && (
+        <>
+          <TableHead
+            columns={["Solicitudes", "Parte", "Cambio"]}
+            name={scope === "claves" ? "Clave" : "Miembro"}
+          />
+          {series.map((entry) => (
+            <TableRow
+              figures={[
+                numberFormat.format(entry.requests),
+                percent(entry.requests, view.totals.requests),
+                change(entry.requests, entry.previous),
+              ]}
+              key={entry.id}
+              name={
+                <>
+                  <SeriesMark color={entry.color} entry={entry} />
+                  <span className="min-w-0 truncate">
+                    {entry.label}
+                    {entry.hint && <span className="text-muted"> {entry.hint}</span>}
+                  </span>
+                </>
+              }
+            />
+          ))}
+        </>
+      )}
+    </section>
+  );
+}
+
+function Operations({ view }: { view: UsageView }) {
+  if (view.operations.length === 0) return null;
+  return (
+    <Group title="Operaciones">
+      <TableHead columns={["Solicitudes", "Errores", "Cambio"]} name="Operación" />
+      {view.operations.map((operation) => (
+        <TableRow
+          figures={[
+            numberFormat.format(operation.requests),
+            operation.errors > 0 ? numberFormat.format(operation.errors) : "–",
+            change(operation.requests, operation.previous),
+          ]}
+          key={operation.operation}
+          name={
+            <span className="min-w-0 truncate">
+              {OPERATIONS[operation.operation] ?? operation.operation}
+              <span className="font-mono text-[12px] text-muted max-sm:hidden">
+                {" "}
+                {operation.operation}
+              </span>
+            </span>
+          }
+        />
+      ))}
+    </Group>
+  );
+}
+
 function Usage() {
   const { team, usage } = Route.useLoaderData();
+  const { vista } = Route.useSearch();
   const pending = useRouterState({ select: (state) => state.status === "pending" });
+  const scope: Scope = vista ?? "claves";
 
   if (!team || !usage) {
     return (
@@ -143,66 +364,19 @@ function Usage() {
     );
   }
 
-  const series = usage.series.map((entry, index) => ({
-    ...entry,
-    color: seriesColor(index),
-  }));
-
   return (
-    <Page action={<WeekControl usage={usage} />} title="Uso">
+    <Page
+      action={
+        <div className="flex items-center gap-2">
+          <PeriodSwitch days={usage.days} />
+          <PeriodStepper usage={usage} />
+        </div>
+      }
+      title="Uso"
+    >
       <div className={`flex flex-col gap-6 transition-opacity ${pending ? "opacity-60" : ""}`}>
-        <Totals usage={usage} />
-        <Group
-          note={series.length > 0 ? `Claves de ${team.name} y tus asistentes` : undefined}
-          title="Solicitudes"
-        >
-          {series.length === 0 ? (
-            <p className={`${ROW} text-muted`}>
-              Las llamadas a la API y las herramientas que usan tus asistentes aparecen aquí por
-              día.
-            </p>
-          ) : (
-            <>
-              {/* The top tick sits centered on its line, 4px of capitals above it: 20px to the line puts
-                  the letters 16px under the divider. */}
-              <figure aria-label="Solicitudes por día" className="min-w-0 px-4 pt-5 pb-3.5">
-                <UsageBars days={usage.days} series={series} />
-              </figure>
-              {series.map((entry) => (
-                <SeriesRow
-                  color={entry.color}
-                  hint={entry.kind === "oauth" ? (entry.hint ?? "MCP") : entry.hint}
-                  key={entry.id}
-                  label={entry.label}
-                  value={requests(entry.requests)}
-                />
-              ))}
-            </>
-          )}
-        </Group>
-        {usage.operations.length > 0 && (
-          <Group note={requests(usage.totals.requests)} title="Operaciones">
-            {usage.operations.map((operation) => (
-              <div className={`flex items-baseline gap-3 ${ROW}`} key={operation.operation}>
-                <span className="min-w-0 flex-1 truncate">
-                  {OPERATIONS[operation.operation] ?? operation.operation}
-                  <span className="text-muted"> ({operation.operation})</span>
-                </span>
-                {operation.errors > 0 && (
-                  <span className="shrink-0 text-[13px] text-muted tabular-nums">
-                    {numberFormat.format(operation.errors)} con error
-                  </span>
-                )}
-                <span className="min-w-12 shrink-0 text-right text-[13px] tabular-nums">
-                  {numberFormat.format(operation.requests)}
-                </span>
-                <span className="w-10 shrink-0 text-right text-[13px] text-muted tabular-nums">
-                  {Math.round((operation.requests / usage.totals.requests) * 100)} %
-                </span>
-              </div>
-            ))}
-          </Group>
-        )}
+        <UsageCard scope={scope} usage={usage} />
+        <Operations view={scope === "claves" ? usage.keys : usage.members} />
       </div>
     </Page>
   );
