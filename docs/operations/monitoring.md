@@ -4,13 +4,13 @@ How a production failure of Códice reaches someone, within minutes rather than 
 2026-10-28, after `codice-corpus.yml` failed on 2026-10-26 and 2026-10-27 (AI Search items stuck
 while indexing) and nobody noticed for two days.
 
-| Signal                         | What watches it                          | Alerts through                               | State on 2026-10-28                      |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------- | ---------------------------------------- |
-| Corpus run fails               | `alert` job of `codice-corpus.yml`       | GitHub issue "Códice corpus failed"          | Live once merged                         |
-| Worker secret sync fails       | `alert` job of `sync-worker-secrets.yml` | GitHub issue "Worker secret sync failed"     | Live once merged                         |
-| API down, wrong or slow        | `codice-synthetic.yml`, every 10 minutes | GitHub issue "Códice synthetic check failed" | Live once merged, on `https://codice.io` |
-| Errors and 5xx in `codice-api` | Sentry alert and monitor (below)         | Sentry email                                 | Live since 2026-10-28                    |
-| AI Search latency              | Sentry monitor on `ai_search.search`     | Sentry email                                 | Live since 2026-10-28                    |
+| Signal                         | What watches it                          | Alerts through                               | State on 2026-10-28                   |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------- | ------------------------------------- |
+| Corpus run fails               | `alert` job of `codice-corpus.yml`       | GitHub issue "Códice corpus failed"          | Live once merged                      |
+| Worker secret sync fails       | `alert` job of `sync-worker-secrets.yml` | GitHub issue "Worker secret sync failed"     | Live once merged                      |
+| API down, wrong or slow        | `codice-synthetic.yml`, on demand        | GitHub issue "Códice synthetic check failed" | Schedule off since 2026-10-28 (below) |
+| Errors and 5xx in `codice-api` | Sentry alert and monitor (below)         | Sentry email                                 | Live since 2026-10-28                 |
+| AI Search latency              | Sentry monitor on `ai_search.search`     | Sentry email                                 | Live since 2026-10-28                 |
 
 ## Workflow failure issues
 
@@ -28,8 +28,8 @@ while indexing) and nobody noticed for two days.
   the log holds the thrown error.
 - The next run in which every job succeeds comments "Recovered" and closes the issue. A cancelled
   run changes nothing.
-- The repository is public, so the issue is too: it carries item keys, step names and run links,
-  never a secret or a log dump.
+- The issue carries item keys, step names and run links, never a secret or a log dump: everyone
+  who can read the repository can read it.
 
 A new issue notifies everyone watching the repository and its assignee (by email or the GitHub app,
 per their notification settings). To route it elsewhere (Slack, incident.io), subscribe that tool
@@ -37,8 +37,11 @@ to issues labelled `ops-alert`.
 
 ## Synthetic check
 
-`scripts/ops/synthetic-check.mjs`, from `.github/workflows/codice-synthetic.yml` every 10 minutes
-(GitHub runs schedules late under load; expect 10–20 minutes between runs). It calls, in order:
+`scripts/ops/synthetic-check.mjs`, from `.github/workflows/codice-synthetic.yml` when started by
+hand (Actions › Códice synthetic check › Run workflow). It ran every 10 minutes until 2026-10-28; on
+a private repository that bills about 4,300 Actions minutes a month (each job rounds up to a
+minute), so the schedule is off until the check moves somewhere that does not bill by the run. It
+calls, in order:
 
 | Call                         | Key | Passes when                     | Limit    | Why this limit                                                                                                                                        |
 | ---------------------------- | --- | ------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,10 +65,10 @@ under the key's 60 a minute. A dedicated key (a team `Códice monitor`, its key 
 `CODICE_SYNTHETIC_API_KEY` in `prd`) would keep this traffic out of the site's usage; it is a new
 production secret, so it waits on the owner's approval.
 
-**Cost.** One AI Search query a run: about 4,300 a month, $3.25 a month at $0.75 per 1,000 once
-billing starts on 2026-11-01, and it uses up the free 1,000 the weekly eval would otherwise fit
-in (SPEC.md, "Cost"). Actions minutes are free: the repository is public. GitHub disables a
-public repository's schedules after 60 days without activity.
+**Cost.** One AI Search query and at least one billed Actions minute a run: the repository is
+private, so Actions minutes count against the account's quota. Every 10 minutes that was about
+4,300 queries ($3.25 a month at $0.75 per 1,000 once billing starts on 2026-11-01, SPEC.md,
+"Cost") and about 4,300 Actions minutes a month.
 
 ### Host
 

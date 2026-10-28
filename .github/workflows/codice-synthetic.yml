@@ -1,5 +1,6 @@
-# Códice synthetic check: calls the production API the way a client does, every 10 minutes
-# (scripts/ops/synthetic-check.mjs; docs/operations/monitoring.md, "Synthetic check").
+# Códice synthetic check: calls the production API the way a client does, on demand
+# (scripts/ops/synthetic-check.mjs; docs/operations/monitoring.md, "Synthetic check"). It ran every
+# 10 minutes until 2026-10-28: about 4,300 billed Actions minutes a month on a private repository.
 #
 # It checks `/ready`, `/v1/search?q=CFDI40149` and `/v1/errors/CFDI40149` on https://codice.io
 # (the edge Worker's custom domain) with the site's key (CODICE_SITE_API_KEY in Doppler `codice` `prd`,
@@ -8,12 +9,10 @@
 # failed" (at most one comment an hour while it keeps failing); a passing run closes it.
 #
 # A manual run can name another base URL.
-# Each run spends one AI Search query (about 4,300 a month at this cadence).
+# Each run spends one AI Search query.
 name: Códice synthetic check
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       base_url:
