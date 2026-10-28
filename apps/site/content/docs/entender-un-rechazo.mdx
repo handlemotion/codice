@@ -1,0 +1,188 @@
+---
+title: Entender un rechazo del PAC
+description: Del código CFDI40xxx que devuelve tu proveedor de timbrado a la regla de la matriz, el pasaje de la guía de llenado y la corrección.
+---
+
+El PAC (proveedor de certificación de CFDI, quien timbra tus facturas) valida cada comprobante contra la matriz de errores del SAT. Cuando algo no cumple, responde con un código y un mensaje corto, como este:
+
+```text
+CFDI40149 - El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion.
+```
+
+El mensaje dice qué falló, no por qué ni qué valor espera el SAT. Esta receta va del código a la corrección en cuatro pasos.
+
+El caso: una tienda en Guadalajara factura una venta al público en general. El borrador trae:
+
+| Atributo                  | Valor           |
+| ------------------------- | --------------- |
+| `Rfc` (receptor)          | `XAXX010101000` |
+| `DomicilioFiscalReceptor` | `01000`         |
+| `LugarExpedicion`         | `44100`         |
+
+## 1. El renglón de la matriz
+
+```bash
+curl https://codice.io/v1/errors/CFDI40149 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "code": "CFDI40149",
+    "node": "cfdi:Receptor",
+    "attribute": "DomicilioFiscalReceptor",
+    "validation": "Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.",
+    "message": "El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion.",
+    "sourceId": "matriz-de-errores-cfdi-40",
+    "passageId": "matriz-de-errores-cfdi-40/cfdi40149.md",
+    "source": {
+      "id": "matriz-de-errores-cfdi-40",
+      "title": "Matriz de códigos de error para el Comprobante fiscal digital por Internet. Versión 4.0",
+      "authority": "SAT",
+      "url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/MatrizDeErrores_CFDI_v40_20260325.xls",
+      "sha256": "bdc350035c7ed720af5be15509e01d0bda7c12cec4ad9797b0c34f889c1140a7",
+      "publishedAt": "2026-03-25",
+      "retrievedAt": "2026-10-24T00:00:00.000Z",
+      "validFrom": "2026-03-25",
+      "validUntil": null
+    }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+`validation` es la regla completa que el mensaje resume: con un RFC genérico (`XAXX010101000` es el público en general; `XEXX010101000`, un residente en el extranjero), el domicilio fiscal del receptor debe ser el mismo código postal del lugar de expedición. El borrador puso `01000`, el código postal del receptor, cuando debía repetir `44100`.
+
+## 2. La regla, para citarla
+
+`passageId` es el mismo renglón como pasaje, con la ruta de títulos de la matriz. Es lo que citas si alguien te pregunta de dónde sale la regla:
+
+```bash
+curl https://codice.io/v1/passages/matriz-de-errores-cfdi-40/cfdi40149.md \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "passageId": "matriz-de-errores-cfdi-40/cfdi40149.md",
+    "heading": "Matriz de códigos de error para el Comprobante fiscal digital por Internet. Versión 4.0 › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149",
+    "text": "# Matriz de códigos de error para el Comprobante fiscal digital por Internet. Versión 4.0 › cfdi:Receptor › DomicilioFiscalReceptor › CFDI40149\n\nCódigo: CFDI40149\n\nNodo: cfdi:Receptor\n\nAtributo: DomicilioFiscalReceptor\n\nValidación: Si el valor del atributo Rfc del receptor es \"XAXX010101000\" o \"XEXX010101000\", este atributo debe ser igual al valor del atributo LugarExpedicion.\n\nMensaje: El campo DomicilioFiscalReceptor, no es igual al valor del campo LugarExpedicion.\n",
+    "authority": "SAT",
+    "kind": "anexo",
+    "validFrom": "2026-03-25",
+    "validUntil": null,
+    "source": { "id": "matriz-de-errores-cfdi-40", "publishedAt": "2026-03-25", "…": "…" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+## 3. El atributo en la guía de llenado
+
+La matriz dice qué se valida; la guía de llenado del Anexo 20 dice qué se espera en el campo. Búscalo por su nombre, solo en las guías (`kind=guia`):
+
+```bash
+curl -G https://codice.io/v1/search \
+  --data-urlencode "q=DomicilioFiscalReceptor con RFC genérico" \
+  --data-urlencode "kind=guia" \
+  --data-urlencode "limit=3" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "query": "DomicilioFiscalReceptor con RFC genérico",
+    "asOf": "2026-10-28",
+    "source": null,
+    "kind": "guia",
+    "results": [
+      {
+        "passageId": "complemento-pagos-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md",
+        "source": "complemento-pagos-guia-de-llenado",
+        "score": 0.9893996119499207,
+        "…": "…"
+      },
+      {
+        "passageId": "anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md",
+        "source": "anexo-20-guia-de-llenado",
+        "score": 0.9884522557258606,
+        "…": "…"
+      },
+      {
+        "passageId": "complemento-pagos-guia-de-llenado/nodo-receptor-rfc.md",
+        "source": "complemento-pagos-guia-de-llenado",
+        "score": 0.9002397060394287,
+        "…": "…"
+      }
+    ]
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+El primer resultado es la guía del complemento de pagos, que repite el atributo. Para una factura de ingreso, la que aplica es el Anexo 20 (`source: anexo-20-guia-de-llenado`); con `source=anexo-20-guia-de-llenado` en la búsqueda solo vendría esa. Lee el pasaje:
+
+```bash
+curl https://codice.io/v1/passages/anexo-20-guia-de-llenado/nodo-receptor-domiciliofiscalreceptor.md \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+Su `text`:
+
+```text
+# Anexo 20: guía de llenado de los comprobantes fiscales (CFDI 4.0) › I. Guía de llenado del Comprobante Fiscal Digital por Internet (CFDI) › Nodo: Receptor › DomicilioFiscalReceptor
+
+DomicilioFiscalR Se debe registrar el código postal del domicilio fiscal del receptor
+eceptor del comprobante.
+17 / 123
+
+• El código postal, en caso de que sea diferente de los RFC
+genéricos, debe estar asociado a la clave de RFC registrado
+en el campo Rfc de este Nodo.
+Ejemplo:
+DomicilioFiscalReceptor= 01001
+```
+
+El texto sale del PDF del SAT tal cual, con sus cortes de columna (`DomicilioFiscalR` … `eceptor`) y su número de página. La guía confirma la excepción: la regla del domicilio del RFC aplica "en caso de que sea diferente de los RFC genéricos". Para un RFC genérico manda la matriz.
+
+## 4. La corrección, y lo que viene con ella
+
+`DomicilioFiscalReceptor` pasa a `44100`, igual que `LugarExpedicion`. Antes de volver a timbrar, revisa los atributos vecinos que la matriz también amarra al RFC genérico. Para el régimen fiscal:
+
+```bash
+curl https://codice.io/v1/errors/CFDI40159 \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "code": "CFDI40159",
+    "node": "cfdi:Receptor",
+    "attribute": "RegimenFiscalReceptor",
+    "validation": "Si el atributo Rfc del Receptor contiene el valor “XAXX010101000” o el valor “XEXX010101000” en este atributo se debe registrar la clave “616”",
+    "message": "La clave del campo RegimenFiscalR no corresponde de acuerdo al RFC del receptor.",
+    "passageId": "matriz-de-errores-cfdi-40/cfdi40159.md",
+    "…": "…"
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+Y `c_RegimenFiscal/616` es "Sin obligaciones fiscales"; `c_UsoCFDI/S01` ("Sin efectos fiscales.") lo admite en su `Régimen Fiscal Receptor`. Ver [Revisar una factura antes de timbrarla](/docs/revisar-una-factura) para esas consultas.
+
+| Atributo                  | Antes   | Después | Regla       |
+| ------------------------- | ------- | ------- | ----------- |
+| `DomicilioFiscalReceptor` | `01000` | `44100` | `CFDI40149` |
+| `RegimenFiscalReceptor`   | —       | `616`   | `CFDI40159` |
+
+## Desde un asistente
+
+Pégale el rechazo a tu asistente conectado por [MCP](/docs/mcp): "el PAC me rechazó con CFDI40149, ¿qué corrijo?". Hace los mismos pasos con `lookup_error`, `search` y `read_passage`, y te responde citando la matriz y la guía.
+
+## En tu software
+
+Cuando tu PAC devuelva un rechazo, consulta el código y muestra junto al error el atributo, la regla (`validation`) y su fuente. Los códigos cambian solo con una matriz nueva: guarda las respuestas en caché. Más en [Códigos de error](/docs/errores).

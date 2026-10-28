@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as LlmsFullDottxtRouteImport } from "./routes/llms-full[.]txt";
+import { Route as LlmsDottxtRouteImport } from "./routes/llms[.]txt";
 import { Route as Char91_siteChar93ChatRouteImport } from "./routes/[_site]/chat";
 import { Route as Char91_siteChar93SearchRouteImport } from "./routes/[_site]/search";
 import { Route as DocsSplatRouteImport } from "./routes/docs/$";
@@ -17,6 +19,16 @@ import { Route as DocsSplatRouteImport } from "./routes/docs/$";
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
+  id: "/llms-full.txt",
+  path: "/llms-full.txt",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: "/llms.txt",
+  path: "/llms.txt",
   getParentRoute: () => rootRouteImport,
 } as any);
 const Char91_siteChar93ChatRoute = Char91_siteChar93ChatRouteImport.update({
@@ -37,12 +49,16 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/llms-full.txt": typeof LlmsFullDottxtRoute;
+  "/llms.txt": typeof LlmsDottxtRoute;
   "/_site/chat": typeof Char91_siteChar93ChatRoute;
   "/_site/search": typeof Char91_siteChar93SearchRoute;
   "/docs/$": typeof DocsSplatRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/llms-full.txt": typeof LlmsFullDottxtRoute;
+  "/llms.txt": typeof LlmsDottxtRoute;
   "/_site/chat": typeof Char91_siteChar93ChatRoute;
   "/_site/search": typeof Char91_siteChar93SearchRoute;
   "/docs/$": typeof DocsSplatRoute;
@@ -50,20 +66,31 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/llms-full.txt": typeof LlmsFullDottxtRoute;
+  "/llms.txt": typeof LlmsDottxtRoute;
   "/_site/chat": typeof Char91_siteChar93ChatRoute;
   "/_site/search": typeof Char91_siteChar93SearchRoute;
   "/docs/$": typeof DocsSplatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/_site/chat" | "/_site/search" | "/docs/$";
+  fullPaths: "/" | "/llms-full.txt" | "/llms.txt" | "/_site/chat" | "/_site/search" | "/docs/$";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/_site/chat" | "/_site/search" | "/docs/$";
-  id: "__root__" | "/" | "/_site/chat" | "/_site/search" | "/docs/$";
+  to: "/" | "/llms-full.txt" | "/llms.txt" | "/_site/chat" | "/_site/search" | "/docs/$";
+  id:
+    | "__root__"
+    | "/"
+    | "/llms-full.txt"
+    | "/llms.txt"
+    | "/_site/chat"
+    | "/_site/search"
+    | "/docs/$";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute;
+  LlmsDottxtRoute: typeof LlmsDottxtRoute;
   Char91_siteChar93ChatRoute: typeof Char91_siteChar93ChatRoute;
   Char91_siteChar93SearchRoute: typeof Char91_siteChar93SearchRoute;
   DocsSplatRoute: typeof DocsSplatRoute;
@@ -76,6 +103,20 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/";
       preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/llms-full.txt": {
+      id: "/llms-full.txt";
+      path: "/llms-full.txt";
+      fullPath: "/llms-full.txt";
+      preLoaderRoute: typeof LlmsFullDottxtRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/llms.txt": {
+      id: "/llms.txt";
+      path: "/llms.txt";
+      fullPath: "/llms.txt";
+      preLoaderRoute: typeof LlmsDottxtRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/_site/chat": {
@@ -104,6 +145,8 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LlmsFullDottxtRoute: LlmsFullDottxtRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   Char91_siteChar93ChatRoute: Char91_siteChar93ChatRoute,
   Char91_siteChar93SearchRoute: Char91_siteChar93SearchRoute,
   DocsSplatRoute: DocsSplatRoute,
