@@ -98,6 +98,12 @@ export const catalogEntries = sqliteTable(
     key: text("key").notNull(),
     /** The row's columns by the catalog's own header names. */
     fields: text("fields", { mode: "json" }).$type<Record<string, string | null>>().notNull(),
+    /**
+     * What a description search matches (`catalogSearchText` in `scripts/sat-records.ts`): the key
+     * and the entry's descriptions. Null for an entry with no description (c_CodigoPostal), which
+     * the full-text index `catalog_entries_fts` then leaves out (SPEC.md, "Catalog search").
+     */
+    searchText: text("search_text"),
     sourceId: text("source_id")
       .notNull()
       .references(() => sources.id),

@@ -38,6 +38,20 @@ export function dateNumber(isoDate: string): number {
   return Number(isoDate.slice(0, 10).replaceAll("-", ""));
 }
 
+/**
+ * A text's words as the catalog search compares them (SPEC.md, "Catalog search"): lowercase,
+ * without accents, split at anything but a letter or digit. `Gastos médicos.` is `gastos`,
+ * `medicos`. Shared by the ingestion's search text and the query, so the two always agree.
+ */
+export function searchWords(text: string): string[] {
+  return text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+}
+
 /** `20261024` back to `2026-10-24`. */
 export function isoDate(date: number): string {
   const digits = String(date).padStart(8, "0");

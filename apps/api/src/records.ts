@@ -12,7 +12,7 @@ import {
   sourceVersions,
 } from "./db/schema";
 import type { CodiceBindings } from "./env";
-import { dateNumber, isoDate } from "./search";
+import { dateNumber, isoDate, searchWords } from "./search";
 
 /**
  * Exact lookups and provenance from D1 `codice` (SPEC.md, "Records and provenance"). Only the
@@ -297,6 +297,80 @@ export async function catalogListing(db: Database, name: string) {
       ...validity(row.validFrom, row.validUntil),
     })),
     truncated: rows.length > CATALOG_LIST_MAX,
+    source: provenance.get(first.sourceId) ?? null,
+  };
+}
+
+/** Words too common to narrow a description search; a query of only these keeps them. */
+const CATALOG_SEARCH_STOPWORDS = new Set(
+  "a al con de del el en la las los o para por un una y an and for in of the to".split(" "),
+);
+
+/**
+ * The words of a description search (`searchWords`) as FTS5 prefix terms, never the caller's own
+ * syntax. Empty when the query has no letter or digit.
+ */
+export function catalogSearchTerms(query: string) {
+  const words = searchWords(query);
+  const meaningful = words.filter((word) => !CATALOG_SEARCH_STOPWORDS.has(word));
+  return [...new Set(meaningful.length > 0 ? meaningful : words)].map((word) => `"${word}"*`);
+}
+
+type CatalogSearchRow = {
+  readonly catalog: string;
+  readonly key: string;
+  readonly fields: string;
+  readonly sourceId: string;
+  readonly validFrom: number;
+  readonly validUntil: number;
+};
+
+/**
+ * The catalog's entries whose key or descriptions match the query (SPEC.md, "Catalog search"):
+ * first those with a line that is the whole query (the key `kgm`, the name `kilogramo`), then by
+ * BM25, then in the SAT's order. Every term must match; when that finds nothing, any term may, so
+ * the entries that match the most terms come first.
+ */
+async function catalogMatches(db: Database, name: string, query: string, limit: number) {
+  const catalog = catalogName(name);
+  const terms = catalogSearchTerms(query);
+  const line = `\n${searchWords(query).join(" ")}\n`;
+  // The catalog as an FTS5 phrase: the index tokenizes `c_UsoCFDI` as `c usocfdi`.
+  const inCatalog = `{catalog} : "${catalog.replaceAll('"', "")}"`;
+  for (const operator of terms.length > 1 ? [" ", " OR "] : [" "]) {
+    const match = `${inCatalog} AND {search_text} : (${terms.join(operator)})`;
+    const rows = await db.all<CatalogSearchRow>(
+      sql`SELECT entry.catalog AS catalog, entry.key AS key, entry.fields AS fields, entry.source_id AS sourceId, entry.valid_from AS validFrom, entry.valid_until AS validUntil FROM catalog_entries_fts JOIN ${catalogEntries} AS entry ON entry.id = catalog_entries_fts.rowid WHERE catalog_entries_fts MATCH ${match} AND entry.catalog = ${catalog} COLLATE NOCASE ORDER BY instr(char(10) || entry.search_text || char(10), ${line}) = 0, bm25(catalog_entries_fts, 0, 1), entry.id LIMIT ${limit}`,
+    );
+    if (rows.length > 0) return rows;
+  }
+  return [];
+}
+
+/**
+ * Searches a catalog by description: `{ catalog, query, entries, source }`, each entry with its
+ * key, fields and validity, as a listing gives them. Null when D1 holds no such catalog.
+ */
+export async function catalogSearch(db: Database, name: string, query: string, limit: number) {
+  const rows = await catalogMatches(db, name, query, limit);
+  const [first] =
+    rows.length > 0
+      ? rows
+      : await db
+          .select({ catalog: catalogEntries.catalog, sourceId: catalogEntries.sourceId })
+          .from(catalogEntries)
+          .where(sql`${catalogEntries.catalog} = ${catalogName(name)} COLLATE NOCASE`)
+          .limit(1);
+  if (!first) return null;
+  const provenance = await sourcesById(db, [first.sourceId]);
+  return {
+    catalog: first.catalog,
+    query,
+    entries: rows.map((row) => ({
+      key: row.key,
+      fields: JSON.parse(row.fields) as Record<string, string | null>,
+      ...validity(row.validFrom, row.validUntil),
+    })),
     source: provenance.get(first.sourceId) ?? null,
   };
 }

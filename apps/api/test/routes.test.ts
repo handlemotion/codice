@@ -178,6 +178,47 @@ beforeAll(async () => {
       key: "S01",
       sourceId: "catalogos-cfdi-40",
       fields: { c_UsoCFDI: "S01", Descripción: "Sin efectos fiscales." },
+      searchText: "s01\nsin efectos fiscales",
+      validFrom: 20220101,
+    },
+    {
+      catalog: "c_UsoCFDI",
+      key: "D01",
+      sourceId: "catalogos-cfdi-40",
+      fields: {
+        c_UsoCFDI: "D01",
+        Descripción: "Honorarios médicos, dentales y gastos hospitalarios.",
+      },
+      searchText: "d01\nhonorarios medicos dentales y gastos hospitalarios",
+      validFrom: 20220101,
+    },
+    {
+      catalog: "c_UsoCFDI",
+      key: "D10",
+      sourceId: "catalogos-cfdi-40",
+      fields: { c_UsoCFDI: "D10", Descripción: "Pagos por servicios educativos (colegiaturas)." },
+      searchText: "d10\npagos por servicios educativos colegiaturas",
+      validFrom: 20220101,
+    },
+    // A name the query is all of ranks before a shorter entry that repeats the word.
+    {
+      catalog: "c_ClaveUnidad",
+      key: "M29",
+      sourceId: "catalogos-cfdi-40",
+      fields: { c_ClaveUnidad: "M29", Nombre: "Kilogramo por kilogramo" },
+      searchText: "m29\nkilogramo por kilogramo",
+      validFrom: 20220101,
+    },
+    {
+      catalog: "c_ClaveUnidad",
+      key: "KGM",
+      sourceId: "catalogos-cfdi-40",
+      fields: {
+        c_ClaveUnidad: "KGM",
+        Nombre: "Kilogramo",
+        Descripción: "Una unidad de masa igual a mil gramos.",
+      },
+      searchText: "kgm\nkilogramo\nuna unidad de masa igual a mil gramos",
       validFrom: 20220101,
     },
     {
@@ -212,6 +253,7 @@ beforeAll(async () => {
         c_CodigoPostal: "01000",
         "Nombre del asentamiento": "San Ángel",
       },
+      searchText: "0001\nsan angel",
       validFrom: 20220101,
     },
     {
@@ -223,6 +265,7 @@ beforeAll(async () => {
         c_CodigoPostal: "01010",
         "Nombre del asentamiento": "Los Alpes",
       },
+      searchText: "0001\nlos alpes",
       validFrom: 20220101,
     },
     {
@@ -230,6 +273,7 @@ beforeAll(async () => {
       key: "001",
       sourceId: "catalogos-cfdi-40",
       fields: { c_Municipio: "001", c_Estado: "AGU", Descripción: "Aguascalientes" },
+      searchText: "001\naguascalientes",
       validFrom: 20220101,
     },
     {
@@ -237,6 +281,7 @@ beforeAll(async () => {
       key: "001",
       sourceId: "catalogos-cfdi-40",
       fields: { c_Municipio: "001", c_Estado: "BCN", Descripción: "Ensenada" },
+      searchText: "001\nensenada",
       validFrom: 20220101,
     },
   ]);
@@ -1037,6 +1082,77 @@ describe("GET /v1/catalogs/:name", () => {
   });
 });
 
+describe("GET /v1/catalogs/:name?q=", () => {
+  type SearchBody = { data: { entries: { key: string }[] } };
+  const keys = async (path: string) =>
+    ((await (await request(path)).json()) as SearchBody).data.entries.map((entry) => entry.key);
+
+  it("finds entries by the words of their description, accents and case aside", async () => {
+    const response = await request("/v1/catalogs/UsoCFDI?q=GASTOS%20MEDICOS");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        catalog: "c_UsoCFDI",
+        query: "GASTOS MEDICOS",
+        entries: [
+          {
+            key: "D01",
+            fields: { Descripción: "Honorarios médicos, dentales y gastos hospitalarios." },
+            validFrom: "2022-01-01",
+            validUntil: null,
+          },
+        ],
+        source: { id: "catalogos-cfdi-40", url: "http://omawww.sat.gob.mx/cat.xls" },
+      },
+    });
+  });
+
+  it("matches word prefixes and the key, and searches only the catalog asked for", async () => {
+    expect(await keys("/v1/catalogs/c_UsoCFDI?q=colegiatura")).toEqual(["D10"]);
+    expect(await keys("/v1/catalogs/c_UsoCFDI?q=d01")).toEqual(["D01"]);
+    expect(await keys("/v1/catalogs/c_Municipio?q=san%20angel")).toEqual([]);
+    expect(await keys("/v1/catalogs/c_Colonia?q=san%20angel")).toEqual(["0001"]);
+  });
+
+  it("ranks an entry whose name is the whole query first", async () => {
+    expect(await keys("/v1/catalogs/c_ClaveUnidad?q=kilogramo")).toEqual(["KGM", "M29"]);
+    expect(await keys("/v1/catalogs/c_ClaveUnidad?q=kilogramo&limit=1")).toEqual(["KGM"]);
+  });
+
+  it("falls back to any word when no entry holds them all", async () => {
+    expect(await keys("/v1/catalogs/c_UsoCFDI?q=gastos%20funerarios")).toEqual(["D01"]);
+  });
+
+  it("answers an empty list when nothing matches, and FTS5 syntax as plain words", async () => {
+    expect(await keys("/v1/catalogs/c_UsoCFDI?q=zzzz")).toEqual([]);
+    expect(await keys(`/v1/catalogs/c_UsoCFDI?q=${encodeURIComponent('"sin" OR NEAR(*')}`)).toEqual(
+      ["S01"],
+    );
+    // c_TasaOCuota has no description column, so nothing of it is indexed.
+    expect(await keys("/v1/catalogs/c_TasaOCuota?q=iva")).toEqual([]);
+  });
+
+  it.each([
+    ["/v1/catalogs/c_UsoCFDI?q=", "`q` is required."],
+    ["/v1/catalogs/c_UsoCFDI?q=%3F%21", "`q` has no word to search for."],
+    [`/v1/catalogs/c_UsoCFDI?q=${"a".repeat(201)}`, "longer than 200"],
+    ["/v1/catalogs/c_UsoCFDI?q=gastos&limit=51", "`limit` must be a whole number from 1 to 50."],
+  ])("refuses %s", async (path, detail) => {
+    const response = await request(path);
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { detail: string }).detail).toContain(detail);
+  });
+
+  it("answers 404 for an unknown catalog", async () => {
+    const response = await request("/v1/catalogs/c_Desconocido?q=gastos");
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "catalog_not_found" });
+  });
+});
+
 describe("CodiceKnowledge", () => {
   const knowledge = () =>
     new CodiceKnowledge(
@@ -1137,6 +1253,7 @@ describe("/mcp", () => {
       "read_passage",
       "lookup_error",
       "lookup_catalog",
+      "search_catalog",
       "list_sources",
       "list_changes",
     ]);
@@ -1180,6 +1297,24 @@ describe("/mcp", () => {
           ],
         },
       },
+    });
+  });
+
+  it("searches a catalog by description through the same handler", async () => {
+    expect(
+      await json(await call("search_catalog", { name: "ClaveUnidad", q: "kilogramo", limit: 1 })),
+    ).toMatchObject({
+      result: {
+        structuredContent: {
+          catalog: "c_ClaveUnidad",
+          query: "kilogramo",
+          entries: [{ key: "KGM", fields: { Nombre: "Kilogramo" } }],
+          source: { id: "catalogos-cfdi-40" },
+        },
+      },
+    });
+    expect(await json(await call("search_catalog", { name: "c_Nada", q: "x" }))).toMatchObject({
+      result: { isError: true, structuredContent: { error: { code: "catalog_not_found" } } },
     });
   });
 

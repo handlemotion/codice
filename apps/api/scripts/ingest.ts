@@ -313,8 +313,9 @@ function writeRecords(corpus: Corpus, plan: Pick<IngestionPlan, "records" | "sou
 
 /**
  * The large catalogs need loading when D1's catalog source hash is not the manifest's (a new
- * catCFDI, or a load that stopped part-way: it clears the hash first) or one of them has no rows
- * (a first load).
+ * catCFDI, or a load that stopped part-way: it clears the hash first), one of them has no rows
+ * (a first load), or none has search text (a load from before `0009`, which the description search
+ * cannot find).
  */
 function largeCatalogsStale(source: SourceRow) {
   const [row] = query<{ sha256: string }>(`SELECT sha256 FROM sources WHERE id = '${source.id}'`);
@@ -322,9 +323,16 @@ function largeCatalogsStale(source: SourceRow) {
   const present = LARGE_CATALOG_NAMES.map(
     (name) => `EXISTS (SELECT 1 FROM catalog_entries WHERE catalog = '${name}' COLLATE NOCASE)`,
   ).join(" + ");
-  const [loaded] = query<{ present: number }>(`SELECT ${present} AS present`);
+  // c_ClaveProdServ: every entry has a description.
+  const searchable = `EXISTS (SELECT 1 FROM catalog_entries WHERE catalog = 'c_ClaveProdServ' COLLATE NOCASE AND search_text IS NOT NULL)`;
+  const [loaded] = query<{ present: number; searchable: number }>(
+    `SELECT ${present} AS present, ${searchable} AS searchable`,
+  );
   return (
-    forceCatalogs || row?.sha256 !== source.sha256 || loaded?.present !== LARGE_CATALOG_NAMES.length
+    forceCatalogs ||
+    row?.sha256 !== source.sha256 ||
+    loaded?.present !== LARGE_CATALOG_NAMES.length ||
+    loaded.searchable !== 1
   );
 }
 

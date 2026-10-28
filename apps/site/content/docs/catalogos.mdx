@@ -1,6 +1,6 @@
 ---
 title: Catálogos del SAT
-description: Consulta una clave, lista un catálogo y filtra las claves que se repiten, como colonias y municipios.
+description: Consulta una clave, busca claves por su descripción, lista un catálogo y filtra las claves que se repiten, como colonias y municipios.
 ---
 
 Los catálogos del CFDI 4.0 definen los valores válidos de muchos atributos: el uso del CFDI, el régimen fiscal, la forma de pago, la clave de producto o servicio, el código postal. Códice los guarda tal como los publica el SAT, con sus columnas y su vigencia, en la versión publicada el 15 de octubre de 2026.
@@ -41,6 +41,64 @@ curl https://codice.io/v1/catalogs/c_RegimenFiscal/601 \
 - **`fields`** trae las columnas del catálogo con los nombres del SAT. Las celdas vacías no aparecen.
 
 Si la clave no existe, la respuesta es `404` con el código `catalog_entry_not_found`; si el catálogo no existe, `catalog_not_found`.
+
+## Buscar por descripción
+
+¿No sabes la clave? Búscala por las palabras de su descripción, como las escribe el SAT, con `q`:
+
+```bash
+curl "https://codice.io/v1/catalogs/c_ClaveUnidad?q=kilogramo&limit=3" \
+  -H "Authorization: Bearer $CODICE_KEY"
+```
+
+```json
+{
+  "data": {
+    "catalog": "c_ClaveUnidad",
+    "query": "kilogramo",
+    "entries": [
+      {
+        "key": "KGM",
+        "fields": {
+          "c_ClaveUnidad": "KGM",
+          "Nombre": "Kilogramo",
+          "Descripción": "Una unidad de masa igual a mil gramos.",
+          "Fecha de inicio de vigencia": "2022-01-01",
+          "Símbolo": "kg"
+        },
+        "validFrom": "2022-01-01",
+        "validUntil": null
+      },
+      { "key": "M29", "fields": { "Nombre": "Kilogramo por kilogramo", "…": "…" }, "…": "…" },
+      {
+        "key": "3H",
+        "fields": { "Nombre": "Kilogramo por kilogramo de producto", "…": "…" },
+        "…": "…"
+      }
+    ],
+    "source": { "authority": "SAT", "publishedAt": "2026-10-15", "…": "…" }
+  },
+  "meta": { "requestId": "…" }
+}
+```
+
+Algunas búsquedas reales:
+
+| Catálogo          | `q`                        | Primeros resultados                                                               |
+| ----------------- | -------------------------- | --------------------------------------------------------------------------------- |
+| `c_ClaveProdServ` | `servicios de consultoría` | `77101700` consultoría ambiental, `80151605` aduanera, `84111802` fiscal          |
+| `c_ClaveProdServ` | `laptop`                   | `43211508` Computadores personales (_Computadoras personales o laptop_)           |
+| `c_UsoCFDI`       | `gastos médicos`           | `D01` Honorarios médicos, dentales y gastos hospitalarios; `D02`; `D07`           |
+| `c_ClaveUnidad`   | `kilogramo`                | `KGM` Kilogramo; `M29` Kilogramo por kilogramo                                    |
+| `c_Colonia`       | `san angel`                | `0001` San Ángel (código postal `01000`), y las demás colonias San Ángel del país |
+| `c_FormaPago`     | `transferencia`            | `03` Transferencia electrónica de fondos                                          |
+
+- **Qué se busca**: la clave y las columnas que describen la entrada (`Descripción`, `Nombre`, el nombre del estado o de la colonia, y las `Palabras similares` de `c_ClaveProdServ`). Las banderas, fechas y códigos no.
+- **Cómo compara**: sin acentos ni mayúsculas, y cada palabra como inicio de palabra (`colegiatura` encuentra _colegiaturas_). Primero van las entradas que tienen todas las palabras; si ninguna las tiene, las que tienen más. Una descripción o clave idéntica a tu búsqueda va primero.
+- **El idioma es el del SAT**: busca en español. Algunas palabras en inglés llegan a su raíz en español (`consulting services` encuentra _consultoría_), pero no hay traducción ni sinónimos: `resico` no encuentra el _Régimen Simplificado de Confianza_.
+- **`limit`**: de 1 a 50 entradas; 10 si no lo das.
+- Sin coincidencias, `entries` viene vacío. Un catálogo sin columna de descripción, como `c_CodigoPostal` o `c_TasaOCuota`, no tiene nada que buscar: consulta su clave.
+- Confirma la clave que elijas con [Consultar una clave](#consultar-una-clave). Un catálogo que no existe responde `404 catalog_not_found`; una `q` vacía o sin palabras, `400 invalid_request`.
 
 ## Claves que se repiten
 
@@ -90,7 +148,7 @@ curl https://codice.io/v1/catalogs/c_UsoCFDI \
   -H "Authorization: Bearer $CODICE_KEY"
 ```
 
-Devuelve las entradas en el orden del SAT, hasta 500. Los catálogos chicos (uso de CFDI, régimen fiscal, forma de pago, países) caben completos. Los grandes, como `c_ClaveProdServ` (más de 52 mil claves) o `c_CodigoPostal` (más de 95 mil), vienen con `truncated: true`: para ellos consulta clave por clave, o busca la clave con [`/v1/search`](/docs/buscar).
+Devuelve las entradas en el orden del SAT, hasta 500. Los catálogos chicos (uso de CFDI, régimen fiscal, forma de pago, países) caben completos. Los grandes, como `c_ClaveProdServ` (más de 52 mil claves) o `c_CodigoPostal` (más de 95 mil), vienen con `truncated: true`: para ellos consulta clave por clave, o [busca la clave por su descripción](#buscar-por-descripción).
 
 ## Catálogos grandes
 

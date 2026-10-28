@@ -18,6 +18,7 @@ import {
 import {
   catalogEntryFields,
   catalogEntryKey,
+  catalogSearchText,
   type SatCatalogSet,
   type SatErrorMatrix,
   type SatSource,
@@ -77,6 +78,8 @@ export type CatalogEntryRow = {
   readonly key: string;
   readonly sourceId: string;
   readonly fields: Record<string, string>;
+  /** What a description search matches (`catalogSearchText`); null for an entry with none. */
+  readonly searchText: string | null;
   readonly validFrom: number;
   readonly validUntil: number;
 };
@@ -318,11 +321,14 @@ export function catalogEntryRows(set: SatCatalogSet): CatalogEntryRow[] {
       };
       const rowFrom = from === -1 ? "" : (row[from] ?? "");
       const rowUntil = until === -1 ? "" : (row[until] ?? "");
+      const key = catalogEntryKey(catalog, row);
+      const fields = catalogEntryFields(catalog, row);
       return {
         catalog: catalog.name,
-        key: catalogEntryKey(catalog, row),
+        key,
         sourceId,
-        fields: catalogEntryFields(catalog, row),
+        fields,
+        searchText: catalogSearchText(key, fields),
         validFrom: date(rowFrom || catalogFrom),
         validUntil: rowUntil ? date(rowUntil) : IN_FORCE_UNTIL,
       };

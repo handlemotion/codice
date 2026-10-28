@@ -130,13 +130,23 @@ function nameList(names: readonly string[]) {
   return `(${names.map(sqlValue).join(", ")})`;
 }
 
-const CATALOG_COLUMNS = ["catalog", "key", "fields", "source_id", "valid_from", "valid_until"];
+// `search_text` fills the full-text index `catalog_entries_fts` through its triggers (`0010`).
+const CATALOG_COLUMNS = [
+  "catalog",
+  "key",
+  "fields",
+  "search_text",
+  "source_id",
+  "valid_from",
+  "valid_until",
+];
 
 function catalogValues(row: CatalogEntryRow): Value[] {
   return [
     row.catalog,
     row.key,
     JSON.stringify(row.fields),
+    row.searchText,
     row.sourceId,
     row.validFrom,
     row.validUntil,

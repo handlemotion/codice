@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import type { CodiceBindings } from "./env";
 import {
+  CATALOG_SEARCH_LIMIT_DEFAULT,
+  CATALOG_SEARCH_LIMIT_MAX,
   CodiceProblem,
   listChanges,
   listSources,
@@ -11,6 +13,7 @@ import {
   lookupErrors,
   readPassage,
   search,
+  searchCatalog,
   SEARCH_SOURCES_MAX,
 } from "./handlers";
 import {
@@ -25,7 +28,7 @@ export const MCP_SERVER_NAME = "codice";
 export const MCP_SERVER_VERSION = "0.1.0";
 
 const INSTRUCTIONS =
-  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla, and the law they rest on: the Código Fiscal de la Federación (CFF), one passage an article, as the Cámara de Diputados publishes it; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key. Results quote the text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages, each as its heading path and a verbatim excerpt (whole when `truncated` is false on both sides); `read_passage` returns one in full, with its source, by its passage id; `lookup_error` and `lookup_catalog` answer exact CFDI40xxx codes or catalog keys, up to 25 a call; `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates. `search` leaves out passages its reranker scores far below the best one, so it can return fewer than `limit`; when it returns one or two passages, or none answers the question, search again with the SAT's own field and node names (`TipoRelacion`, `CfdiRelacionados`, `TipoDeComprobante`) or narrow it with `kind` or `source`, rather than reading the weak results as the rule.";
+  "Códice searches the Mexican tax authority's (SAT) own rules: the CFDI 4.0 filling guide (Anexo 20), the payment complement (Pagos 2.0) guide, the CFDI40xxx validation matrix and the Resolución Miscelánea Fiscal (RMF), one passage a regla, and the law they rest on: the Código Fiscal de la Federación (CFF), one passage an article, as the Cámara de Diputados publishes it; and it looks up the CFDI catalogs (c_UsoCFDI, c_RegimenFiscal, c_CodigoPostal…) by key or by description. Results quote the text verbatim with its source and validity dates; quote them rather than paraphrasing, and treat them as rules, not tax advice. `search` finds passages, each as its heading path and a verbatim excerpt (whole when `truncated` is false on both sides); `read_passage` returns one in full, with its source, by its passage id; `lookup_error` and `lookup_catalog` answer exact CFDI40xxx codes or catalog keys, up to 25 a call; `search_catalog` finds catalog keys by description (`servicios de consultoría` in c_ClaveProdServ); `list_sources` names the documents Códice holds; `list_changes` lists the passages added, changed or removed between two dates. `search` leaves out passages its reranker scores far below the best one, so it can return fewer than `limit`; when it returns one or two passages, or none answers the question, search again with the SAT's own field and node names (`TipoRelacion`, `CfdiRelacionados`, `TipoDeComprobante`) or narrow it with `kind` or `source`, rather than reading the weak results as the rule.";
 
 export const SearchArguments = z.object({
   q: z
@@ -135,6 +138,24 @@ export const LookupCatalogArguments = z.object({
     ),
 });
 
+export const SearchCatalogArguments = z.object({
+  name: CatalogLookupArgument.shape.name,
+  q: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "Words of the entry's description, accents optional, such as `servicios de consultoría` (c_ClaveProdServ), `kilogramo` (c_ClaveUnidad) or `gastos médicos` (c_UsoCFDI). A key matches too.",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(CATALOG_SEARCH_LIMIT_MAX)
+    .optional()
+    .describe(`How many entries to return; ${CATALOG_SEARCH_LIMIT_DEFAULT} by default.`),
+});
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/u;
 
 export const ListChangesArguments = z.object({
@@ -212,7 +233,7 @@ export function createCodiceMcpServer(env: CodiceBindings) {
     {
       title: "Search SAT rules",
       description:
-        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF. Catalog keys are not searched; use `lookup_catalog`. Returns the best passages, each with its passage id, heading path, an excerpt cut verbatim from its text, validity dates and relevance score. An excerpt with `truncated.before` and `truncated.after` false is the whole passage; otherwise read the one that answers with `read_passage` before quoting it, or quote the excerpt with an ellipsis (…) where it is cut. `format: full` returns each passage's whole matched text and source instead. Passages scored far below the best are left out, so fewer than `limit` can come back: when few or none answer the question, rephrase with the SAT's field names (such as `TipoRelacion` or `CfdiRelacionados`) or narrow with `kind` or `source`.",
+        "Search the SAT's rules in force on a date: the CFDI 4.0 and Pagos 2.0 guides, the CFDI40xxx error matrix, the RMF and the CFF. Catalog keys are not searched; use `lookup_catalog` for a key and `search_catalog` to find one by description. Returns the best passages, each with its passage id, heading path, an excerpt cut verbatim from its text, validity dates and relevance score. An excerpt with `truncated.before` and `truncated.after` false is the whole passage; otherwise read the one that answers with `read_passage` before quoting it, or quote the excerpt with an ellipsis (…) where it is cut. `format: full` returns each passage's whole matched text and source instead. Passages scored far below the best are left out, so fewer than `limit` can come back: when few or none answer the question, rephrase with the SAT's field names (such as `TipoRelacion` or `CfdiRelacionados`) or narrow with `kind` or `source`.",
       inputSchema: McpSearchArguments,
     },
     (args) => search(env, { ...args, format: args.format ?? "brief" }),
@@ -249,6 +270,17 @@ export function createCodiceMcpServer(env: CodiceBindings) {
       inputSchema: LookupCatalogArguments,
     },
     (args) => lookupCatalogEntries(env, args.lookups),
+  );
+  registerTool(
+    server,
+    "search_catalog",
+    {
+      title: "Search a SAT catalog by description",
+      description:
+        "Find the keys of a SAT CFDI catalog by the words of their description: the product or service codes of c_ClaveProdServ for `servicios de consultoría`, c_ClaveUnidad's `KGM` for `kilogramo`, c_UsoCFDI's `D01` for `gastos médicos`. Write `q` in Spanish, as the SAT does (translate an English request; there are no synonyms), accents optional; with no entry holding every word, the entries holding the most come first. Returns the best matches first, each with its key, fields and validity dates, and the source; confirm one with `lookup_catalog`.",
+      inputSchema: SearchCatalogArguments,
+    },
+    (args) => searchCatalog(env, args.name, args),
   );
   registerTool(
     server,

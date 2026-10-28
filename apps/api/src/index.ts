@@ -25,6 +25,7 @@ import {
   readPassage,
   readSource,
   search,
+  searchCatalog,
   type SearchParameters,
 } from "./handlers";
 import { apiJson, problem, requestIdFor } from "./http";
@@ -301,9 +302,17 @@ app.get("/v1/errors/:code", async (context) =>
   apiJson(context, await lookupError(context.env, context.req.param("code"))),
 );
 
-app.get("/v1/catalogs/:name", async (context) =>
-  apiJson(context, await listCatalog(context.env, context.req.param("name"))),
-);
+// With `q`, a search of the catalog by description (SPEC.md, "Catalog search"); without, a listing.
+app.get("/v1/catalogs/:name", async (context) => {
+  const name = context.req.param("name");
+  const q = context.req.query("q");
+  return apiJson(
+    context,
+    q === undefined
+      ? await listCatalog(context.env, name)
+      : await searchCatalog(context.env, name, { q, limit: context.req.query("limit") }),
+  );
+});
 
 app.get("/v1/catalogs/:name/:key", async (context) =>
   apiJson(
