@@ -19,3 +19,17 @@ pnpm install
 pnpm dev:up          # Códice on https://codice.localhost
 pnpm check && pnpm check-types && pnpm test
 ```
+
+Contributors without access to Doppler or the Cloudflare account can still run `pnpm install`,
+`pnpm check`, `pnpm check-types` and `pnpm test`: the tests use a local D1 and a local AI Search
+binding. Only `pnpm dev:up` and the eval need the secrets.
+
+## Contributing and security
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report vulnerabilities
+privately as described in [`SECURITY.md`](SECURITY.md), not in a public issue.
+
+## License
+
+[GNU Affero General Public License v3.0](LICENSE). If you run a modified version as a network
+service, you must offer its source to the users of that service.
