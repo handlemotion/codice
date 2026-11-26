@@ -10,7 +10,6 @@ minimumReleaseAgeExclude:
   - "@cloudflare/workers-types"
   - hono@4.13.2
   - miniflare@5.20260907.0-alpha
-  - wrangler@4.129.1
 
 allowBuilds:
   "@central-icons-react/square-outlined-radius-0-stroke-1.5": false
